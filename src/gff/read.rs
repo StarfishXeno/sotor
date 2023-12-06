@@ -183,9 +183,9 @@ pub fn read(path: &str) -> Result<GFF, String> {
             field_indices_offset
         )
     })?;
-    for c in chunks {
+    for (idx, c) in chunks.into_iter().enumerate() {
         let label = str::from_utf8(&c)
-            .unwrap_or("INVALID LABEL")
+            .map_err(|_| format!("Couldn't parse label {idx} {c:?}"))?
             .trim_matches('\0')
             .to_owned();
         labels.push(label);
