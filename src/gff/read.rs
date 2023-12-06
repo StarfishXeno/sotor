@@ -28,6 +28,14 @@ pub struct Field {
     label: String,
 }
 
+macro_rules! seek {
+    ($reader:ident, $offset:ident) => {
+        $reader
+        .seek(SeekFrom::Start($offset as u64))
+        .map_err(|_| format!("Invalid {}", stringify!($offset)))?;
+    };
+}
+
 pub fn read(path: &str) -> Result<GFF, String> {
     let file = fs::File::open(path).unwrap();
     let mut reader = BufReader::new(file);
@@ -58,6 +66,8 @@ pub fn read(path: &str) -> Result<GFF, String> {
 
     // LIST INDICES
     let mut list_indices = HashMap::new();
+    seek!(reader, list_indices_offset);
+
     reader
         .seek(SeekFrom::Start(list_indices_offset as u64))
         .map_err(|_| "Invalid list_indices_offset")?;
@@ -83,13 +93,11 @@ pub fn read(path: &str) -> Result<GFF, String> {
         list_indices.insert(relative_offset, dwords);
         indices_bytes_read += relative_offset;
     }
-    println!("List incdices: {}", list_indices.len());
+    println!("List indices: {}", list_indices.len());
     println!("******************");
 
     // FIELD INDICES
-    reader
-        .seek(SeekFrom::Start(field_indices_offset as u64))
-        .map_err(|_| "Invalid field_indices_offset")?;
+    seek!(reader, field_indices_offset);
 
     let field_indices: Vec<usize> =
         read_dwords(&mut reader, field_indices_bytes as usize / DWORD_SIZE)
@@ -106,9 +114,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
     println!("******************");
 
     // FIELD DATA
-    reader
-        .seek(SeekFrom::Start(field_data_offset as u64))
-        .map_err(|_| "Invalid field_data_offset")?;
+    seek!(reader, field_data_offset);
 
     let field_data = read_bytes(&mut reader, field_data_bytes as usize).map_err(|_| {
         format!(
@@ -120,9 +126,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
     println!("******************");
 
     // LABELS
-    reader
-        .seek(SeekFrom::Start(label_offset as u64))
-        .map_err(|_| "Invalid label_offset")?;
+    seek!(reader, label_offset);
 
     let labels: Vec<String> = read_chunks(&mut reader, label_count as usize, 16)
         .map_err(|_| {
@@ -145,9 +149,8 @@ pub fn read(path: &str) -> Result<GFF, String> {
 
     // FIELDS
     let mut fields = Vec::with_capacity(field_count as usize);
-    reader
-        .seek(SeekFrom::Start(field_offset as u64))
-        .map_err(|_| "Invalid field_offset")?;
+    seek!(reader, field_offset);
+
     for i in 0..field_count {
         let dwords = read_dwords(&mut reader, FIELD_SIZE)
             .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?;
@@ -189,9 +192,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
 
     // STRUCTS
     let mut structs = Vec::with_capacity(struct_count as usize);
-    reader
-        .seek(SeekFrom::Start(struct_offset as u64))
-        .map_err(|_| "Invalid struct_offset")?;
+    seek!(reader, struct_offset);
 
     for i in 0..struct_count {
         let dwords = read_dwords(&mut reader, STRUCT_SIZE).map_err(|_| {
