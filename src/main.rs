@@ -23,9 +23,16 @@ fn main() {
 
             }
         }
+    } else {
+        println!("{globals:?}")
     }
+    println!("//////////////////");
     let nfo = gff::read::read(NFO_PATH);
-    println!("{nfo:#?}");
+    if let Ok(gff) = nfo {
+        println!("{:#?}", gff.content.fields);
+    } else {
+        println!("{nfo:?}")
+    }
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
 

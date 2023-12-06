@@ -23,15 +23,15 @@ const STRUCT_SIZE: usize = 3;
 const FIELD_SIZE: usize = 3;
 
 #[derive(Debug)]
-enum DeferredFieldValue {
+enum FieldValueTmp {
     Normal(FieldValue),
     Struct(usize),
     List(Vec<usize>),
 }
 
 #[derive(Debug)]
-struct DeferredField {
-    value: DeferredFieldValue,
+struct FieldTmp {
+    value: FieldValueTmp,
     label: String,
 }
 
@@ -41,13 +41,13 @@ struct StructTmp {
     field_indices: Vec<usize>,
 }
 
-fn unwrap_deferred_field(f: &DeferredField, fields: &Vec<DeferredField>, structs: &Vec<StructTmp>) -> FieldValue {
-    match &f.value {
-        DeferredFieldValue::Normal(value) => value.clone(),
-        DeferredFieldValue::Struct(idx) => {
+fn unwrap_deferred_field(f: &FieldValueTmp, fields: &Vec<FieldTmp>, structs: &Vec<StructTmp>) -> FieldValue {
+    match f {
+        FieldValueTmp::Normal(value) => value.clone(),
+        FieldValueTmp::Struct(idx) => {
             FieldValue::Struct(transform_struct(&structs[*idx], fields, structs))
         },
-        DeferredFieldValue::List(indices) => {
+        FieldValueTmp::List(indices) => {
             let structs: Vec<Struct> = indices
                 .into_iter()
                 .map(|i| transform_struct(&structs[*i], fields, structs))
@@ -58,11 +58,11 @@ fn unwrap_deferred_field(f: &DeferredField, fields: &Vec<DeferredField>, structs
     }
 }
 
-fn transform_struct(s: &StructTmp, fields: &Vec<DeferredField>, structs: &Vec<StructTmp>) -> Struct {
+fn transform_struct(s: &StructTmp, fields: &Vec<FieldTmp>, structs: &Vec<StructTmp>) -> Struct {
     let mut struct_fields = HashMap::with_capacity(s.field_indices.len());
     for idx in s.field_indices.iter() {
         let field = &fields[*idx];
-        struct_fields.insert(field.label.clone(),  unwrap_deferred_field(field, fields, structs));
+        struct_fields.insert(field.label.clone(),  unwrap_deferred_field(&field.value, fields, structs));
     }
     Struct {
         r#type: s.r#type,
@@ -227,7 +227,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
     seek!(reader, field_offset);
 
     for i in 0..field_count {
-        use DeferredFieldValue::*;
+        use FieldValueTmp::*;
         let dwords = read_dwords(&mut reader, FIELD_SIZE)
             .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?;
         let label = labels[dwords[1] as usize].clone();
@@ -283,7 +283,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
             t => return Err(format!("Invalid field type {t} in field {i}: {label}")),
         };
 
-        fields.push(DeferredField { value, label });
+        fields.push(FieldTmp { value, label });
     }
 
     println!("Fields: {}", fields.len());
