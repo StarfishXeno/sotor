@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 pub mod read;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct LocString {
-    r#type: u32,
+pub struct LocString {
+    id: u32,
     content: String,
 }
 
@@ -27,20 +27,20 @@ pub enum FieldValue {
     CResRef(String) = 11,
     CExoLocString(Vec<LocString>) = 12,
     Void(Vec<u8>) = 13,
-    Struct = 14,
-    List = 15,
+    Struct(Struct) = 14,
+    List(Vec<Struct>) = 15,
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Struct {
-    r#type: u32,
-    fields: HashMap<String, FieldValue>,
+    pub r#type: u32,
+    pub fields: HashMap<String, FieldValue>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GFF {
-    file_type: String,
-    file_version: String,
-    structs: Vec<Struct>
+    pub file_type: String,
+    pub file_version: String,
+    pub content: Struct
 }

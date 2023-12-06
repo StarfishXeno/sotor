@@ -1,5 +1,5 @@
 use crate::{
-    gff::{FieldValue, Struct},
+    gff::{FieldValue, LocString, Struct},
     util::{
         bytes_to_exo_string, bytes_to_string, cast_bytes, read_bytes, read_chunks, read_dwords,
         DWORD_SIZE,
@@ -23,21 +23,63 @@ const STRUCT_SIZE: usize = 3;
 const FIELD_SIZE: usize = 3;
 
 #[derive(Debug)]
-pub struct Field {
-    value: FieldValue,
+enum DeferredFieldValue {
+    Normal(FieldValue),
+    Struct(usize),
+    List(Vec<usize>),
+}
+
+#[derive(Debug)]
+struct DeferredField {
+    value: DeferredFieldValue,
     label: String,
+}
+
+#[derive(Debug)]
+struct StructTmp {
+    r#type: u32,
+    field_indices: Vec<usize>,
+}
+
+fn unwrap_deferred_field(f: &DeferredField, fields: &Vec<DeferredField>, structs: &Vec<StructTmp>) -> FieldValue {
+    match &f.value {
+        DeferredFieldValue::Normal(value) => value.clone(),
+        DeferredFieldValue::Struct(idx) => {
+            FieldValue::Struct(transform_struct(&structs[*idx], fields, structs))
+        },
+        DeferredFieldValue::List(indices) => {
+            let structs: Vec<Struct> = indices
+                .into_iter()
+                .map(|i| transform_struct(&structs[*i], fields, structs))
+                .collect();
+
+            FieldValue::List(structs)
+        }
+    }
+}
+
+fn transform_struct(s: &StructTmp, fields: &Vec<DeferredField>, structs: &Vec<StructTmp>) -> Struct {
+    let mut struct_fields = HashMap::with_capacity(s.field_indices.len());
+    for idx in s.field_indices.iter() {
+        let field = &fields[*idx];
+        struct_fields.insert(field.label.clone(),  unwrap_deferred_field(field, fields, structs));
+    }
+    Struct {
+        r#type: s.r#type,
+        fields: struct_fields,
+    }
 }
 
 macro_rules! seek {
     ($reader:ident, $offset:ident) => {
         $reader
-        .seek(SeekFrom::Start($offset as u64))
-        .map_err(|_| format!("Invalid {}", stringify!($offset)))?;
+            .seek(SeekFrom::Start($offset as u64))
+            .map_err(|_| format!("Invalid {}", stringify!($offset)))?;
     };
 }
 
 pub fn read(path: &str) -> Result<GFF, String> {
-    let file = fs::File::open(path).unwrap();
+    let file = fs::File::open(path).map_err(|_| "Couldn't read file")?;
     let mut reader = BufReader::new(file);
 
     // HEADER
@@ -68,15 +110,14 @@ pub fn read(path: &str) -> Result<GFF, String> {
     let mut list_indices = HashMap::new();
     seek!(reader, list_indices_offset);
 
-    reader
-        .seek(SeekFrom::Start(list_indices_offset as u64))
-        .map_err(|_| "Invalid list_indices_offset")?;
-    let mut indices_bytes_read = 0;
-    while indices_bytes_read < list_indices_bytes {
+    loop {
         let offset = reader
             .stream_position()
             .map_err(|_| "couldn't get reader offset")? as u32;
         let relative_offset = offset - list_indices_offset;
+        if relative_offset == list_indices_bytes {
+            break;
+        }
         let dwords = read_dwords(&mut reader, 1).map_err(|_| {
             format!(
                 "Couldn't read list indices size {relative_offset}, starting offset {}",
@@ -86,12 +127,17 @@ pub fn read(path: &str) -> Result<GFF, String> {
         let size = dwords[0];
         let dwords = read_dwords(&mut reader, size as usize).map_err(|_| {
             format!(
-                "Couldn't read list indices {relative_offset}, starting offset {}",
+                "Couldn't read list indices at {relative_offset}, starting offset {}",
                 list_indices_offset
             )
         })?;
-        list_indices.insert(relative_offset, dwords);
-        indices_bytes_read += relative_offset;
+        list_indices.insert(
+            relative_offset as usize,
+            dwords
+                .into_iter()
+                .map(|w| w as usize)
+                .collect::<Vec<usize>>(),
+        );
     }
     println!("List indices: {}", list_indices.len());
     println!("******************");
@@ -147,49 +193,6 @@ pub fn read(path: &str) -> Result<GFF, String> {
     println!("Labels: {}", labels.len());
     println!("******************");
 
-    // FIELDS
-    let mut fields = Vec::with_capacity(field_count as usize);
-    seek!(reader, field_offset);
-
-    for i in 0..field_count {
-        let dwords = read_dwords(&mut reader, FIELD_SIZE)
-            .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?;
-        let label = labels[dwords[1] as usize].clone();
-        let inner = dwords[2] as usize;
-
-        let value = match dwords[0] {
-            0 => FieldValue::Byte(inner as u8),
-            1 => FieldValue::Char(inner as i8),
-            2 => FieldValue::Word(inner as u16),
-            3 => FieldValue::Short(inner as i16),
-            4 => FieldValue::Dword(inner as u32),
-            5 => FieldValue::Int(inner as i32),
-            6 => FieldValue::Dword64(cast_bytes!(&field_data[inner..], u64)),
-            7 => FieldValue::Int64(cast_bytes!(&field_data[inner..], i64)),
-            8 => FieldValue::Float(inner as f32),
-            9 => FieldValue::Double(cast_bytes!(&field_data[inner..], f64)),
-            10 => FieldValue::CExoString(
-                bytes_to_exo_string!(&field_data[inner..], u32)
-                    .map_err(|_| format!("Invalid CExoString data in field {i}: {label}"))?,
-            ),
-            11 => FieldValue::CResRef(
-                bytes_to_exo_string!(&field_data[inner..], u8)
-                    .map_err(|_| format!("Invalid CResRef data in field {i}: {label}"))?,
-            ),
-            //12=> FieldValue::CExoLocString(Vec<LocString>),
-            13 => FieldValue::Void(
-                crate::util::bytes_to_sized_bytes!(&field_data[inner..], u32).into(),
-            ),
-            14 => FieldValue::Struct,
-            15 => FieldValue::List,
-            t => return Err(format!("Invalid field type {t} in field {i}: {label}")),
-        };
-
-        fields.push(Field { value, label });
-    }
-    println!("Fields: {}", fields.len());
-    println!("******************");
-
     // STRUCTS
     let mut structs = Vec::with_capacity(struct_count as usize);
     seek!(reader, struct_offset);
@@ -210,23 +213,85 @@ pub fn read(path: &str) -> Result<GFF, String> {
             let start = data_or_data_offset / DWORD_SIZE;
             field_indices[start..start + field_count].into()
         };
-        let mut struct_fields = HashMap::with_capacity(field_count);
-        for idx in struct_field_indices {
-            let field = &fields[idx];
-            struct_fields.insert(field.label.clone(), field.value.clone());
-        }
 
-        structs.push(Struct {
+        structs.push(StructTmp {
             r#type: dwords[0],
-            fields: struct_fields,
+            field_indices: struct_field_indices,
         });
     }
     println!("Structs: {}", structs.len());
     println!("******************");
 
+    // FIELDS
+    let mut fields = Vec::with_capacity(field_count as usize);
+    seek!(reader, field_offset);
+
+    for i in 0..field_count {
+        use DeferredFieldValue::*;
+        let dwords = read_dwords(&mut reader, FIELD_SIZE)
+            .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?;
+        let label = labels[dwords[1] as usize].clone();
+        let inner = dwords[2] as usize;
+
+        let value = match dwords[0] {
+            0 => Normal(FieldValue::Byte(inner as u8)),
+            1 => Normal(FieldValue::Char(inner as i8)),
+            2 => Normal(FieldValue::Word(inner as u16)),
+            3 => Normal(FieldValue::Short(inner as i16)),
+            4 => Normal(FieldValue::Dword(inner as u32)),
+            5 => Normal(FieldValue::Int(inner as i32)),
+            6 => Normal(FieldValue::Dword64(cast_bytes!(&field_data[inner..], u64))),
+            7 => Normal(FieldValue::Int64(cast_bytes!(&field_data[inner..], i64))),
+            8 => Normal(FieldValue::Float(inner as f32)),
+            9 => Normal(FieldValue::Double(cast_bytes!(&field_data[inner..], f64))),
+            10 => Normal(FieldValue::CExoString(
+                bytes_to_exo_string!(&field_data[inner..], u32)
+                    .map_err(|_| format!("Invalid CExoString data in field {i}: {label}"))?,
+            )),
+            11 => Normal(FieldValue::CResRef(
+                bytes_to_exo_string!(&field_data[inner..], u8)
+                    .map_err(|_| format!("Invalid CResRef data in field {i}: {label}"))?,
+            )),
+            12 => {
+                let count = cast_bytes!(&field_data[inner + DWORD_SIZE * 2..], u32);
+                let mut offset = inner + DWORD_SIZE * 3;
+                let mut strings = Vec::with_capacity(count as usize);
+                for j in 0..count {
+                    let id = cast_bytes!(&field_data[offset..], u32);
+                    offset += DWORD_SIZE;
+                    let length = cast_bytes!(&field_data[offset..], u32) as usize;
+                    offset += DWORD_SIZE;
+                    let content =
+                        bytes_to_string(&field_data[offset..offset + length]).map_err(|_| {
+                            format!("Invalid CExoLocalString {j} in field {i}: {label}")
+                        })?;
+                    strings.push(LocString { id, content });
+                    offset += length;
+                }
+                Normal(FieldValue::CExoLocString(strings))
+            }
+            13 => Normal(FieldValue::Void(
+                crate::util::bytes_to_sized_bytes!(&field_data[inner..], u32).into(),
+            )),
+            14 => Struct(inner),
+            15 => {
+                let indices = list_indices
+                    .remove(&inner)
+                    .ok_or(format!("Couldn't find list indices {i}"))?;
+                List(indices)
+            }
+            t => return Err(format!("Invalid field type {t} in field {i}: {label}")),
+        };
+
+        fields.push(DeferredField { value, label });
+    }
+
+    println!("Fields: {}", fields.len());
+    println!("******************");
+
     Ok(GFF {
         file_type,
         file_version,
-        structs
+        content: transform_struct(&structs[0], &fields, &structs),
     })
 }
