@@ -1,5 +1,3 @@
-use std::{fs, io::BufReader, io::prelude::{*}};
-
 use crate::gff::FieldValue;
 
 mod gff;
@@ -20,7 +18,6 @@ fn main() {
                 println!("{key}: {} items", val.len());
             } else if let FieldValue::Void(bytes) = val {
                 println!("{key}: {} items", bytes.len());
-
             }
         }
     } else {
@@ -35,5 +32,4 @@ fn main() {
     }
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
-
 }

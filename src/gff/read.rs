@@ -24,8 +24,11 @@ const FIELD_SIZE: usize = 3;
 
 #[derive(Debug)]
 enum FieldValueTmp {
-    Normal(FieldValue),
+    // simple value
+    Simple(FieldValue),
+    // index into struct array
     Struct(usize),
+    // list of indices into struct array
     List(Vec<usize>),
 }
 
@@ -47,7 +50,7 @@ fn unwrap_deferred_field(
     structs: &Vec<StructTmp>,
 ) -> FieldValue {
     match f {
-        FieldValueTmp::Normal(value) => value.clone(),
+        FieldValueTmp::Simple(value) => value.clone(),
         FieldValueTmp::Struct(idx) => {
             FieldValue::Struct(transform_struct(&structs[*idx], fields, structs))
         }
@@ -147,15 +150,14 @@ pub fn read(path: &str) -> Result<GFF, String> {
     // FIELD INDICES
     seek!(reader, field_indices_offset);
 
-    let field_indices: Vec<usize> =
-        read_dwords(&mut reader, field_indices_bytes / DWORD_SIZE)
-            .map_err(|_| {
-                format!(
-                    "Couldn't read field indices, starting offset {}",
-                    field_indices_offset
-                )
-            })?
-            .to_usize_vec();
+    let field_indices: Vec<usize> = read_dwords(&mut reader, field_indices_bytes / DWORD_SIZE)
+        .map_err(|_| {
+            format!(
+                "Couldn't read field indices, starting offset {}",
+                field_indices_offset
+            )
+        })?
+        .to_usize_vec();
     println!("Field indices: {}", field_indices.len());
     println!("******************");
 
@@ -174,21 +176,20 @@ pub fn read(path: &str) -> Result<GFF, String> {
     // LABELS
     seek!(reader, label_offset);
 
-    let labels: Vec<String> = read_chunks(&mut reader, label_count, 16)
-        .map_err(|_| {
-            format!(
-                "Couldn't read field indices, starting offset {}",
-                field_indices_offset
-            )
-        })?
-        .into_iter()
-        .map(|c| {
-            str::from_utf8(&c)
-                .unwrap_or("INVALID LABEL")
-                .trim_matches('\0')
-                .to_owned()
-        })
-        .collect();
+    let mut labels: Vec<String> = Vec::with_capacity(label_count);
+    let chunks = read_chunks(&mut reader, label_count, 16).map_err(|_| {
+        format!(
+            "Couldn't read field indices, starting offset {}",
+            field_indices_offset
+        )
+    })?;
+    for c in chunks {
+        let label = str::from_utf8(&c)
+            .unwrap_or("INVALID LABEL")
+            .trim_matches('\0')
+            .to_owned();
+        labels.push(label);
+    }
 
     println!("Labels: {}", labels.len());
     println!("******************");
@@ -235,21 +236,21 @@ pub fn read(path: &str) -> Result<GFF, String> {
         let inner = dwords[2];
 
         let value = match dwords[0] {
-            0 => Normal(FieldValue::Byte(inner as u8)),
-            1 => Normal(FieldValue::Char(inner as i8)),
-            2 => Normal(FieldValue::Word(inner as u16)),
-            3 => Normal(FieldValue::Short(inner as i16)),
-            4 => Normal(FieldValue::Dword(inner as u32)),
-            5 => Normal(FieldValue::Int(inner as i32)),
-            6 => Normal(FieldValue::Dword64(cast_bytes!(&field_data[inner..], u64))),
-            7 => Normal(FieldValue::Int64(cast_bytes!(&field_data[inner..], i64))),
-            8 => Normal(FieldValue::Float(inner as f32)),
-            9 => Normal(FieldValue::Double(cast_bytes!(&field_data[inner..], f64))),
-            10 => Normal(FieldValue::CExoString(
+            0 => Simple(FieldValue::Byte(inner as u8)),
+            1 => Simple(FieldValue::Char(inner as i8)),
+            2 => Simple(FieldValue::Word(inner as u16)),
+            3 => Simple(FieldValue::Short(inner as i16)),
+            4 => Simple(FieldValue::Dword(inner as u32)),
+            5 => Simple(FieldValue::Int(inner as i32)),
+            6 => Simple(FieldValue::Dword64(cast_bytes!(&field_data[inner..], u64))),
+            7 => Simple(FieldValue::Int64(cast_bytes!(&field_data[inner..], i64))),
+            8 => Simple(FieldValue::Float(inner as f32)),
+            9 => Simple(FieldValue::Double(cast_bytes!(&field_data[inner..], f64))),
+            10 => Simple(FieldValue::CExoString(
                 bytes_to_exo_string!(&field_data[inner..], u32)
                     .map_err(|_| format!("Invalid CExoString data in field {i}: {label}"))?,
             )),
-            11 => Normal(FieldValue::CResRef(
+            11 => Simple(FieldValue::CResRef(
                 bytes_to_exo_string!(&field_data[inner..], u8)
                     .map_err(|_| format!("Invalid CResRef data in field {i}: {label}"))?,
             )),
@@ -269,9 +270,9 @@ pub fn read(path: &str) -> Result<GFF, String> {
                     strings.push(LocString { id, content });
                     offset += length;
                 }
-                Normal(FieldValue::CExoLocString(strings))
+                Simple(FieldValue::CExoLocString(strings))
             }
-            13 => Normal(FieldValue::Void(
+            13 => Simple(FieldValue::Void(
                 crate::util::bytes_to_sized_bytes!(&field_data[inner..], u32).into(),
             )),
             14 => Struct(inner),
