@@ -16,7 +16,7 @@ macro_rules! cast_bytes {
     }};
 }
 
-// for some reason this macro is cursed and can't be referenced without the full module qualifier 
+// for some reason this macro is cursed and can't be referenced without the full module qualifier
 // TODO figure out why?
 // reads the size prefix of $type and returns that many following bytes
 macro_rules! bytes_to_sized_bytes {
@@ -38,7 +38,6 @@ macro_rules! bytes_to_exo_string {
 pub(crate) use bytes_to_exo_string;
 pub(crate) use bytes_to_sized_bytes;
 pub(crate) use cast_bytes;
-
 
 pub fn read_bytes(reader: &mut BufReader<File>, size: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0; size];
@@ -66,4 +65,19 @@ pub fn read_dwords(reader: &mut BufReader<File>, size: usize) -> io::Result<Vec<
 
 pub fn bytes_to_string(value: &[u8]) -> Result<String, Utf8Error> {
     str::from_utf8(value).map(|str| str.to_owned())
+}
+
+pub trait ToUSizeVec {
+    fn to_usize_vec(self) -> Vec<usize>;
+}
+impl ToUSizeVec for Vec<u32> {
+    fn to_usize_vec(self) -> Vec<usize> {
+        self.into_iter().map(|i| i as usize).collect()
+    }
+}
+
+impl ToUSizeVec for &[u32] {
+    fn to_usize_vec(self) -> Vec<usize> {
+        self.into_iter().map(|i| *i as usize).collect()
+    }
 }

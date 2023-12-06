@@ -2,7 +2,7 @@ use crate::{
     gff::{FieldValue, LocString, Struct},
     util::{
         bytes_to_exo_string, bytes_to_string, cast_bytes, read_bytes, read_chunks, read_dwords,
-        DWORD_SIZE,
+        ToUSizeVec, DWORD_SIZE,
     },
 };
 
@@ -41,12 +41,16 @@ struct StructTmp {
     field_indices: Vec<usize>,
 }
 
-fn unwrap_deferred_field(f: &FieldValueTmp, fields: &Vec<FieldTmp>, structs: &Vec<StructTmp>) -> FieldValue {
+fn unwrap_deferred_field(
+    f: &FieldValueTmp,
+    fields: &Vec<FieldTmp>,
+    structs: &Vec<StructTmp>,
+) -> FieldValue {
     match f {
         FieldValueTmp::Normal(value) => value.clone(),
         FieldValueTmp::Struct(idx) => {
             FieldValue::Struct(transform_struct(&structs[*idx], fields, structs))
-        },
+        }
         FieldValueTmp::List(indices) => {
             let structs: Vec<Struct> = indices
                 .into_iter()
@@ -62,7 +66,10 @@ fn transform_struct(s: &StructTmp, fields: &Vec<FieldTmp>, structs: &Vec<StructT
     let mut struct_fields = HashMap::with_capacity(s.field_indices.len());
     for idx in s.field_indices.iter() {
         let field = &fields[*idx];
-        struct_fields.insert(field.label.clone(),  unwrap_deferred_field(&field.value, fields, structs));
+        struct_fields.insert(
+            field.label.clone(),
+            unwrap_deferred_field(&field.value, fields, structs),
+        );
     }
     Struct {
         r#type: s.r#type,
@@ -88,18 +95,19 @@ pub fn read(path: &str) -> Result<GFF, String> {
         bytes_to_string(&dwords[0].to_ne_bytes()).map_err(|_| "Couldn't parse file_type")?;
     let file_version =
         bytes_to_string(&dwords[1].to_ne_bytes()).map_err(|_| "Couldn't parse file_version")?;
-    let struct_offset = dwords[2];
-    let struct_count = dwords[3];
-    let field_offset = dwords[4];
-    let field_count = dwords[5];
-    let label_offset = dwords[6];
-    let label_count = dwords[7];
-    let field_data_offset = dwords[8];
-    let field_data_bytes = dwords[9];
-    let field_indices_offset = dwords[10];
-    let field_indices_bytes = dwords[11];
-    let list_indices_offset = dwords[12];
-    let list_indices_bytes = dwords[13];
+    let dwords = dwords[2..].to_usize_vec();
+    let struct_offset = dwords[0];
+    let struct_count = dwords[1];
+    let field_offset = dwords[2];
+    let field_count = dwords[3];
+    let label_offset = dwords[4];
+    let label_count = dwords[5];
+    let field_data_offset = dwords[6];
+    let field_data_bytes = dwords[7];
+    let field_indices_offset = dwords[8];
+    let field_indices_bytes = dwords[9];
+    let list_indices_offset = dwords[10];
+    let list_indices_bytes = dwords[11];
 
     println!("Header: {file_type} {file_version}");
     println!("Structs: {struct_count} at {struct_offset}, Fields: {field_count} at {field_offset}, Labels: {label_count} at {label_offset}");
@@ -113,7 +121,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
     loop {
         let offset = reader
             .stream_position()
-            .map_err(|_| "couldn't get reader offset")? as u32;
+            .map_err(|_| "couldn't get reader offset")? as usize;
         let relative_offset = offset - list_indices_offset;
         if relative_offset == list_indices_bytes {
             break;
@@ -124,20 +132,14 @@ pub fn read(path: &str) -> Result<GFF, String> {
                 list_indices_offset
             )
         })?;
-        let size = dwords[0];
-        let dwords = read_dwords(&mut reader, size as usize).map_err(|_| {
+        let size = dwords[0] as usize;
+        let dwords = read_dwords(&mut reader, size).map_err(|_| {
             format!(
                 "Couldn't read list indices at {relative_offset}, starting offset {}",
                 list_indices_offset
             )
         })?;
-        list_indices.insert(
-            relative_offset as usize,
-            dwords
-                .into_iter()
-                .map(|w| w as usize)
-                .collect::<Vec<usize>>(),
-        );
+        list_indices.insert(relative_offset, dwords.to_usize_vec());
     }
     println!("List indices: {}", list_indices.len());
     println!("******************");
@@ -146,23 +148,21 @@ pub fn read(path: &str) -> Result<GFF, String> {
     seek!(reader, field_indices_offset);
 
     let field_indices: Vec<usize> =
-        read_dwords(&mut reader, field_indices_bytes as usize / DWORD_SIZE)
+        read_dwords(&mut reader, field_indices_bytes / DWORD_SIZE)
             .map_err(|_| {
                 format!(
                     "Couldn't read field indices, starting offset {}",
                     field_indices_offset
                 )
             })?
-            .into_iter()
-            .map(|i| i as usize)
-            .collect();
+            .to_usize_vec();
     println!("Field indices: {}", field_indices.len());
     println!("******************");
 
     // FIELD DATA
     seek!(reader, field_data_offset);
 
-    let field_data = read_bytes(&mut reader, field_data_bytes as usize).map_err(|_| {
+    let field_data = read_bytes(&mut reader, field_data_bytes).map_err(|_| {
         format!(
             "Couldn't read field data, starting offset {}",
             field_data_offset
@@ -174,7 +174,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
     // LABELS
     seek!(reader, label_offset);
 
-    let labels: Vec<String> = read_chunks(&mut reader, label_count as usize, 16)
+    let labels: Vec<String> = read_chunks(&mut reader, label_count, 16)
         .map_err(|_| {
             format!(
                 "Couldn't read field indices, starting offset {}",
@@ -194,7 +194,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
     println!("******************");
 
     // STRUCTS
-    let mut structs = Vec::with_capacity(struct_count as usize);
+    let mut structs = Vec::with_capacity(struct_count);
     seek!(reader, struct_offset);
 
     for i in 0..struct_count {
@@ -223,15 +223,16 @@ pub fn read(path: &str) -> Result<GFF, String> {
     println!("******************");
 
     // FIELDS
-    let mut fields = Vec::with_capacity(field_count as usize);
+    let mut fields = Vec::with_capacity(field_count);
     seek!(reader, field_offset);
 
     for i in 0..field_count {
         use FieldValueTmp::*;
         let dwords = read_dwords(&mut reader, FIELD_SIZE)
-            .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?;
-        let label = labels[dwords[1] as usize].clone();
-        let inner = dwords[2] as usize;
+            .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?
+            .to_usize_vec();
+        let label = labels[dwords[1]].clone();
+        let inner = dwords[2];
 
         let value = match dwords[0] {
             0 => Normal(FieldValue::Byte(inner as u8)),
