@@ -1,12 +1,13 @@
 use crate::{
-    gff::{FieldValue, LocString, Struct},
+    gff::{
+        FieldValue, FieldValueTmp, LocString, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE,
+    },
     util::{
         bytes_to_exo_string, bytes_to_string, cast_bytes, read_bytes, read_chunks, read_dwords,
         ToUSizeVec, DWORD_SIZE,
     },
 };
 
-use super::GFF;
 use std::{
     collections::HashMap,
     fs,
@@ -15,39 +16,22 @@ use std::{
     str::{self},
 };
 
-// 7 pairs of DWORDS
-const HEADER_SIZE: usize = 7 * 2;
-// 3 DWORDS
-const STRUCT_SIZE: usize = 3;
-// 3 DWORDS
-const FIELD_SIZE: usize = 3;
-
 #[derive(Debug)]
-enum FieldValueTmp {
-    // simple value
-    Simple(FieldValue),
-    // index into struct array
-    Struct(usize),
-    // list of indices into struct array
-    List(Vec<usize>),
-}
-
-#[derive(Debug)]
-struct FieldTmp {
+struct FieldReadTmp {
     value: FieldValueTmp,
     label: String,
 }
 
 #[derive(Debug)]
-struct StructTmp {
+struct StructReadTmp {
     r#type: u32,
     field_indices: Vec<usize>,
 }
 
-fn unwrap_deferred_field(
+fn unwrap_tmp_field(
     f: &FieldValueTmp,
-    fields: &Vec<FieldTmp>,
-    structs: &Vec<StructTmp>,
+    fields: &Vec<FieldReadTmp>,
+    structs: &Vec<StructReadTmp>,
 ) -> FieldValue {
     match f {
         FieldValueTmp::Simple(value) => value.clone(),
@@ -65,17 +49,17 @@ fn unwrap_deferred_field(
     }
 }
 
-fn transform_struct(s: &StructTmp, fields: &Vec<FieldTmp>, structs: &Vec<StructTmp>) -> Struct {
+fn transform_struct(s: &StructReadTmp, fields: &Vec<FieldReadTmp>, structs: &Vec<StructReadTmp>) -> Struct {
     let mut struct_fields = HashMap::with_capacity(s.field_indices.len());
     for idx in s.field_indices.iter() {
         let field = &fields[*idx];
         struct_fields.insert(
             field.label.clone(),
-            unwrap_deferred_field(&field.value, fields, structs),
+            unwrap_tmp_field(&field.value, fields, structs),
         );
     }
     Struct {
-        r#type: s.r#type,
+        tp: s.r#type,
         fields: struct_fields,
     }
 }
@@ -89,15 +73,16 @@ macro_rules! seek {
 }
 
 pub fn read(path: &str) -> Result<GFF, String> {
-    let file = fs::File::open(path).map_err(|_| "Couldn't read file")?;
+    let file = fs::File::open(path).map_err(|_| "GFF::read| Couldn't read file")?;
     let mut reader = BufReader::new(file);
 
     // HEADER
-    let dwords = read_dwords(&mut reader, HEADER_SIZE).map_err(|_| "Couldn't read header")?;
-    let file_type =
-        bytes_to_string(&dwords[0].to_ne_bytes()).map_err(|_| "Couldn't parse file_type")?;
-    let file_version =
-        bytes_to_string(&dwords[1].to_ne_bytes()).map_err(|_| "Couldn't parse file_version")?;
+    let dwords =
+        read_dwords(&mut reader, HEADER_SIZE).map_err(|_| "GFF::read| Couldn't read header")?;
+    let file_type = bytes_to_string(&dwords[0].to_ne_bytes())
+        .map_err(|_| "GFF::read| Couldn't parse file_type")?;
+    let file_version = bytes_to_string(&dwords[1].to_ne_bytes())
+        .map_err(|_| "GFF::read| Couldn't parse file_version")?;
     let dwords = dwords[2..].to_usize_vec();
     let struct_offset = dwords[0];
     let struct_count = dwords[1];
@@ -112,40 +97,45 @@ pub fn read(path: &str) -> Result<GFF, String> {
     let list_indices_offset = dwords[10];
     let list_indices_bytes = dwords[11];
 
-    println!("Header: {file_type} {file_version}");
-    println!("Structs: {struct_count} at {struct_offset}, Fields: {field_count} at {field_offset}, Labels: {label_count} at {label_offset}");
-    println!("Field data: {field_data_bytes} at {field_data_offset}, Field indices: {field_indices_bytes} at {field_indices_offset}, List indices: {list_indices_bytes} at {list_indices_offset}");
-    println!("******************");
-
+    if cfg!(debug_assertions) {
+        println!("GFF::read| Header: {file_type} {file_version}");
+        println!("GFF::read| Structs: {struct_count} at {struct_offset}, Fields: {field_count} at {field_offset}, Labels: {label_count} at {label_offset}");
+        println!("GFF::read| Field data: {field_data_bytes} at {field_data_offset}, Field indices: {field_indices_bytes} at {field_indices_offset}, List indices: {list_indices_bytes} at {list_indices_offset}");
+        println!("******************");
+    }
     // LIST INDICES
-    let mut list_indices = HashMap::new();
     seek!(reader, list_indices_offset);
+
+    let mut list_indices = HashMap::new();
 
     loop {
         let offset = reader
             .stream_position()
-            .map_err(|_| "couldn't get reader offset")? as usize;
+            .map_err(|_| "GFF::read| Couldn't get reader offset")? as usize;
         let relative_offset = offset - list_indices_offset;
         if relative_offset == list_indices_bytes {
             break;
         }
         let dwords = read_dwords(&mut reader, 1).map_err(|_| {
             format!(
-                "Couldn't read list indices size {relative_offset}, starting offset {}",
+                "GFF::read| Couldn't read list indices size {relative_offset}, starting offset {}",
                 list_indices_offset
             )
         })?;
         let size = dwords[0] as usize;
         let dwords = read_dwords(&mut reader, size).map_err(|_| {
             format!(
-                "Couldn't read list indices at {relative_offset}, starting offset {}",
+                "GFF::read| Couldn't read list indices at {relative_offset}, starting offset {}",
                 list_indices_offset
             )
         })?;
         list_indices.insert(relative_offset, dwords.to_usize_vec());
     }
-    println!("List indices: {}", list_indices.len());
-    println!("******************");
+
+    if cfg!(debug_assertions) {
+        println!("GFF::read| List indices: {}", list_indices.len());
+        println!("******************");
+    }
 
     // FIELD INDICES
     seek!(reader, field_indices_offset);
@@ -153,84 +143,68 @@ pub fn read(path: &str) -> Result<GFF, String> {
     let field_indices: Vec<usize> = read_dwords(&mut reader, field_indices_bytes / DWORD_SIZE)
         .map_err(|_| {
             format!(
-                "Couldn't read field indices, starting offset {}",
+                "GFF::read| Couldn't read field indices, starting offset {}",
                 field_indices_offset
             )
         })?
         .to_usize_vec();
-    println!("Field indices: {}", field_indices.len());
-    println!("******************");
-
+    if cfg!(debug_assertions) {
+        println!("GFF::read| Field indices: {}", field_indices.len());
+        println!("******************");
+    }
     // FIELD DATA
     seek!(reader, field_data_offset);
 
     let field_data = read_bytes(&mut reader, field_data_bytes).map_err(|_| {
         format!(
-            "Couldn't read field data, starting offset {}",
+            "GFF::read| Couldn't read field data, starting offset {}",
             field_data_offset
         )
     })?;
-    println!("Field data: {}", field_data.len());
-    println!("******************");
+
+    if cfg!(debug_assertions) {
+        println!("GFF::read| Field data: {}", field_data.len());
+        println!("******************");
+    }
 
     // LABELS
     seek!(reader, label_offset);
 
     let mut labels: Vec<String> = Vec::with_capacity(label_count);
+
     let chunks = read_chunks(&mut reader, label_count, 16).map_err(|_| {
         format!(
-            "Couldn't read field indices, starting offset {}",
+            "GFF::read| Couldn't read field indices, starting offset {}",
             field_indices_offset
         )
     })?;
     for (idx, c) in chunks.into_iter().enumerate() {
         let label = str::from_utf8(&c)
-            .map_err(|_| format!("Couldn't parse label {idx} {c:?}"))?
+            .map_err(|_| format!("GFF::read| Couldn't parse label {idx} {c:?}"))?
             .trim_matches('\0')
             .to_owned();
         labels.push(label);
     }
 
-    println!("Labels: {}", labels.len());
-    println!("******************");
-
-    // STRUCTS
-    let mut structs = Vec::with_capacity(struct_count);
-    seek!(reader, struct_offset);
-
-    for i in 0..struct_count {
-        let dwords = read_dwords(&mut reader, STRUCT_SIZE).map_err(|_| {
-            format!(
-                "Couldn't read struct {i}, starting offset {}",
-                struct_offset
-            )
-        })?;
-
-        let data_or_data_offset = dwords[1] as usize;
-        let field_count = dwords[2] as usize;
-        let struct_field_indices = if field_count == 1 {
-            vec![data_or_data_offset]
-        } else {
-            let start = data_or_data_offset / DWORD_SIZE;
-            field_indices[start..start + field_count].into()
-        };
-
-        structs.push(StructTmp {
-            r#type: dwords[0],
-            field_indices: struct_field_indices,
-        });
+    if cfg!(debug_assertions) {
+        println!("GFF::read| Labels: {}", labels.len());
+        println!("******************");
     }
-    println!("Structs: {}", structs.len());
-    println!("******************");
 
     // FIELDS
-    let mut fields = Vec::with_capacity(field_count);
     seek!(reader, field_offset);
+
+    let mut fields = Vec::with_capacity(field_count);
 
     for i in 0..field_count {
         use FieldValueTmp::*;
         let dwords = read_dwords(&mut reader, FIELD_SIZE)
-            .map_err(|_| format!("Couldn't read field {i}, starting offset {}", field_offset))?
+            .map_err(|_| {
+                format!(
+                    "GFF::read| Couldn't read field {i}, starting offset {}",
+                    field_offset
+                )
+            })?
             .to_usize_vec();
         let label = labels[dwords[1]].clone();
         let inner = dwords[2];
@@ -247,12 +221,14 @@ pub fn read(path: &str) -> Result<GFF, String> {
             8 => Simple(FieldValue::Float(inner as f32)),
             9 => Simple(FieldValue::Double(cast_bytes!(&field_data[inner..], f64))),
             10 => Simple(FieldValue::CExoString(
-                bytes_to_exo_string!(&field_data[inner..], u32)
-                    .map_err(|_| format!("Invalid CExoString data in field {i}: {label}"))?,
+                bytes_to_exo_string!(&field_data[inner..], u32).map_err(|_| {
+                    format!("GFF::read| Invalid CExoString data in field {i}: {label}")
+                })?,
             )),
             11 => Simple(FieldValue::CResRef(
-                bytes_to_exo_string!(&field_data[inner..], u8)
-                    .map_err(|_| format!("Invalid CResRef data in field {i}: {label}"))?,
+                bytes_to_exo_string!(&field_data[inner..], u8).map_err(|_| {
+                    format!("GFF::read| Invalid CResRef data in field {i}: {label}")
+                })?,
             )),
             12 => {
                 let count = cast_bytes!(&field_data[inner + DWORD_SIZE * 2..], u32);
@@ -265,7 +241,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
                     offset += DWORD_SIZE;
                     let content =
                         bytes_to_string(&field_data[offset..offset + length]).map_err(|_| {
-                            format!("Invalid CExoLocalString {j} in field {i}: {label}")
+                            format!("GFF::read| Invalid CExoLocalString {j} in field {i}: {label}")
                         })?;
                     strings.push(LocString { id, content });
                     offset += length;
@@ -279,17 +255,56 @@ pub fn read(path: &str) -> Result<GFF, String> {
             15 => {
                 let indices = list_indices
                     .remove(&inner)
-                    .ok_or(format!("Couldn't find list indices {i}"))?;
+                    .ok_or(format!("GFF::read| Couldn't find list indices {i}"))?;
                 List(indices)
             }
-            t => return Err(format!("Invalid field type {t} in field {i}: {label}")),
+            t => {
+                return Err(format!(
+                    "GFF::read| Invalid field type {t} in field {i}: {label}"
+                ))
+            }
         };
 
-        fields.push(FieldTmp { value, label });
+        fields.push(FieldReadTmp { value, label });
     }
 
-    println!("Fields: {}", fields.len());
-    println!("******************");
+    if cfg!(debug_assertions) {
+        println!("GFF::read| Fields: {}", fields.len());
+        println!("******************");
+    }
+
+    // STRUCTS
+    seek!(reader, struct_offset);
+
+    let mut structs = Vec::with_capacity(struct_count);
+
+    for i in 0..struct_count {
+        let dwords = read_dwords(&mut reader, STRUCT_SIZE).map_err(|_| {
+            format!(
+                "GFF::read| Couldn't read struct {i}, starting offset {}",
+                struct_offset
+            )
+        })?;
+
+        let data_or_data_offset = dwords[1] as usize;
+        let field_count = dwords[2] as usize;
+        let struct_field_indices = if field_count == 1 {
+            vec![data_or_data_offset]
+        } else {
+            let start = data_or_data_offset / DWORD_SIZE;
+            field_indices[start..start + field_count].into()
+        };
+
+        structs.push(StructReadTmp {
+            r#type: dwords[0],
+            field_indices: struct_field_indices,
+        });
+    }
+
+    if cfg!(debug_assertions) {
+        println!("GFF::read| Structs: {}", structs.len());
+        println!("******************");
+    }
 
     Ok(GFF {
         file_type,

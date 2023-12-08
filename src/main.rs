@@ -1,4 +1,4 @@
-use crate::gff::FieldValue;
+use crate::gff::{FieldValue, Writer};
 
 mod gff;
 mod util;
@@ -8,7 +8,7 @@ const NFO_PATH: &str = "./save/savenfo.res";
 fn main() {
     use std::time::Instant;
     let now = Instant::now();
-    let globals = gff::read::read(GLOBALS_PATH);
+    let globals = gff::read(GLOBALS_PATH);
     if let Ok(gff) = globals {
         let keys = gff.content.fields.keys();
         println!("Keys: {:?}", keys);
@@ -24,9 +24,10 @@ fn main() {
         println!("{globals:?}")
     }
     println!("//////////////////");
-    let nfo = gff::read::read(NFO_PATH);
+    let nfo = gff::read(NFO_PATH);
     if let Ok(gff) = nfo {
-        println!("{:#?}", gff.content.fields);
+        println!("{:?}", gff.content.fields.keys());
+        Writer::to_bytes(gff);
     } else {
         println!("{nfo:?}")
     }

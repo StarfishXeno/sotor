@@ -2,7 +2,30 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-pub mod read;
+mod read;
+mod write;
+
+pub use write::Writer;
+pub use read::read;
+
+// 7 pairs of DWORDS
+const HEADER_SIZE: usize = 7 * 2;
+// 3 DWORDS
+const STRUCT_SIZE: usize = 3;
+// 3 DWORDS
+const FIELD_SIZE: usize = 3;
+
+
+#[derive(Debug)]
+enum FieldValueTmp {
+    // simple value
+    Simple(FieldValue),
+    // index into struct array
+    Struct(usize),
+    // list of indices into struct array
+    List(Vec<usize>),
+}
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LocString {
@@ -10,7 +33,7 @@ pub struct LocString {
     content: String,
 }
 
-#[repr(u32)]
+#[repr(u8)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FieldValue {
     Byte(u8) = 0,
@@ -34,7 +57,8 @@ pub enum FieldValue {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Struct {
-    pub r#type: u32,
+    // type
+    pub tp: u32,
     pub fields: HashMap<String, FieldValue>,
 }
 
