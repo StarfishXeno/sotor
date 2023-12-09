@@ -36,7 +36,7 @@ fn unwrap_tmp_field(
     match f {
         FieldValueTmp::Simple(value) => value.clone(),
         FieldValueTmp::Struct(idx) => {
-            FieldValue::Struct(transform_struct(&structs[*idx], fields, structs))
+            FieldValue::Struct(Box::new(transform_struct(&structs[*idx], fields, structs)))
         }
         FieldValueTmp::List(indices) => {
             let structs: Vec<Struct> = indices

@@ -11,7 +11,7 @@ struct FieldWriteTmp {
 }
 struct StructWriteTmp {
     tp: u32,
-    index: usize,
+    field_index: usize,
     field_count: u32,
 }
 pub struct Writer {
@@ -20,7 +20,9 @@ pub struct Writer {
     labels: Vec<String>,
     structs: Vec<StructWriteTmp>,
     fields: Vec<Vec<FieldWriteTmp>>,
+    raw_data: Vec<u8>
 }
+
 
 impl Writer {
     fn save_label(&mut self, label: String) -> usize {
@@ -47,13 +49,28 @@ impl Writer {
         idx
     }
 
-    fn save_field(&mut self, block_idx: usize, field: FieldValueTmp, label_idx: usize) {}
+    fn save_field(&mut self, block_idx: usize, field: FieldValueTmp, label_idx: usize) {
+        use FieldValue::*; 
 
-    fn save_struct(&mut self, tp: u32, index: usize, field_count: u32) -> usize {
+        let (tp, value): (u32, u32) = match field {
+            FieldValueTmp::Simple(v) => {
+                let tp = v.get_type();
+
+                match v {
+                    Byte(v) => (tp, u32::from(v)),
+                    _ => (0, 0)
+                }
+            },
+            _ => (0, 0)
+
+        };
+    }
+
+    fn save_struct(&mut self, tp: u32, field_index: usize, field_count: u32) -> usize {
         let idx = self.structs.len();
         self.structs.push(StructWriteTmp {
             tp,
-            index,
+            field_index,
             field_count,
         });
 
@@ -75,7 +92,7 @@ impl Writer {
 
             match value {
                 FieldValue::Struct(s) => {
-                    let struct_idx = self.collect(s);
+                    let struct_idx = self.collect(*s);
                     self.save_field(my_idx, FieldValueTmp::Struct(struct_idx), label_idx);
                 }
                 FieldValue::List(list) => {
@@ -100,6 +117,7 @@ impl Writer {
             labels: vec![],
             structs: vec![],
             fields: vec![],
+            raw_data: vec![]
         };
         writer.collect(gff.content);
     }

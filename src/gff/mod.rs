@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 mod read;
 mod write;
 
-pub use write::Writer;
 pub use read::read;
+pub use write::Writer;
 
 // 7 pairs of DWORDS
 const HEADER_SIZE: usize = 7 * 2;
@@ -14,7 +14,6 @@ const HEADER_SIZE: usize = 7 * 2;
 const STRUCT_SIZE: usize = 3;
 // 3 DWORDS
 const FIELD_SIZE: usize = 3;
-
 
 #[derive(Debug)]
 enum FieldValueTmp {
@@ -25,7 +24,6 @@ enum FieldValueTmp {
     // list of indices into struct array
     List(Vec<usize>),
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LocString {
@@ -50,10 +48,19 @@ pub enum FieldValue {
     CResRef(String) = 11,
     CExoLocString(Vec<LocString>) = 12,
     Void(Vec<u8>) = 13,
-    Struct(Struct) = 14,
+    // boxing it cuts FieldValue size in half
+    Struct(Box<Struct>) = 14,
     List(Vec<Struct>) = 15,
 }
 
+impl FieldValue {
+    fn get_type(&self) -> u32 {
+        let byte: u8 = unsafe { std::mem::transmute_copy(self) }; // LOL LMAO ISHYGDDT
+        // There's gotta be a safe & easy way to do this, right?
+        // first byte is the specified u8 tag so Word -> 2, Double -> 9, etc
+        byte as u32
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Struct {
@@ -66,5 +73,5 @@ pub struct Struct {
 pub struct GFF {
     pub file_type: String,
     pub file_version: String,
-    pub content: Struct
+    pub content: Struct,
 }
