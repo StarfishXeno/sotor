@@ -3,8 +3,8 @@ use crate::{
         FieldValue, FieldValueTmp, LocString, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE,
     },
     util::{
-        bytes_to_exo_string, bytes_to_string, cast_bytes, read_bytes, read_chunks, read_dwords,
-        ToUSizeVec, DWORD_SIZE,
+        bytes_to_exo_string, bytes_to_string,  read_bytes, read_chunks, read_dwords,
+        ToUSizeVec, DWORD_SIZE, sized_bytes_to_bytes, cast_bytes,
     },
 };
 
@@ -216,10 +216,10 @@ pub fn read(path: &str) -> Result<GFF, String> {
             3 => Simple(FieldValue::Short(inner as i16)),
             4 => Simple(FieldValue::Dword(inner as u32)),
             5 => Simple(FieldValue::Int(inner as i32)),
-            6 => Simple(FieldValue::Dword64(cast_bytes!(&field_data[inner..], u64))),
-            7 => Simple(FieldValue::Int64(cast_bytes!(&field_data[inner..], i64))),
+            6 => Simple(FieldValue::Dword64(cast_bytes(&field_data[inner..]))),
+            7 => Simple(FieldValue::Int64(cast_bytes(&field_data[inner..]))),
             8 => Simple(FieldValue::Float(inner as f32)),
-            9 => Simple(FieldValue::Double(cast_bytes!(&field_data[inner..], f64))),
+            9 => Simple(FieldValue::Double(cast_bytes(&field_data[inner..]))),
             10 => Simple(FieldValue::CExoString(
                 bytes_to_exo_string!(&field_data[inner..], u32).map_err(|_| {
                     format!("GFF::read| Invalid CExoString data in field {i}: {label}")
@@ -231,13 +231,14 @@ pub fn read(path: &str) -> Result<GFF, String> {
                 })?,
             )),
             12 => {
-                let count = cast_bytes!(&field_data[inner + DWORD_SIZE * 2..], u32);
+                let count: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 2..]);
                 let mut offset = inner + DWORD_SIZE * 3;
                 let mut strings = Vec::with_capacity(count as usize);
                 for j in 0..count {
-                    let id = cast_bytes!(&field_data[offset..], u32);
+                    let id = cast_bytes(&field_data[offset..]);
                     offset += DWORD_SIZE;
-                    let length = cast_bytes!(&field_data[offset..], u32) as usize;
+                    let length: u32 = cast_bytes(&field_data[offset..]);
+                    let length = length as usize;
                     offset += DWORD_SIZE;
                     let content =
                         bytes_to_string(&field_data[offset..offset + length]).map_err(|_| {
@@ -249,13 +250,14 @@ pub fn read(path: &str) -> Result<GFF, String> {
                 Simple(FieldValue::CExoLocString(strings))
             }
             13 => Simple(FieldValue::Void(
-                crate::util::bytes_to_sized_bytes!(&field_data[inner..], u32).into(),
+                sized_bytes_to_bytes!(&field_data[inner..], u32).into(),
             )),
             14 => Struct(inner),
             15 => {
                 let indices = list_indices
                     .remove(&inner)
                     .ok_or(format!("GFF::read| Couldn't find list indices {i}"))?;
+
                 List(indices)
             }
             t => {

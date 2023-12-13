@@ -62,6 +62,7 @@ impl FieldValue {
     }
 }
 
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Struct {
     // type
@@ -74,4 +75,17 @@ pub struct GFF {
     pub file_type: String,
     pub file_version: String,
     pub content: Struct,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::gff::FieldValue;
+
+    #[test]
+    fn field_value_type() {
+        assert_eq!(FieldValue::Word(0).get_type(), 2);
+        assert_eq!(FieldValue::Double(0.0).get_type(), 9);
+        assert_eq!(FieldValue::Void(vec![]).get_type(), 13);
+    }
+
 }
