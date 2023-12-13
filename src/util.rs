@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     fs::File,
     io::BufReader,
     io::{self, prelude::*},
@@ -70,7 +71,7 @@ pub fn bytes_to_string(value: &[u8]) -> Result<String, Utf8Error> {
     str::from_utf8(value).map(|str| str.to_owned())
 }
 
-pub fn num_to_word<T: ToBytes<SIZE>, const SIZE: usize >(num: T) -> u32 {
+pub fn num_to_word<T: ToBytes<SIZE>, const SIZE: usize>(num: T) -> u32 {
     let mut buf = [0u8; 4];
     for (idx, byte) in num.to_le_bytes().into_iter().enumerate() {
         buf[idx] = byte;
@@ -91,15 +92,15 @@ pub fn bytes_to_sized_bytes<const SIZE_SIZE: usize>(bytes: &[u8]) -> Vec<u8> {
 pub trait ToUSizeVec {
     fn to_usize_vec(self) -> Vec<usize>;
 }
-impl ToUSizeVec for Vec<u32> {
+impl<T, E> ToUSizeVec for &[T]
+where
+    T: TryInto<usize, Error = E> + Clone,
+    E: Debug,
+{
     fn to_usize_vec(self) -> Vec<usize> {
-        self.into_iter().map(|i| i as usize).collect()
-    }
-}
-
-impl ToUSizeVec for &[u32] {
-    fn to_usize_vec(self) -> Vec<usize> {
-        self.into_iter().map(|i| *i as usize).collect()
+        self.into_iter()
+            .map(|i| (*i).clone().try_into().unwrap())
+            .collect()
     }
 }
 
@@ -123,3 +124,7 @@ macro_rules! impl_to_bytes {
 
 impl_to_bytes!(u8 i8 u16 i16 u32 i32 u64 i64 usize isize f32 f64);
 
+pub fn array_to_bytes<T: ToBytes<SIZE>, const SIZE: usize>(data: &[T]) -> Vec<u8> {
+    let vec: Vec<u8> = data.into_iter().flat_map(|i| i.to_le_bytes()).collect();
+    vec
+}

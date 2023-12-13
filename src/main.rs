@@ -1,4 +1,4 @@
-use crate::gff::{FieldValue, Writer};
+use crate::gff::FieldValue;
 
 mod gff;
 mod util;
@@ -27,7 +27,7 @@ fn main() {
     let nfo = gff::read(NFO_PATH);
     if let Ok(gff) = nfo {
         println!("{:?}", gff.content.fields.keys());
-        Writer::to_bytes(gff);
+        gff::write(gff);
     } else {
         println!("{nfo:?}")
     }

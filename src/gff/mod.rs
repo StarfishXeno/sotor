@@ -6,7 +6,7 @@ mod read;
 mod write;
 
 pub use read::read;
-pub use write::Writer;
+pub use write::write;
 
 // 7 pairs of DWORDS
 const HEADER_SIZE: usize = 7 * 2;
