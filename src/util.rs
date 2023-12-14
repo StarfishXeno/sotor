@@ -32,9 +32,9 @@ pub fn cast_bytes<T: ToBytes<SIZE>, const SIZE: usize>(bytes: &[u8]) -> T {
 
 // reads the size prefix of $type and returns that many following bytes
 macro_rules! sized_bytes_to_bytes {
-    ($bytes:expr, $t:ident) => {{
-        let size_size = std::mem::size_of::<$t>();
-        let size: $t = cast_bytes(&$bytes[..size_size]);
+    ($bytes:expr, $type:ident) => {{
+        let size_size = std::mem::size_of::<$type>();
+        let size: $type = cast_bytes(&$bytes[..size_size]);
         let size = size as usize;
         &$bytes[size_size..size_size + size]
     }};
@@ -81,14 +81,16 @@ pub fn bytes_to_string(value: &[u8]) -> Result<String, Utf8Error> {
     str::from_utf8(value).map(|str| str.to_owned())
 }
 
+// turns numerics (u16, f32, etc) into a u32, T can't be more than 4 bytes
 pub fn num_to_word<T: ToBytes<SIZE>, const SIZE: usize>(num: T) -> u32 {
+    assert!(SIZE <= 4, "T can't be larger than 4 bytes");
     let mut buf = [0u8; 4];
     for (idx, byte) in num.to_le_bytes().into_iter().enumerate() {
         buf[idx] = byte;
     }
     u32::from_ne_bytes(buf)
 }
-
+// returns a buffer with <bytes> prefixed with it's length
 pub fn bytes_to_sized_bytes<const SIZE_SIZE: usize>(bytes: &[u8]) -> Vec<u8> {
     let len = bytes.len();
     let mut buf = Vec::with_capacity(len + SIZE_SIZE);
@@ -132,7 +134,7 @@ macro_rules! impl_to_bytes {
     )+)
 }
 
-impl_to_bytes!(u8 i8 u16 i16 u32 i32 u64 i64 usize isize f32 f64);
+impl_to_bytes!(u8 i8 u16 i16 u32 i32 u64 i64 f32 f64);
 
 pub fn array_to_bytes<T: ToBytes<SIZE>, const SIZE: usize>(data: &[T]) -> Vec<u8> {
     let vec: Vec<u8> = data.into_iter().flat_map(|i| i.to_le_bytes()).collect();

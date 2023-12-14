@@ -25,6 +25,7 @@ pub struct Writer {
     label_map: HashMap<String, usize>,
     labels: Vec<String>,
     structs: Vec<StructWriteTmp>,
+    // blocks with indices equal to struct's my_idx
     fields: Vec<Vec<FieldWriteTmp>>,
     field_count: usize,
     raw_data: Vec<u8>,
@@ -32,10 +33,10 @@ pub struct Writer {
 }
 
 impl Writer {
-    fn new(file_type: String, file_version: String) -> Self {
-        Self {
-            file_type,
-            file_version,
+    fn new(gff: GFF) -> Self {
+        let mut w = Self {
+            file_type: gff.file_type,
+            file_version: gff.file_version,
             label_map: HashMap::new(),
             labels: vec![],
             structs: vec![],
@@ -43,7 +44,10 @@ impl Writer {
             field_count: 0,
             raw_data: vec![],
             list_indices: vec![],
-        }
+        };
+        w.collect(gff.content);
+
+        w
     }
 
     fn save_label(&mut self, label: String) -> usize {
@@ -51,8 +55,8 @@ impl Writer {
         if let Some(idx) = self.label_map.get(&label) {
             return *idx;
         }
-        let len = label.len();
         // all labels are exactly 16 bytes, padded with \0 if shorter
+        let len = label.len();
         debug_assert!(
             len <= MAX_LABEL_LEN,
             "GFF::Writer| labels should be 16 bytes or less"
@@ -61,8 +65,7 @@ impl Writer {
         if len < MAX_LABEL_LEN {
             label_padded.push_str(&"\0".repeat(MAX_LABEL_LEN - len))
         }
-        debug_assert!(label_padded.len() == 16);
-        // saving
+
         let idx = self.labels.len();
         self.label_map.insert(label, idx);
         self.labels.push(label_padded);
@@ -80,6 +83,7 @@ impl Writer {
     fn save_list_indices(&mut self, indices: &[usize]) -> u32 {
         let idx = self.list_indices.len() as u32;
         let size = indices.len() as u32;
+        
         self.list_indices.extend(size.to_le_bytes());
         self.list_indices
             .extend(indices.into_iter().flat_map(|i| (*i as u32).to_le_bytes()));
@@ -228,10 +232,10 @@ impl Writer {
                 starting_field_idx
             } else {
                 let index_offset = field_indices.len();
-                for i in 0..s.field_count as usize {
-                    field_indices.push((starting_field_idx + i) as u32);
+                for i in 0..s.field_count {
+                    field_indices.push(starting_field_idx + i);
                 }
-                index_offset * DWORD_SIZE
+                (index_offset * DWORD_SIZE) as u32
             };
             let data = [s.tp, idx as u32, s.field_count];
             cursor.write_all(&array_to_bytes(&data))?;
@@ -253,7 +257,6 @@ impl Writer {
         let field_indices_offset = cursor.position();
         let field_indices_bytes = field_indices.len() * DWORD_SIZE;
         cursor.write_all(&array_to_bytes(&field_indices))?;
-
         // LIST INDICES
         let list_indices_offset = cursor.position();
         let list_indices_bytes = self.list_indices.len();
@@ -287,7 +290,6 @@ impl Writer {
     }
 }
 pub fn write(gff: GFF) -> Result<Vec<u8>> {
-    let mut writer = Writer::new(gff.file_type, gff.file_version);
-    writer.collect(gff.content);
+    let writer = Writer::new(gff);
     writer.to_bytes()
 }
