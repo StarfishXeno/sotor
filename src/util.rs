@@ -23,7 +23,7 @@ pub fn cast_bytes<T: ToBytes<SIZE>, const SIZE: usize>(bytes: &[u8]) -> T {
     T::from_le_bytes(source)
 }
 
-// this is horrible, SIZE can't be deduced in current version of rust and you'd have to manually specify it every call
+// this sucks, SIZE can't be deduced in current version of rust and you'd have to manually specify it every call
 // fn sized_bytes_to_bytes<T, const SIZE: usize, E: Debug>(bytes: &[u8]) -> &[u8] where T: ToBytes<SIZE> + TryInto<usize, Error = E> {
 //     let size: T = cast_bytes(&bytes);
 //     let size = size.try_into().unwrap();
@@ -51,7 +51,7 @@ macro_rules! bytes_to_exo_string {
 pub(crate) use bytes_to_exo_string;
 pub(crate) use sized_bytes_to_bytes;
 
-// read <count> bytes into a buffer
+// reads <count> bytes into a buffer
 pub fn read_bytes<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0; count];
     reader.read_exact(&mut buf)?;
@@ -82,7 +82,7 @@ pub fn bytes_to_string(value: &[u8]) -> Result<String, Utf8Error> {
 }
 
 // turns numerics (u16, f32, etc) into a u32, T can't be more than 4 bytes
-pub fn num_to_word<T: ToBytes<SIZE>, const SIZE: usize>(num: T) -> u32 {
+pub fn num_to_dword<T: ToBytes<SIZE>, const SIZE: usize>(num: T) -> u32 {
     assert!(SIZE <= 4, "T can't be larger than 4 bytes");
     let mut buf = [0u8; 4];
     for (idx, byte) in num.to_le_bytes().into_iter().enumerate() {

@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE};
-use crate::util::{array_to_bytes, bytes_to_sized_bytes, num_to_word, DWORD_SIZE};
+use crate::util::{array_to_bytes, bytes_to_sized_bytes, num_to_dword, DWORD_SIZE};
 
 const MAX_LABEL_LEN: usize = 16;
 
@@ -99,15 +99,15 @@ impl Writer {
                 let tp = v.get_type();
 
                 let value = match v {
-                    Byte(v) => num_to_word(v),
-                    Char(v) => num_to_word(v),
-                    Word(v) => num_to_word(v),
-                    Short(v) => num_to_word(v),
-                    Dword(v) => num_to_word(v),
-                    Int(v) => num_to_word(v),
+                    Byte(v) => num_to_dword(v),
+                    Char(v) => num_to_dword(v),
+                    Word(v) => num_to_dword(v),
+                    Short(v) => num_to_dword(v),
+                    Dword(v) => num_to_dword(v),
+                    Int(v) => num_to_dword(v),
                     Dword64(v) => self.save_bytes(&v.to_le_bytes()),
                     Int64(v) => self.save_bytes(&v.to_le_bytes()),
-                    Float(v) => num_to_word(v),
+                    Float(v) => num_to_dword(v),
                     Double(v) => self.save_bytes(&v.to_le_bytes()),
                     CExoString(v) => {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v.into_bytes()))
