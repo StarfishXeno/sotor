@@ -1,13 +1,21 @@
 use std::{
     fmt::Debug,
     fs::File,
-    io::BufReader,
     io::{self, prelude::*},
     mem::size_of,
     str::{self, Utf8Error},
 };
 
 pub const DWORD_SIZE: usize = 4;
+
+// read the whole file into a buffer
+pub fn read_file(path: &str) -> io::Result<Vec<u8>> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::with_capacity(file.metadata()?.len() as usize);
+    file.read_to_end(&mut buf)?;
+
+    Ok(buf)
+}
 
 // turns &[u8] into a u32, f64, etc.
 pub fn cast_bytes<T: ToBytes<SIZE>, const SIZE: usize>(bytes: &[u8]) -> T {
@@ -43,25 +51,27 @@ macro_rules! bytes_to_exo_string {
 pub(crate) use bytes_to_exo_string;
 pub(crate) use sized_bytes_to_bytes;
 
-pub fn read_bytes(reader: &mut BufReader<File>, size: usize) -> io::Result<Vec<u8>> {
-    let mut buf = vec![0; size];
+// read <count> bytes into a buffer
+pub fn read_bytes<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Vec<u8>> {
+    let mut buf = vec![0; count];
     reader.read_exact(&mut buf)?;
+
     Ok(buf)
 }
-
-pub fn read_chunks(
-    reader: &mut BufReader<File>,
-    size: usize,
+// reads <count> chunks of <chunk_size> into a buffer
+pub fn read_chunks<T: Read + Seek>(
+    reader: &mut T,
+    count: usize,
     chunk_size: usize,
 ) -> io::Result<Vec<Vec<u8>>> {
-    let buf = read_bytes(reader, size * chunk_size)?;
+    let buf = read_bytes(reader, count * chunk_size)?;
     let result = buf.chunks_exact(chunk_size).map(|c| c.into()).collect();
 
     Ok(result)
 }
-
-pub fn read_dwords(reader: &mut BufReader<File>, size: usize) -> io::Result<Vec<u32>> {
-    Ok(read_chunks(reader, size, DWORD_SIZE)?
+// reads <count> DWORDs into a buffer
+pub fn read_dwords<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Vec<u32>> {
+    Ok(read_chunks(reader, count, DWORD_SIZE)?
         .into_iter()
         .map(|c| cast_bytes(&c))
         .collect())

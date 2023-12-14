@@ -3,16 +3,14 @@ use crate::{
         FieldValue, FieldValueTmp, LocString, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE,
     },
     util::{
-        bytes_to_exo_string, bytes_to_string,  read_bytes, read_chunks, read_dwords,
-        ToUSizeVec, DWORD_SIZE, sized_bytes_to_bytes, cast_bytes,
+        bytes_to_exo_string, bytes_to_string, cast_bytes, read_bytes, read_chunks, read_dwords,
+        sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE,
     },
 };
 
 use std::{
     collections::HashMap,
-    fs,
-    io::BufReader,
-    io::{prelude::*, SeekFrom},
+    io::{prelude::*, Cursor, SeekFrom},
     str::{self},
 };
 
@@ -49,7 +47,11 @@ fn unwrap_tmp_field(
     }
 }
 
-fn transform_struct(s: &StructReadTmp, fields: &Vec<FieldReadTmp>, structs: &Vec<StructReadTmp>) -> Struct {
+fn transform_struct(
+    s: &StructReadTmp,
+    fields: &Vec<FieldReadTmp>,
+    structs: &Vec<StructReadTmp>,
+) -> Struct {
     let mut struct_fields = HashMap::with_capacity(s.field_indices.len());
     for idx in s.field_indices.iter() {
         let field = &fields[*idx];
@@ -72,30 +74,30 @@ macro_rules! seek {
     };
 }
 
-pub fn read(path: &str) -> Result<GFF, String> {
-    let file = fs::File::open(path).map_err(|_| "GFF::read| Couldn't read file")?;
-    let mut reader = BufReader::new(file);
+pub fn read(bytes: &[u8]) -> Result<GFF, String> {
+    let mut cursor = Cursor::new(bytes);
 
     // HEADER
     let dwords =
-        read_dwords(&mut reader, HEADER_SIZE).map_err(|_| "GFF::read| Couldn't read header")?;
+        read_dwords(&mut cursor, HEADER_SIZE).map_err(|_| "GFF::read| Couldn't read header")?;
     let file_type = bytes_to_string(&dwords[0].to_ne_bytes())
         .map_err(|_| "GFF::read| Couldn't parse file_type")?;
     let file_version = bytes_to_string(&dwords[1].to_ne_bytes())
         .map_err(|_| "GFF::read| Couldn't parse file_version")?;
-    let dwords = dwords[2..].to_usize_vec();
-    let struct_offset = dwords[0];
-    let struct_count = dwords[1];
-    let field_offset = dwords[2];
-    let field_count = dwords[3];
-    let label_offset = dwords[4];
-    let label_count = dwords[5];
-    let field_data_offset = dwords[6];
-    let field_data_bytes = dwords[7];
-    let field_indices_offset = dwords[8];
-    let field_indices_bytes = dwords[9];
-    let list_indices_offset = dwords[10];
-    let list_indices_bytes = dwords[11];
+    let mut dwords = dwords[2..].to_usize_vec().into_iter();
+
+    let struct_offset = dwords.next().unwrap();
+    let struct_count = dwords.next().unwrap();
+    let field_offset = dwords.next().unwrap();
+    let field_count = dwords.next().unwrap();
+    let label_offset = dwords.next().unwrap();
+    let label_count = dwords.next().unwrap();
+    let field_data_offset = dwords.next().unwrap();
+    let field_data_bytes = dwords.next().unwrap();
+    let field_indices_offset = dwords.next().unwrap();
+    let field_indices_bytes = dwords.next().unwrap();
+    let list_indices_offset = dwords.next().unwrap();
+    let list_indices_bytes = dwords.next().unwrap();
 
     if cfg!(debug_assertions) {
         println!("GFF::read| Header: {file_type} {file_version}");
@@ -104,26 +106,26 @@ pub fn read(path: &str) -> Result<GFF, String> {
         println!("******************");
     }
     // LIST INDICES
-    seek!(reader, list_indices_offset);
+    seek!(cursor, list_indices_offset);
 
     let mut list_indices = HashMap::new();
 
     loop {
-        let offset = reader
+        let offset = cursor
             .stream_position()
             .map_err(|_| "GFF::read| Couldn't get reader offset")? as usize;
         let relative_offset = offset - list_indices_offset;
         if relative_offset == list_indices_bytes {
             break;
         }
-        let dwords = read_dwords(&mut reader, 1).map_err(|_| {
+        let dwords = read_dwords(&mut cursor, 1).map_err(|_| {
             format!(
                 "GFF::read| Couldn't read list indices size {relative_offset}, starting offset {}",
                 list_indices_offset
             )
         })?;
         let size = dwords[0] as usize;
-        let dwords = read_dwords(&mut reader, size).map_err(|_| {
+        let dwords = read_dwords(&mut cursor, size).map_err(|_| {
             format!(
                 "GFF::read| Couldn't read list indices at {relative_offset}, starting offset {}",
                 list_indices_offset
@@ -138,9 +140,8 @@ pub fn read(path: &str) -> Result<GFF, String> {
     }
 
     // FIELD INDICES
-    seek!(reader, field_indices_offset);
-
-    let field_indices: Vec<usize> = read_dwords(&mut reader, field_indices_bytes / DWORD_SIZE)
+    seek!(cursor, field_indices_offset);
+    let field_indices: Vec<usize> = read_dwords(&mut cursor, field_indices_bytes / DWORD_SIZE)
         .map_err(|_| {
             format!(
                 "GFF::read| Couldn't read field indices, starting offset {}",
@@ -149,13 +150,13 @@ pub fn read(path: &str) -> Result<GFF, String> {
         })?
         .to_usize_vec();
     if cfg!(debug_assertions) {
-        println!("GFF::read| Field indices: {}", field_indices.len());
+        println!("GFF::read| Field indices: {:#?}", field_indices.len());
         println!("******************");
     }
     // FIELD DATA
-    seek!(reader, field_data_offset);
+    seek!(cursor, field_data_offset);
 
-    let field_data = read_bytes(&mut reader, field_data_bytes).map_err(|_| {
+    let field_data = read_bytes(&mut cursor, field_data_bytes).map_err(|_| {
         format!(
             "GFF::read| Couldn't read field data, starting offset {}",
             field_data_offset
@@ -168,11 +169,11 @@ pub fn read(path: &str) -> Result<GFF, String> {
     }
 
     // LABELS
-    seek!(reader, label_offset);
+    seek!(cursor, label_offset);
 
     let mut labels: Vec<String> = Vec::with_capacity(label_count);
 
-    let chunks = read_chunks(&mut reader, label_count, 16).map_err(|_| {
+    let chunks = read_chunks(&mut cursor, label_count, 16).map_err(|_| {
         format!(
             "GFF::read| Couldn't read field indices, starting offset {}",
             field_indices_offset
@@ -192,13 +193,13 @@ pub fn read(path: &str) -> Result<GFF, String> {
     }
 
     // FIELDS
-    seek!(reader, field_offset);
+    seek!(cursor, field_offset);
 
     let mut fields = Vec::with_capacity(field_count);
 
     for i in 0..field_count {
         use FieldValueTmp::*;
-        let dwords = read_dwords(&mut reader, FIELD_SIZE)
+        let dwords = read_dwords(&mut cursor, FIELD_SIZE)
             .map_err(|_| {
                 format!(
                     "GFF::read| Couldn't read field {i}, starting offset {}",
@@ -218,7 +219,7 @@ pub fn read(path: &str) -> Result<GFF, String> {
             5 => Simple(FieldValue::Int(inner as i32)),
             6 => Simple(FieldValue::Dword64(cast_bytes(&field_data[inner..]))),
             7 => Simple(FieldValue::Int64(cast_bytes(&field_data[inner..]))),
-            8 => Simple(FieldValue::Float(inner as f32)),
+            8 => Simple(FieldValue::Float(cast_bytes(&inner.to_ne_bytes()))),
             9 => Simple(FieldValue::Double(cast_bytes(&field_data[inner..]))),
             10 => Simple(FieldValue::CExoString(
                 bytes_to_exo_string!(&field_data[inner..], u32).map_err(|_| {
@@ -271,17 +272,17 @@ pub fn read(path: &str) -> Result<GFF, String> {
     }
 
     if cfg!(debug_assertions) {
-        println!("GFF::read| Fields: {}", fields.len());
+        println!("GFF::read| Fields: {:#?}", fields.len());
         println!("******************");
     }
 
     // STRUCTS
-    seek!(reader, struct_offset);
+    seek!(cursor, struct_offset);
 
     let mut structs = Vec::with_capacity(struct_count);
 
     for i in 0..struct_count {
-        let dwords = read_dwords(&mut reader, STRUCT_SIZE).map_err(|_| {
+        let dwords = read_dwords(&mut cursor, STRUCT_SIZE).map_err(|_| {
             format!(
                 "GFF::read| Couldn't read struct {i}, starting offset {}",
                 struct_offset
@@ -296,13 +297,11 @@ pub fn read(path: &str) -> Result<GFF, String> {
             let start = data_or_data_offset / DWORD_SIZE;
             field_indices[start..start + field_count].into()
         };
-
         structs.push(StructReadTmp {
             r#type: dwords[0],
             field_indices: struct_field_indices,
         });
     }
-
     if cfg!(debug_assertions) {
         println!("GFF::read| Structs: {}", structs.len());
         println!("******************");
