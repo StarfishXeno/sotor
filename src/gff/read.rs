@@ -111,6 +111,7 @@ impl<'a> Reader<'a> {
 
     fn read_list_indices(&mut self) -> RResult {
         self.seek(self.h.list_indices_offset)?;
+        self.list_indices = HashMap::new();
 
         let target_len = self.h.list_indices_bytes / DWORD_SIZE;
 
@@ -193,6 +194,7 @@ impl<'a> Reader<'a> {
     fn read_fields(&mut self) -> RResult {
         self.seek(self.h.field_offset)?;
         self.fields = Vec::with_capacity(self.h.field_count);
+        
         let field_data = &self.field_data;
 
         for i in 0..self.h.field_count {
