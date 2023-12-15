@@ -25,11 +25,22 @@ pub struct Writer {
     label_map: HashMap<String, usize>,
     labels: Vec<String>,
     structs: Vec<StructWriteTmp>,
-    // blocks with indices equal to struct's my_idx
+    // blocks with indices matching struct's my_idx
     fields: Vec<Vec<FieldWriteTmp>>,
     field_count: usize,
     raw_data: Vec<u8>,
-    list_indices: Vec<u8>,
+    list_indices: Vec<u32>,
+}
+
+macro_rules! wf {
+    ($($t:tt)*) => {{
+        format!("GFF::write| {}", format!($($t)*))
+    }};
+}
+macro_rules! wp {
+    ($($t:tt)*) => {{
+        println!("{}", wf!($($t)*))
+    }};
 }
 
 impl Writer {
@@ -59,7 +70,8 @@ impl Writer {
         let len = label.len();
         debug_assert!(
             len <= MAX_LABEL_LEN,
-            "GFF::Writer| labels should be 16 bytes or less"
+            "{}",
+            wf!("labels should be 16 bytes or less")
         );
         let mut label_padded = label.clone();
         if len < MAX_LABEL_LEN {
@@ -81,14 +93,14 @@ impl Writer {
     }
 
     fn save_list_indices(&mut self, indices: &[usize]) -> u32 {
-        let idx = self.list_indices.len() as u32;
+        let idx = self.list_indices.len();
         let size = indices.len() as u32;
-        
-        self.list_indices.extend(size.to_le_bytes());
-        self.list_indices
-            .extend(indices.into_iter().flat_map(|i| (*i as u32).to_le_bytes()));
 
-        idx
+        self.list_indices.push(size);
+        self.list_indices
+            .extend(indices.into_iter().map(|i| (*i as u32)));
+
+        (idx * DWORD_SIZE) as u32
     }
 
     fn save_field(&mut self, block_idx: usize, field: FieldValueTmp, label_index: usize) {
@@ -163,10 +175,7 @@ impl Writer {
 
     fn collect(&mut self, s: Struct) -> usize {
         let field_count = s.fields.len();
-        debug_assert!(
-            field_count != 0,
-            "GFF::Writer| empty structs shouldn't exist"
-        );
+        debug_assert!(field_count != 0, "{}", wf!("Empty structs shouldn't exist"));
 
         let my_idx = self.fields.len();
         self.fields.push(Vec::with_capacity(field_count));
@@ -259,13 +268,13 @@ impl Writer {
         cursor.write_all(&array_to_bytes(&field_indices))?;
         // LIST INDICES
         let list_indices_offset = cursor.position();
-        let list_indices_bytes = self.list_indices.len();
-        cursor.write_all(&self.list_indices)?;
+        let list_indices_bytes = self.list_indices.len() * DWORD_SIZE;
+        cursor.write_all(&array_to_bytes(&self.list_indices))?;
         // HEADER
         if cfg!(debug_assertions) {
-            println!("GFF::write| Header: {file_type} {file_version}");
-            println!("GFF::write| Structs: {struct_count} at {struct_offset}, Fields: {field_count} at {field_offset}, Labels: {label_count} at {label_offset}");
-            println!("GFF::write| Field data: {field_data_bytes} at {field_data_offset}, Field indices: {field_indices_bytes} at {field_indices_offset}, List indices: {list_indices_bytes} at {list_indices_offset}");
+            wp!("Header: {file_type} {file_version}");
+            wp!("Structs: {struct_count} at {struct_offset}, Fields: {field_count} at {field_offset}, Labels: {label_count} at {label_offset}");
+            wp!("Field data: {field_data_bytes}B at {field_data_offset}, Field indices: {field_indices_bytes}B at {field_indices_offset}, List indices: {list_indices_bytes}B at {list_indices_offset}");
             println!("******************");
         }
         cursor.rewind()?;
