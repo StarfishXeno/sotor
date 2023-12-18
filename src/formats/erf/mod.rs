@@ -20,9 +20,9 @@ const RESOURCE_SIZE: usize = 2;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Resource {
-    id: u32,
-    tp: u16,
-    content: Vec<u8>,
+    pub id: u32,
+    pub tp: u16,
+    pub content: Vec<u8>,
 }
 // need to skip content as it's pretty big
 impl fmt::Debug for Resource {

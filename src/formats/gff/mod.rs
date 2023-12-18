@@ -24,6 +24,19 @@ enum FieldValueTmp {
     // list of indices into struct array
     List(Vec<usize>),
 }
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Orientation {
+    w: f32,
+    x: f32,
+    y: f32,
+    z: f32,
+}
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Vector {
+    x: f32,
+    y: f32,
+    z: f32,
+}
 
 #[repr(u8)]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -40,11 +53,13 @@ pub enum FieldValue {
     Double(f64) = 9,
     CExoString(String) = 10,
     CResRef(String) = 11,
-    CExoLocString(Vec<LocString>) = 12,
+    CExoLocString(u32, Vec<LocString>) = 12,
     Void(Vec<u8>) = 13,
     // boxing it cuts FieldValue size in half
     Struct(Box<Struct>) = 14,
     List(Vec<Struct>) = 15,
+    Orientation(Orientation) = 16,
+    Vector(Vector) = 17,
 }
 
 impl FieldValue {
@@ -109,7 +124,7 @@ mod tests {
                     ),
                     (
                         "CExoLocString".to_owned(),
-                        FieldValue::CExoLocString(vec![LocString {
+                        FieldValue::CExoLocString(u32::MAX, vec![LocString {
                             id: 1,
                             content: "LocString".to_owned(),
                         }]),

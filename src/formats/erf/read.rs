@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Cursor, Read, Seek, SeekFrom},
+    io::{Cursor, Seek, SeekFrom},
 };
 
 use crate::{
@@ -165,12 +165,15 @@ impl<'a> Reader<'a> {
 
             seek_to!(cursor, res.offset, rf)?;
 
-            resources.insert(key.name, Resource {
-                id: key.id,
-                tp: key.res_type,
-                content: read_bytes(&mut cursor, res.size as usize)
-                    .map_err(|_| rf!("Couldn't read resource content {idx}"))?,
-            });
+            resources.insert(
+                key.name,
+                Resource {
+                    id: key.id,
+                    tp: key.res_type,
+                    content: read_bytes(&mut cursor, res.size as usize)
+                        .map_err(|_| rf!("Couldn't read resource content {idx}"))?,
+                },
+            );
         }
 
         Ok(ERF {

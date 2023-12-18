@@ -125,12 +125,12 @@ impl Writer {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v.into_bytes()))
                     }
                     CResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(&v.into_bytes())),
-                    CExoLocString(v) => {
+                    CExoLocString(str_ref, v) => {
                         let string_count = v.len();
                         // Total Size will be added in the end
                         let mut bytes = Vec::with_capacity(string_count * 10 + 2 * DWORD_SIZE);
-                        // StringRef, 0xFFFFFFFF means empty (for now?)
-                        bytes.extend(u32::MAX.to_le_bytes());
+                        // StringRef
+                        bytes.extend(str_ref.to_le_bytes());
                         // StringCount
                         bytes.extend((string_count as u32).to_le_bytes());
                         for s in v {
@@ -145,6 +145,8 @@ impl Writer {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&bytes))
                     }
                     Void(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v)),
+                    Orientation(v) => self.save_bytes(&array_to_bytes(&[v.w, v.x, v.y, v.z])),
+                    Vector(v) => self.save_bytes(&array_to_bytes(&[v.x, v.y, v.z])),
                     _ => unreachable!(),
                 };
 

@@ -1,15 +1,19 @@
 use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE};
 use crate::{
-    formats::LocString,
+    formats::{
+        gff::{Orientation, Vector},
+        LocString,
+    },
     util::{
-        bytes_to_exo_string, bytes_to_string, cast_bytes, read_chunks, read_dwords,
-        sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE, seek_to,
+        bytes_to_exo_string, bytes_to_string, cast_bytes, read_chunks, read_dwords, seek_to,
+        sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE,
     },
 };
 
 use std::{
     collections::HashMap,
     io::{prelude::*, Cursor, SeekFrom},
+    mem::size_of,
     str,
 };
 
@@ -117,7 +121,7 @@ impl<'a> Reader<'a> {
         })?;
         let mut offset = 0;
 
-        while dwords.len() > 0  {
+        while dwords.len() > 0 {
             let size = dwords[0] as usize;
             let end = size + 1;
             let indices = &dwords[1..size + 1];
@@ -221,6 +225,7 @@ impl<'a> Reader<'a> {
                         .map_err(|_| rf!("Invalid CResRef data in field {i}: {label}"))?,
                 )),
                 12 => {
+                    let str_ref: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 1..]);
                     let count: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 2..]);
                     let mut offset = inner + DWORD_SIZE * 3;
                     let mut strings = Vec::with_capacity(count as usize);
@@ -232,16 +237,16 @@ impl<'a> Reader<'a> {
                         offset += DWORD_SIZE;
                         let content = bytes_to_string(&field_data[offset..offset + length])
                             .map_err(|_| {
-                                rf!("Invalid CExoLocalString {j} in field {i}: {label}")
+                                rf!("Invalid CExoLocString {j} in field {i}: {label}")
                             })?;
                         strings.push(LocString { id, content });
                         offset += length;
                     }
-                    Simple(FieldValue::CExoLocString(strings))
+                    Simple(FieldValue::CExoLocString(str_ref, strings))
                 }
-                13 => {Simple(FieldValue::Void(
+                13 => Simple(FieldValue::Void(
                     sized_bytes_to_bytes!(&field_data[inner..], u32).into(),
-                ))},
+                )),
                 14 => Struct(inner),
                 15 => {
                     let indices = self
@@ -250,6 +255,27 @@ impl<'a> Reader<'a> {
                         .ok_or(rf!("Couldn't find list indices at {inner} in field {i}"))?;
 
                     List(indices)
+                }
+                16 => {
+                    const SIZE: usize = size_of::<f32>();
+                    let bytes = &field_data[inner..];
+
+                    Simple(FieldValue::Orientation(Orientation {
+                        w: cast_bytes(&bytes[SIZE * 0..]),
+                        x: cast_bytes(&bytes[SIZE * 1..]),
+                        y: cast_bytes(&bytes[SIZE * 2..]),
+                        z: cast_bytes(&bytes[SIZE * 3..]),
+                    }))
+                }
+                17 => {
+                    const SIZE: usize = size_of::<f32>();
+                    let bytes = &field_data[inner..];
+
+                    Simple(FieldValue::Vector(Vector {
+                        x: cast_bytes(&bytes[SIZE * 0..]),
+                        y: cast_bytes(&bytes[SIZE * 1..]),
+                        z: cast_bytes(&bytes[SIZE * 2..]),
+                    }))
                 }
                 t => return Err(rf!("Invalid field type {t} in field {i}: {label}")),
             };
@@ -273,11 +299,13 @@ impl<'a> Reader<'a> {
 
             let data_or_data_offset = dwords[1] as usize;
             let field_count = dwords[2] as usize;
-            let struct_field_indices = if field_count == 1 {
-                vec![data_or_data_offset]
-            } else {
-                let start = data_or_data_offset / DWORD_SIZE;
-                self.field_indices[start..start + field_count].into()
+            let struct_field_indices = match field_count {
+                0 => vec![],
+                1 => vec![data_or_data_offset],
+                _ => {
+                    let start = data_or_data_offset / DWORD_SIZE;
+                    self.field_indices[start..start + field_count].into()
+                }
             };
             self.structs.push(StructReadTmp {
                 r#type: dwords[0],
