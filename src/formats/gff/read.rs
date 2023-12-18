@@ -3,7 +3,7 @@ use crate::{
     formats::LocString,
     util::{
         bytes_to_exo_string, bytes_to_string, cast_bytes, read_chunks, read_dwords,
-        sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE,
+        sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE, seek_to,
     },
 };
 
@@ -71,10 +71,7 @@ macro_rules! rp {
 
 impl<'a> Reader<'a> {
     fn seek(&mut self, pos: usize) -> RResult {
-        self.cursor
-            .seek(SeekFrom::Start(pos as u64))
-            .map(|_| ())
-            .map_err(|_| rf!("Couldn't seek to {pos}"))
+        seek_to!(self.cursor, pos, rf)
     }
 
     fn read_header(cursor: &mut Cursor<&[u8]>) -> Result<Header, String> {
@@ -242,9 +239,9 @@ impl<'a> Reader<'a> {
                     }
                     Simple(FieldValue::CExoLocString(strings))
                 }
-                13 => Simple(FieldValue::Void(
+                13 => {Simple(FieldValue::Void(
                     sized_bytes_to_bytes!(&field_data[inner..], u32).into(),
-                )),
+                ))},
                 14 => Struct(inner),
                 15 => {
                     let indices = self

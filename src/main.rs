@@ -1,31 +1,17 @@
-use crate::formats::gff;
-use crate::util::read_file;
+use crate::{
+    formats::{erf, gff},
+    util::read_file,
+};
 
 mod formats;
 mod util;
 
-const GLOBALS_PATH: &str = "./save/globalvars.res";
 const NFO_PATH: &str = "./save/savenfo.res";
+const ERF_PATH: &str = "./save/savegame.sav";
 fn main() {
     use std::time::Instant;
     let now = Instant::now();
-    let globals_bytes = read_file(GLOBALS_PATH).unwrap();
-    let globals = gff::read(&globals_bytes);
-    if let Ok(gff) = globals {
-        let keys = gff.content.fields.keys();
-        println!("Keys: {:?}", keys);
-        for key in keys {
-            let val = gff.content.fields.get(key).unwrap();
-            if let gff::FieldValue::List(val) = val {
-                println!("{key}: {} items", val.len());
-            } else if let gff::FieldValue::Void(bytes) = val {
-                println!("{key}: {} items", bytes.len());
-            }
-        }
-    } else {
-        println!("{globals:?}")
-    }
-    println!("//////////////////");
+
     let nfo_bytes = read_file(NFO_PATH).unwrap();
     let nfo = gff::read(&nfo_bytes);
     if let Ok(gff) = nfo {
@@ -36,6 +22,10 @@ fn main() {
     } else {
         println!("{nfo:?}");
     }
+    println!("//////////////////");
+    let erf_bytes = read_file(ERF_PATH).unwrap();
+    let erf = erf::read(&erf_bytes);
+    println!("{erf:#?}");
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
 }

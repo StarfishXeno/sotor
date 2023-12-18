@@ -140,3 +140,12 @@ pub fn array_to_bytes<T: ToBytes<SIZE>, const SIZE: usize>(data: &[T]) -> Vec<u8
     let vec: Vec<u8> = data.into_iter().flat_map(|i| i.to_le_bytes()).collect();
     vec
 }
+macro_rules! seek_to {
+    ($reader:expr, $pos:expr, $format_macro:ident) => {
+        $reader
+            .seek(SeekFrom::Start($pos as u64))
+            .map(|_| ())
+            .map_err(|_| $format_macro!("Couldn't seek to {}", $pos))
+    };
+}
+pub(crate) use seek_to;
