@@ -1,7 +1,6 @@
+use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE};
 use crate::{
-    gff::{
-        FieldValue, FieldValueTmp, LocString, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE,
-    },
+    formats::LocString,
     util::{
         bytes_to_exo_string, bytes_to_string, cast_bytes, read_chunks, read_dwords,
         sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE,
@@ -11,7 +10,7 @@ use crate::{
 use std::{
     collections::HashMap,
     io::{prelude::*, Cursor, SeekFrom},
-    str::{self},
+    str,
 };
 
 #[derive(Debug)]
@@ -79,9 +78,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(cursor: &mut Cursor<&[u8]>) -> Result<Header, String> {
-        cursor
-            .seek(SeekFrom::Start(0))
-            .map_err(|_| rf!("Couldn't read header"))?;
+        cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
 
         let dwords = read_dwords(cursor, HEADER_SIZE).map_err(|_| rf!("Couldn't read header"))?;
         let file_type = bytes_to_string(&dwords[0].to_ne_bytes())
@@ -123,10 +120,7 @@ impl<'a> Reader<'a> {
         })?;
         let mut offset = 0;
 
-        loop {
-            if dwords.len() == 0 {
-                break;
-            }
+        while dwords.len() > 0  {
             let size = dwords[0] as usize;
             let end = size + 1;
             let indices = &dwords[1..size + 1];
@@ -194,7 +188,7 @@ impl<'a> Reader<'a> {
     fn read_fields(&mut self) -> RResult {
         self.seek(self.h.field_offset)?;
         self.fields = Vec::with_capacity(self.h.field_count);
-        
+
         let field_data = &self.field_data;
 
         for i in 0..self.h.field_count {

@@ -1,6 +1,7 @@
-use crate::{gff::FieldValue, util::read_file};
+use crate::formats::gff;
+use crate::util::read_file;
 
-mod gff;
+mod formats;
 mod util;
 
 const GLOBALS_PATH: &str = "./save/globalvars.res";
@@ -15,9 +16,9 @@ fn main() {
         println!("Keys: {:?}", keys);
         for key in keys {
             let val = gff.content.fields.get(key).unwrap();
-            if let FieldValue::List(val) = val {
+            if let gff::FieldValue::List(val) = val {
                 println!("{key}: {} items", val.len());
-            } else if let FieldValue::Void(bytes) = val {
+            } else if let gff::FieldValue::Void(bytes) = val {
                 println!("{key}: {} items", bytes.len());
             }
         }
@@ -34,7 +35,7 @@ fn main() {
         debug_assert_eq!(gff, new_gff);
     } else {
         println!("{nfo:?}");
-     }
+    }
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
 }

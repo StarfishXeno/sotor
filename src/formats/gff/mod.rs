@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
+use super::LocString;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 mod read;
 mod write;
@@ -23,12 +23,6 @@ enum FieldValueTmp {
     Struct(usize),
     // list of indices into struct array
     List(Vec<usize>),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct LocString {
-    id: u32,
-    content: String,
 }
 
 #[repr(u8)]
