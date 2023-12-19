@@ -4,11 +4,11 @@ use std::{
 };
 
 use crate::{
-    formats::LocString,
-    util::{bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to},
+    formats::{LocString, ResourceType},
+    util::{bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to, DWORD_SIZE},
 };
 
-use super::{Resource, ERF, HEADER_SIZE, KEY_SIZE_BYTES, RESOURCE_SIZE};
+use super::{Resource, ERF, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES, RESOURCE_SIZE};
 
 struct Header {
     file_type: String,
@@ -17,19 +17,19 @@ struct Header {
     loc_string_bytes: u32,
     entry_count: usize,
     loc_string_offset: u32,
-    key_list_offset: u32,
-    resource_list_offset: u32,
+    keys_offset: u32,
+    resources_offset: u32,
     build_year: u32,
     build_day: u32,
     description_str_ref: u32,
 }
-struct Key {
+struct KeyRead {
     name: String,
     id: u32,
-    res_type: u16,
+    res_type: ResourceType,
 }
 
-struct ResourceReadTmp {
+struct ResourceRead {
     offset: u32,
     size: u32,
 }
@@ -39,8 +39,8 @@ struct Reader<'a> {
     h: Header,
 
     loc_strings: Vec<LocString>,
-    keys: Vec<Key>,
-    resources: Vec<ResourceReadTmp>,
+    keys: Vec<KeyRead>,
+    resources: Vec<ResourceRead>,
 }
 
 type RResult = Result<(), String>;
@@ -80,8 +80,8 @@ impl<'a> Reader<'a> {
             loc_string_bytes: dwords.next().unwrap(),
             entry_count: dwords.next().unwrap() as usize,
             loc_string_offset: dwords.next().unwrap(),
-            key_list_offset: dwords.next().unwrap(),
-            resource_list_offset: dwords.next().unwrap(),
+            keys_offset: dwords.next().unwrap(),
+            resources_offset: dwords.next().unwrap(),
             build_year: dwords.next().unwrap(),
             build_day: dwords.next().unwrap(),
             description_str_ref: dwords.next().unwrap(),
@@ -113,7 +113,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_key_list(&mut self) -> RResult {
-        self.seek(self.h.key_list_offset)?;
+        self.seek(self.h.keys_offset)?;
         let target_count = self.h.entry_count;
         self.keys = Vec::with_capacity(target_count);
 
@@ -122,22 +122,28 @@ impl<'a> Reader<'a> {
             let bytes = read_bytes(&mut self.cursor, KEY_SIZE_BYTES)
                 .map_err(|_| rf!("Couldn't read Key {}", count))?;
 
-            let name = bytes_to_string(&bytes[..16])
+            let name = bytes_to_string(&bytes[..KEY_NAME_LEN])
                 .map_err(|err| rf!("Couldn't read Key name {}, {}", count, err))?
                 .trim_matches('\0')
                 .to_owned();
-            let id = cast_bytes(&bytes[16..]);
-            let res_type = cast_bytes(&bytes[20..]);
+            let id = cast_bytes(&bytes[KEY_NAME_LEN..]);
+            let res_type: u16 = cast_bytes(&bytes[KEY_NAME_LEN + DWORD_SIZE..]);
 
             count += 1;
-            self.keys.push(Key { name, id, res_type });
+            self.keys.push(KeyRead {
+                name,
+                id,
+                res_type: res_type
+                    .try_into()
+                    .map_err(|_| rf!("Invalid resource type {res_type} in key {count}"))?,
+            });
         }
 
         Ok(())
     }
 
     fn read_resources(&mut self) -> RResult {
-        self.seek(self.h.resource_list_offset)?;
+        self.seek(self.h.resources_offset)?;
         let target_count = self.h.entry_count;
         self.resources = Vec::with_capacity(target_count);
 
@@ -147,7 +153,7 @@ impl<'a> Reader<'a> {
                 .map_err(|_| rf!("Couldn't read Resource {}", count))?;
 
             count += 1;
-            self.resources.push(ResourceReadTmp {
+            self.resources.push(ResourceRead {
                 offset: dwords[0],
                 size: dwords[1],
             });
@@ -170,8 +176,9 @@ impl<'a> Reader<'a> {
                 Resource {
                     id: key.id,
                     tp: key.res_type,
-                    content: read_bytes(&mut cursor, res.size as usize)
-                        .map_err(|_| rf!("Couldn't read resource content {idx}"))?,
+                    content: read_bytes(&mut cursor, res.size as usize).map_err(|_| {
+                        rf!("Couldn't read resource content {idx} at {}", res.offset)
+                    })?,
                 },
             );
         }
@@ -179,7 +186,10 @@ impl<'a> Reader<'a> {
         Ok(ERF {
             file_type: self.h.file_type,
             file_version: self.h.file_version,
+            build_year: self.h.build_year,
+            build_day: self.h.build_day,
             loc_strings: self.loc_strings,
+            description_str_ref: self.h.description_str_ref,
 
             resources,
         })
@@ -207,8 +217,8 @@ pub fn read(bytes: &[u8]) -> Result<ERF, String> {
         rp!(
             "Entries: {}, KeyList at {}, ResourceList at {}",
             h.entry_count,
-            h.key_list_offset,
-            h.resource_list_offset,
+            h.keys_offset,
+            h.resources_offset,
         );
         println!("******************");
     }

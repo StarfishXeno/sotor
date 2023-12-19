@@ -148,7 +148,7 @@ mod tests {
                 .into(),
             },
         };
-        let bytes = write(gff.clone()).unwrap();
+        let bytes = write(gff.clone());
         let new_gff = read(&bytes).unwrap();
         assert_eq!(gff, new_gff);
     }

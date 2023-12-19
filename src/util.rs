@@ -49,6 +49,7 @@ macro_rules! bytes_to_exo_string {
 }
 
 pub(crate) use bytes_to_exo_string;
+use chrono::{NaiveDate, Datelike};
 pub(crate) use sized_bytes_to_bytes;
 
 // reads <count> bytes into a buffer
@@ -149,3 +150,23 @@ macro_rules! seek_to {
     };
 }
 pub(crate) use seek_to;
+
+pub fn nullpad_string(mut str: String, to_len: usize) -> String {
+    let len = str.len();
+    if len < to_len {
+        str.push_str(&"\0".repeat(to_len - len))
+    }
+    str
+}
+
+pub fn get_erf_date() -> (u32, u32) {
+    let now = chrono::Utc::now().date_naive();
+    
+    let past = NaiveDate::from_ymd_opt(1900, 1, 1).unwrap();
+    let build_year = now.years_since(past).unwrap();
+
+    let past = NaiveDate::from_ymd_opt(now.year_ce().1 as i32, 1, 1).unwrap();
+    let build_day = (now - past).num_days() as u32;
+
+    (build_year, build_day - 1)
+}

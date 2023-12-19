@@ -1,48 +1,101 @@
-use std::{fmt, collections::HashMap};
+use std::{collections::HashMap, fmt};
 
+use crate::formats::LocString;
 use serde::{Deserialize, Serialize};
-use crate::{formats::LocString, util::DWORD_SIZE};
-
 
 mod read;
+mod write;
 
 pub use read::read;
+pub use write::write;
 
-
+use super::ResourceType;
 
 // 11 DWORD fields + 116 bytes reserved
 const HEADER_SIZE: usize = 11;
-const HEADER_PADDING_SIZE: usize = 116 / DWORD_SIZE;
-// in bytes, last 2 are unused
-const KEY_SIZE_BYTES: usize = 16 + 4 + 2 + 2;
+const HEADER_PADDING_SIZE_BYTES: usize = 116;
+
+const KEY_NAME_LEN: usize = 16;
+// in bytes, last 2 bytes are unused
+const KEY_SIZE_BYTES: usize = KEY_NAME_LEN + 4 + 2 + 2;
 // 2 DWORDs
 const RESOURCE_SIZE: usize = 2;
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Resource {
     pub id: u32,
-    pub tp: u16,
+    pub tp: ResourceType,
     pub content: Vec<u8>,
 }
 // need to skip content as it's pretty big
 impl fmt::Debug for Resource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Resource")
-         .field("id", &self.id)
-         .field("tp", &self.tp)
-         .finish()
+            .field("id", &self.id)
+            .field("tp", &self.tp)
+            .finish()
     }
 }
-
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ERF {
     pub file_type: String,
     pub file_version: String,
+    pub build_year: u32,
+    pub build_day: u32,
 
     pub resources: HashMap<String, Resource>,
     pub loc_strings: Vec<LocString>,
+    pub description_str_ref: u32,
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::{formats::{
+        erf::{read, write, Resource, ERF},
+        LocString, ResourceType,
+    }, util::get_erf_date};
+
+    #[test]
+    fn read_write() {
+
+        let (build_year, build_day) = get_erf_date();
+        
+        let erf = ERF {
+            file_type: "TST ".to_owned(),
+            file_version: "V0.0".to_owned(),
+            build_year,
+            build_day,
+
+            resources: [
+                (
+                    "pc".to_owned(),
+                    Resource {
+                        id: 0,
+                        tp: ResourceType::TXT,
+                        content: b"pc".into(),
+                    },
+                ),
+                (
+                    "inventory".to_owned(),
+                    Resource {
+                        id: 1,
+                        tp: ResourceType::TXT,
+                        content: b"inventory".into(),
+                    },
+                ),
+            ]
+            .into(),
+
+            loc_strings: vec![LocString {
+                id: 0,
+                content: "LocString".to_owned(),
+            }],
+            description_str_ref: 0,
+        };
+        let bytes = write(erf.clone());
+        let new_erf = read(&bytes).unwrap();
+
+        assert_eq!(erf, new_erf);
+    }
+}

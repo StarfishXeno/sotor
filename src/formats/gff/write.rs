@@ -1,10 +1,10 @@
 use std::{
     collections::HashMap,
-    io::{Cursor, Result, Seek, Write},
+    io::{Cursor, Seek, Write},
 };
 
 use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE};
-use crate::util::{array_to_bytes, bytes_to_sized_bytes, num_to_dword, DWORD_SIZE};
+use crate::util::{array_to_bytes, bytes_to_sized_bytes, num_to_dword, DWORD_SIZE, nullpad_string};
 
 const MAX_LABEL_LEN: usize = 16;
 
@@ -73,14 +73,11 @@ impl Writer {
             "{}",
             wf!("labels should be 16 bytes or less")
         );
-        let mut label_padded = label.clone();
-        if len < MAX_LABEL_LEN {
-            label_padded.push_str(&"\0".repeat(MAX_LABEL_LEN - len))
-        }
+        let padded = nullpad_string(label.clone(), MAX_LABEL_LEN);
 
         let idx = self.labels.len();
         self.label_map.insert(label, idx);
-        self.labels.push(label_padded);
+        self.labels.push(padded);
 
         idx
     }
@@ -122,9 +119,9 @@ impl Writer {
                     Float(v) => num_to_dword(v),
                     Double(v) => self.save_bytes(&v.to_le_bytes()),
                     CExoString(v) => {
-                        self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v.into_bytes()))
+                        self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes()))
                     }
-                    CResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(&v.into_bytes())),
+                    CResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
                     CExoLocString(str_ref, v) => {
                         let string_count = v.len();
                         // Total Size will be added in the end
@@ -138,7 +135,7 @@ impl Writer {
                             bytes.extend(s.id.to_le_bytes());
                             // Length + String itself
                             bytes.extend(bytes_to_sized_bytes::<DWORD_SIZE>(
-                                &s.content.into_bytes(),
+                                s.content.as_bytes(),
                             ));
                         }
 
@@ -177,7 +174,6 @@ impl Writer {
 
     fn collect(&mut self, s: Struct) -> usize {
         let field_count = s.fields.len();
-        debug_assert!(field_count != 0, "{}", wf!("Empty structs shouldn't exist"));
 
         let my_idx = self.fields.len();
         self.fields.push(Vec::with_capacity(field_count));
@@ -208,7 +204,7 @@ impl Writer {
         my_idx
     }
 
-    fn to_bytes(mut self) -> Result<Vec<u8>> {
+    fn to_bytes(mut self) -> Vec<u8> {
         let buf = Vec::with_capacity(self.fields.len() * 12 * DWORD_SIZE);
         let mut cursor = Cursor::new(buf);
         let field_count = self.field_count;
@@ -227,11 +223,11 @@ impl Writer {
             for field in group {
                 field_idx += 1;
                 let data = [field.tp, field.label_index, field.content];
-                field_bytes.write_all(&array_to_bytes(&data))?;
+                field_bytes.write_all(&array_to_bytes(&data)).unwrap();
             }
         }
         // header to be filled later
-        cursor.write_all(&[0; HEADER_SIZE * DWORD_SIZE])?;
+        cursor.write_all(&[0; HEADER_SIZE * DWORD_SIZE]).unwrap();
         // STRUCTS
         let struct_offset = cursor.position();
         let struct_count = self.structs.len();
@@ -249,29 +245,29 @@ impl Writer {
                 (index_offset * DWORD_SIZE) as u32
             };
             let data = [s.tp, idx as u32, s.field_count];
-            cursor.write_all(&array_to_bytes(&data))?;
+            cursor.write_all(&array_to_bytes(&data)).unwrap();
         }
         // FIELDS
         let field_offset = cursor.position();
-        cursor.write_all(&field_bytes)?;
+        cursor.write_all(&field_bytes).unwrap();
         // LABELS
         let label_offset = cursor.position();
         let label_count = self.labels.len();
         for label in self.labels {
-            cursor.write_all(&label.into_bytes())?;
+            cursor.write_all(&label.into_bytes()).unwrap();
         }
         // FIELD DATA
         let field_data_offset = cursor.position();
         let field_data_bytes = self.raw_data.len();
-        cursor.write_all(&self.raw_data)?;
+        cursor.write_all(&self.raw_data).unwrap();
         // FIELD INDICES
         let field_indices_offset = cursor.position();
         let field_indices_bytes = field_indices.len() * DWORD_SIZE;
-        cursor.write_all(&array_to_bytes(&field_indices))?;
+        cursor.write_all(&array_to_bytes(&field_indices)).unwrap();
         // LIST INDICES
         let list_indices_offset = cursor.position();
         let list_indices_bytes = self.list_indices.len() * DWORD_SIZE;
-        cursor.write_all(&array_to_bytes(&self.list_indices))?;
+        cursor.write_all(&array_to_bytes(&self.list_indices)).unwrap();
         // HEADER
         if cfg!(debug_assertions) {
             wp!("Header: {file_type} {file_version}");
@@ -279,9 +275,9 @@ impl Writer {
             wp!("Field data: {field_data_bytes}B at {field_data_offset}, Field indices: {field_indices_bytes}B at {field_indices_offset}, List indices: {list_indices_bytes}B at {list_indices_offset}");
             println!("******************");
         }
-        cursor.rewind()?;
-        cursor.write_all(file_type.as_bytes())?;
-        cursor.write_all(file_version.as_bytes())?;
+        cursor.rewind().unwrap();
+        cursor.write_all(file_type.as_bytes()).unwrap();
+        cursor.write_all(file_version.as_bytes()).unwrap();
         cursor.write_all(&array_to_bytes(&[
             struct_offset as u32,
             struct_count as u32,
@@ -295,12 +291,12 @@ impl Writer {
             field_indices_bytes as u32,
             list_indices_offset as u32,
             list_indices_bytes as u32,
-        ]))?;
+        ])).unwrap();
 
-        Ok(cursor.into_inner())
+        cursor.into_inner()
     }
 }
-pub fn write(gff: GFF) -> Result<Vec<u8>> {
+pub fn write(gff: GFF) -> Vec<u8> {
     let writer = Writer::new(gff);
     writer.to_bytes()
 }
