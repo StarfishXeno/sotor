@@ -1,6 +1,6 @@
 use super::LocString;
 use serde::{Deserialize, Serialize};
-use sotor_macros::{IntEnum, UnwrapVariant};
+use sotor_macros::{UnwrapVariant, EnumToInt};
 use std::collections::HashMap;
 
 mod read;
@@ -40,7 +40,7 @@ pub struct Vector {
 }
 
 #[repr(u8)]
-#[derive(IntEnum, UnwrapVariant, Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(EnumToInt, UnwrapVariant, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum FieldValue {
     Byte(u8) = 0,
     Char(i8) = 1,
@@ -84,9 +84,9 @@ mod tests {
 
     #[test]
     fn field_value_type() {
-        assert_eq!(FieldValue::Word(0).tag_to_int(), 2);
-        assert_eq!(FieldValue::Double(0.0).tag_to_int(), 9);
-        assert_eq!(FieldValue::Void(vec![]).tag_to_int(), 13);
+        assert_eq!(FieldValue::Word(0).to_int(), 2);
+        assert_eq!(FieldValue::Double(0.0).to_int(), 9);
+        assert_eq!(FieldValue::Void(vec![]).to_int(), 13);
     }
 
     #[test]

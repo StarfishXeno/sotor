@@ -105,7 +105,7 @@ impl Writer {
 
         let (tp, value): (u32, u32) = match field {
             FieldValueTmp::Simple(v) => {
-                let tp = v.tag_to_int();
+                let tp = v.to_int();
 
                 let value = match v {
                     Byte(v) => num_to_dword(v),

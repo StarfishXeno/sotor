@@ -27,14 +27,11 @@ const GFF_NAMES: &[&str] = &["savenfo.res", "globalvars.res", "partytable.res"];
 const ERF_NAME: &str = "savegame.sav";
 const ERF_GFF_NAMES: &[&str] = &["INVENTORY"];
 
-
 macro_rules! sf {
     ($($t:tt)*) => {{
         format!("Save| {}", format!($($t)*))
     }};
 }
-
-
 
 impl Save {
     pub fn read_from_directory(path: &str) -> Result<Self, String> {
@@ -50,19 +47,7 @@ impl Save {
         let erf_bytes = read_file(&(path.to_owned() + "/" + ERF_NAME))
             .map_err(|_| sf!("Couldn't read ERF file"))?;
         let erf = erf::read(&erf_bytes)?;
-
-        let mut erf_gffs = Vec::with_capacity(ERF_GFF_NAMES.len());
-        for name in ERF_GFF_NAMES {
-            let gff = gff::read(
-                &erf.resources
-                    .get(name.to_owned())
-                    .ok_or(sf!("Couldn't read ERF GFF {name}"))?
-                    .content,
-            )?;
-            erf_gffs.push(gff);
-        }
-
-        let reader = read::SaveReader::new(&gffs, &erf, &erf_gffs);
+        let reader = read::SaveReader::new(&gffs[0], &gffs[1], &gffs[2], &erf);
 
         reader.process()
     }

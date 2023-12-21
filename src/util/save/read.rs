@@ -1,6 +1,6 @@
 use crate::formats::{
-    erf::ERF,
-    gff::{FieldValue, Struct, GFF},
+    erf::{self, ERF},
+    gff::{self, FieldValue, Struct, GFF},
 };
 
 use super::{Save, SaveGlobals, SaveNfo};
@@ -24,29 +24,31 @@ macro_rules! get_field {
 }
 
 pub struct SaveReader<'a> {
-    gffs: &'a Vec<GFF>,
+    nfo: &'a GFF,
+    globals: &'a GFF,
+    party_table: &'a GFF,
     erf: &'a ERF,
-    erf_gffs: &'a Vec<GFF>,
 }
 impl<'a> SaveReader<'a> {
-    pub fn new(gffs: &'a Vec<GFF>, erf: &'a ERF, erf_gffs: &'a Vec<GFF>) -> Self {
+    pub fn new(nfo: &'a GFF, globals: &'a GFF, party_table: &'a GFF, erf: &'a ERF) -> Self {
         Self {
-            gffs,
+            nfo,
+            globals,
+            party_table,
             erf,
-            erf_gffs,
         }
     }
 
     pub fn process(self) -> Result<Save, String> {
-        Ok(Save {
-            nfo: self.read_nfo()?,
-            globals: self.read_globals()?,
-        })
+        let nfo = self.read_nfo()?;
+        let globals = self.read_globals()?;
+
+        Ok(Save { nfo, globals })
     }
 
     fn read_nfo(&self) -> Result<SaveNfo, String> {
-        let fields = &self.gffs[0].content.fields;
-        println!("{fields:?}");
+        let fields = &self.nfo.content.fields;
+
         Ok(SaveNfo {
             save_name: get_field!(fields, "SAVEGAMENAME")?,
             area_name: get_field!(fields, "AREANAME")?,
@@ -57,12 +59,11 @@ impl<'a> SaveReader<'a> {
     }
 
     fn read_globals(&self) -> Result<SaveGlobals, String> {
-        let globals = &self.gffs[1];
-        let fields = &globals.content.fields;
+        let fields = &self.globals.content.fields;
 
         let types: &[&str] = &["Number", "Boolean", "String"];
-        let mut names: Vec<Vec<String>> = Vec::with_capacity(types.len());
-        // Strings are stores as a struct list and go into a separate vector
+        let mut names: Vec<Vec<_>> = Vec::with_capacity(types.len());
+        // Strings are stored as a struct list and go into a separate vector
         let mut values = Vec::with_capacity(types.len() - 1);
         let mut string_values = &vec![];
 
@@ -97,6 +98,7 @@ impl<'a> SaveReader<'a> {
             .zip(values[0].into_iter().map(|v| *v))
             .collect();
 
+        let boolean_bytes: Vec<_> = values[1].into_iter().map(|b| b.reverse_bits()).collect();
         let mut booleans: Vec<_> = names
             .remove(0)
             .into_iter()
@@ -104,8 +106,8 @@ impl<'a> SaveReader<'a> {
             .map(|(idx, name)| {
                 let byte_idx = idx / 8;
                 let bit_idx = idx % 8;
-                let byte = values[1][byte_idx];
-                let bit = byte.reverse_bits() & (1 << bit_idx);
+                let byte = boolean_bytes[byte_idx];
+                let bit = byte & (1 << bit_idx);
 
                 (name, bit != 0)
             })
@@ -114,7 +116,6 @@ impl<'a> SaveReader<'a> {
         let mut strings: Vec<_> = names
             .remove(0)
             .into_iter()
-            .map(|s| s.clone())
             .zip(
                 string_values
                     .iter()

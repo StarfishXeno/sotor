@@ -1,29 +1,18 @@
-use std::mem::transmute;
-
 use serde::{Deserialize, Serialize};
+use sotor_macros::EnumFromInt;
 
 #[repr(u16)]
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, EnumFromInt, Serialize, Deserialize, PartialEq, Clone)]
 pub enum ResourceType {
     RES = 0,
     TXT = 10,
+    ARE = 2012,
+    IFO = 2014,
+    GIT = 2023,
     UTC = 2027,
     FAC = 2038,
     SAV = 2057,
 }
 
-impl TryFrom<u16> for ResourceType {
-    type Error = ();
 
-    fn try_from(id: u16) -> Result<Self, Self::Error> {
-        use ResourceType::*;
-        // why does it have to be this way, I don't want to type out every value again
-        let values = [RES, TXT, UTC, FAC, SAV].map(|v| v as u16);
-        
-        if values.contains(&id) {
-            Ok(unsafe { transmute(id) })
-        } else {
-            Err(())
-        }
-    }
-}
+ 
