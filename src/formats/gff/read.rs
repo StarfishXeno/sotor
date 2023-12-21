@@ -216,11 +216,11 @@ impl<'a> Reader<'a> {
                 7 => Simple(FieldValue::Int64(cast_bytes(&field_data[inner..]))),
                 8 => Simple(FieldValue::Float(cast_bytes(&inner.to_ne_bytes()))),
                 9 => Simple(FieldValue::Double(cast_bytes(&field_data[inner..]))),
-                10 => Simple(FieldValue::CExoString(
+                10 => Simple(FieldValue::String(
                     bytes_to_exo_string!(&field_data[inner..], u32)
                         .map_err(|_| rf!("Invalid CExoString data in field {i}: {label}"))?,
                 )),
-                11 => Simple(FieldValue::CResRef(
+                11 => Simple(FieldValue::ResRef(
                     bytes_to_exo_string!(&field_data[inner..], u8)
                         .map_err(|_| rf!("Invalid CResRef data in field {i}: {label}"))?,
                 )),
@@ -242,7 +242,7 @@ impl<'a> Reader<'a> {
                         strings.push(LocString { id, content });
                         offset += length;
                     }
-                    Simple(FieldValue::CExoLocString(str_ref, strings))
+                    Simple(FieldValue::LocString(str_ref, strings))
                 }
                 13 => Simple(FieldValue::Void(
                     sized_bytes_to_bytes!(&field_data[inner..], u32).into(),

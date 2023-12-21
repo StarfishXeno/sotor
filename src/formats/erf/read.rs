@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     formats::{LocString, ResourceType},
-    util::{bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to, DWORD_SIZE},
+    util::{bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to, ToUSizeVec, DWORD_SIZE},
 };
 
 use super::{Resource, ERF, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES, RESOURCE_SIZE};
@@ -30,8 +30,8 @@ struct KeyRead {
 }
 
 struct ResourceRead {
-    offset: u32,
-    size: u32,
+    offset: usize,
+    size: usize,
 }
 
 struct Reader<'a> {
@@ -150,7 +150,8 @@ impl<'a> Reader<'a> {
         let mut count = 0;
         while count < target_count {
             let dwords = read_dwords(&mut self.cursor, RESOURCE_SIZE)
-                .map_err(|_| rf!("Couldn't read Resource {}", count))?;
+                .map_err(|_| rf!("Couldn't read Resource {}", count))?
+                .to_usize_vec();
 
             count += 1;
             self.resources.push(ResourceRead {
@@ -176,7 +177,7 @@ impl<'a> Reader<'a> {
                 Resource {
                     id: key.id,
                     tp: key.res_type,
-                    content: read_bytes(&mut cursor, res.size as usize).map_err(|_| {
+                    content: read_bytes(&mut cursor, res.size).map_err(|_| {
                         rf!("Couldn't read resource content {idx} at {}", res.offset)
                     })?,
                 },

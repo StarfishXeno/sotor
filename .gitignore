@@ -1,2 +1,4 @@
+.vscode
 /target
+/macros/target
 log.txt

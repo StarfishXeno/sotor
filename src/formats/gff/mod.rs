@@ -1,5 +1,6 @@
 use super::LocString;
 use serde::{Deserialize, Serialize};
+use sotor_macros::{IntEnum, UnwrapVariant};
 use std::collections::HashMap;
 
 mod read;
@@ -39,7 +40,7 @@ pub struct Vector {
 }
 
 #[repr(u8)]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(IntEnum, UnwrapVariant, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum FieldValue {
     Byte(u8) = 0,
     Char(i8) = 1,
@@ -51,9 +52,9 @@ pub enum FieldValue {
     Int64(i64) = 7,
     Float(f32) = 8,
     Double(f64) = 9,
-    CExoString(String) = 10,
-    CResRef(String) = 11,
-    CExoLocString(u32, Vec<LocString>) = 12,
+    String(String) = 10,
+    ResRef(String) = 11,
+    LocString(u32, Vec<LocString>) = 12,
     Void(Vec<u8>) = 13,
     // boxing it cuts FieldValue size in half
     Struct(Box<Struct>) = 14,
@@ -62,14 +63,6 @@ pub enum FieldValue {
     Vector(Vector) = 17,
 }
 
-impl FieldValue {
-    fn get_type(&self) -> u32 {
-        let byte: u8 = unsafe { std::mem::transmute_copy(self) }; // LOL LMAO ISHYGDDT
-                                                                  // There's gotta be a safe & easy way to do this, right?
-                                                                  // first byte is the specified u8 tag so Word -> 2, Double -> 9, etc
-        byte as u32
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Struct {
@@ -91,9 +84,9 @@ mod tests {
 
     #[test]
     fn field_value_type() {
-        assert_eq!(FieldValue::Word(0).get_type(), 2);
-        assert_eq!(FieldValue::Double(0.0).get_type(), 9);
-        assert_eq!(FieldValue::Void(vec![]).get_type(), 13);
+        assert_eq!(FieldValue::Word(0).tag_to_int(), 2);
+        assert_eq!(FieldValue::Double(0.0).tag_to_int(), 9);
+        assert_eq!(FieldValue::Void(vec![]).tag_to_int(), 13);
     }
 
     #[test]
@@ -116,18 +109,21 @@ mod tests {
                     ("Double".to_owned(), FieldValue::Double(f64::MIN)),
                     (
                         "CExoString".to_owned(),
-                        FieldValue::CExoString("CExoString".to_owned()),
+                        FieldValue::String("CExoString".to_owned()),
                     ),
                     (
                         "CResRef".to_owned(),
-                        FieldValue::CResRef("CResRef".to_owned()),
+                        FieldValue::ResRef("CResRef".to_owned()),
                     ),
                     (
                         "CExoLocString".to_owned(),
-                        FieldValue::CExoLocString(u32::MAX, vec![LocString {
-                            id: 1,
-                            content: "LocString".to_owned(),
-                        }]),
+                        FieldValue::LocString(
+                            u32::MAX,
+                            vec![LocString {
+                                id: 1,
+                                content: "LocString".to_owned(),
+                            }],
+                        ),
                     ),
                     ("Void".to_owned(), FieldValue::Void(vec![0, 1, 2, 3])),
                     (

@@ -163,6 +163,7 @@ impl Writer {
                 keys_offset,
                 resources_offset,
             );
+            println!("******************");
         }
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();

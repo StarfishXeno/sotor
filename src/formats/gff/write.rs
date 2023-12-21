@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE};
-use crate::util::{array_to_bytes, bytes_to_sized_bytes, num_to_dword, DWORD_SIZE, nullpad_string};
+use crate::util::{array_to_bytes, bytes_to_sized_bytes, nullpad_string, num_to_dword, DWORD_SIZE};
 
 const MAX_LABEL_LEN: usize = 16;
 
@@ -105,7 +105,7 @@ impl Writer {
 
         let (tp, value): (u32, u32) = match field {
             FieldValueTmp::Simple(v) => {
-                let tp = v.get_type();
+                let tp = v.tag_to_int();
 
                 let value = match v {
                     Byte(v) => num_to_dword(v),
@@ -118,11 +118,11 @@ impl Writer {
                     Int64(v) => self.save_bytes(&v.to_le_bytes()),
                     Float(v) => num_to_dword(v),
                     Double(v) => self.save_bytes(&v.to_le_bytes()),
-                    CExoString(v) => {
+                    String(v) => {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes()))
                     }
-                    CResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
-                    CExoLocString(str_ref, v) => {
+                    ResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
+                    LocString(str_ref, v) => {
                         let string_count = v.len();
                         // Total Size will be added in the end
                         let mut bytes = Vec::with_capacity(string_count * 10 + 2 * DWORD_SIZE);
@@ -134,9 +134,7 @@ impl Writer {
                             // StringID
                             bytes.extend(s.id.to_le_bytes());
                             // Length + String itself
-                            bytes.extend(bytes_to_sized_bytes::<DWORD_SIZE>(
-                                s.content.as_bytes(),
-                            ));
+                            bytes.extend(bytes_to_sized_bytes::<DWORD_SIZE>(s.content.as_bytes()));
                         }
 
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&bytes))
@@ -147,10 +145,13 @@ impl Writer {
                     _ => unreachable!(),
                 };
 
-                (tp, value)
+                (tp as u32, value)
             }
-            FieldValueTmp::Struct(idx) => (14, idx as u32),
-            FieldValueTmp::List(indices) => (15, self.save_list_indices(&indices)),
+            FieldValueTmp::Struct(idx) => (FieldValue::str_to_int("Struct") as u32, idx as u32),
+            FieldValueTmp::List(indices) => (
+                FieldValue::str_to_int("List") as u32,
+                self.save_list_indices(&indices),
+            ),
         };
 
         self.field_count += 1;
@@ -267,7 +268,9 @@ impl Writer {
         // LIST INDICES
         let list_indices_offset = cursor.position();
         let list_indices_bytes = self.list_indices.len() * DWORD_SIZE;
-        cursor.write_all(&array_to_bytes(&self.list_indices)).unwrap();
+        cursor
+            .write_all(&array_to_bytes(&self.list_indices))
+            .unwrap();
         // HEADER
         if cfg!(debug_assertions) {
             wp!("Header: {file_type} {file_version}");
@@ -278,20 +281,22 @@ impl Writer {
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();
         cursor.write_all(file_version.as_bytes()).unwrap();
-        cursor.write_all(&array_to_bytes(&[
-            struct_offset as u32,
-            struct_count as u32,
-            field_offset as u32,
-            field_count as u32,
-            label_offset as u32,
-            label_count as u32,
-            field_data_offset as u32,
-            field_data_bytes as u32,
-            field_indices_offset as u32,
-            field_indices_bytes as u32,
-            list_indices_offset as u32,
-            list_indices_bytes as u32,
-        ])).unwrap();
+        cursor
+            .write_all(&array_to_bytes(&[
+                struct_offset as u32,
+                struct_count as u32,
+                field_offset as u32,
+                field_count as u32,
+                label_offset as u32,
+                label_count as u32,
+                field_data_offset as u32,
+                field_data_bytes as u32,
+                field_indices_offset as u32,
+                field_indices_bytes as u32,
+                list_indices_offset as u32,
+                list_indices_bytes as u32,
+            ]))
+            .unwrap();
 
         cursor.into_inner()
     }

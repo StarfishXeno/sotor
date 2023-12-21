@@ -73,7 +73,7 @@ mod tests {
                     Resource {
                         id: 0,
                         tp: ResourceType::TXT,
-                        content: b"pc".into(),
+                        content: (*b"pc").into(),
                     },
                 ),
                 (
@@ -81,7 +81,7 @@ mod tests {
                     Resource {
                         id: 1,
                         tp: ResourceType::TXT,
-                        content: b"inventory".into(),
+                        content: (*b"inventory").into(),
                     },
                 ),
             ]
