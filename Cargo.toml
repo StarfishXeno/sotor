@@ -5,6 +5,7 @@ description = "A Tauri App"
 authors = ["Starfish Xeno"]
 edition = "2021"
 rust-version = "1.74"
+build = "src-tauri/build.rs"
 
 [[bin]]
 name = "sotor"
