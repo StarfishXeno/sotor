@@ -1,10 +1,10 @@
 extern crate proc_macro;
 
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, parse_macro_input, Data, DeriveInput, Error, Fields};
-use convert_case::{Case, Casing};
+use syn::{parse_macro_input, spanned::Spanned, Data, DeriveInput, Error, Fields};
 
 macro_rules! derive_error {
     ($string: tt) => {
@@ -39,14 +39,13 @@ macro_rules! get_enum_repr {
             ident = Some(attr.parse_args().unwrap());
             break;
         }
-        if let Some(ident)  = ident {
+        if let Some(ident) = ident {
             ident
         } else {
             return derive_error!("Enum must have an int repr");
         }
     }};
 }
-
 
 #[proc_macro_derive(EnumToInt)]
 pub fn derive_enum_to_int(input: TokenStream) -> TokenStream {
@@ -64,6 +63,7 @@ pub fn derive_enum_to_int(input: TokenStream) -> TokenStream {
         };
 
         let v_name = &variant.ident;
+        let str_name = v_name.to_string();
         let fields_in_variant = match &variant.fields {
             Fields::Unnamed(_) => quote_spanned! {variant.span()=> (..) },
             Fields::Unit => quote_spanned! { variant.span()=> },
@@ -74,7 +74,7 @@ pub fn derive_enum_to_int(input: TokenStream) -> TokenStream {
             #name::#v_name #fields_in_variant => #v_value,
         });
         str_to_int_arms.extend(quote! {
-            "#v_name" => #v_value,
+            #str_name => #v_value,
         });
     }
 
@@ -87,7 +87,7 @@ pub fn derive_enum_to_int(input: TokenStream) -> TokenStream {
                     #to_int_arms
                 }
             }
-            pub fn str_to_int(variant: &str) -> #repr {
+            pub fn str_to_int(variant: &'static str) -> #repr {
                 match variant {
                     #str_to_int_arms
                     _ => panic!("Variant should match one of the enum variants")
@@ -115,14 +115,13 @@ pub fn derive_enum_from_int(input: TokenStream) -> TokenStream {
 
         let v_name = &variant.ident;
         match &variant.fields {
-            Fields::Unit => {},
+            Fields::Unit => {}
             _ => continue,
         };
 
         match_arms.extend(quote! {
             #v_value => Ok(#name::#v_name),
         });
-
     }
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -130,12 +129,61 @@ pub fn derive_enum_from_int(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl #impl_generics TryFrom<#repr> for #name #ty_generics #where_clause {
             type Error = ();
-        
+
             fn try_from(id: #repr) -> Result<Self, Self::Error> {
                 match id {
                     #match_arms
                     _ => Err(())
                 }
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(EnumToString)]
+pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
+    let (name, input, data) = parse_enum!(input);
+
+    let mut match_arms = TokenStream2::new();
+    let mut list = TokenStream2::new();
+    let count = data.variants.len();
+
+    for variant in &data.variants {
+        let v_name = &variant.ident;
+        let str_name = v_name.to_string();
+        let mut is_unit = false;
+        let fields_in_variant = match &variant.fields {
+            Fields::Unnamed(_) => quote_spanned! {variant.span()=> (..) },
+            Fields::Unit => {
+                is_unit = true;
+                quote_spanned! { variant.span()=> }
+            }
+            Fields::Named(_) => quote_spanned! {variant.span()=> {..} },
+        };
+
+        match_arms.extend(quote_spanned! {variant.span()=>
+            #name::#v_name #fields_in_variant => #str_name,
+        });
+        if is_unit {
+            list.extend(quote_spanned! {variant.span()=>
+                #name::#v_name,
+            })
+        }
+    }
+
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let expanded = quote! {
+        impl #impl_generics #name #ty_generics #where_clause {
+            const UNIT_VALUES: [#name; #count] = [#list];
+        }
+        impl #impl_generics std::fmt::Display for #name #ty_generics #where_clause {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", match self {
+                    #match_arms
+                })
             }
         }
     };
@@ -189,8 +237,6 @@ pub fn derive_unwrap_variant(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #impl_generics #name #ty_generics #where_clause {
-            // variant_checker_functions gets replaced by all the functions
-            // that were constructed above
             #generated
         }
     };

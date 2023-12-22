@@ -12,15 +12,15 @@ pub struct SaveGlobals {
     strings: Vec<(String, String)>,
 }
 pub struct SaveNfo {
-    save_name: String,
-    area_name: String,
-    last_module: String,
-    cheat_used: bool,
-    time_played: u32,
+    pub save_name: String,
+    pub area_name: String,
+    pub last_module: String,
+    pub cheats_used: bool,
+    pub time_played: u32,
 }
 pub struct Save {
-    globals: SaveGlobals,
-    nfo: SaveNfo
+    pub globals: SaveGlobals,
+    pub nfo: SaveNfo
 }
 
 const GFF_NAMES: &[&str] = &["savenfo.res", "globalvars.res", "partytable.res"];

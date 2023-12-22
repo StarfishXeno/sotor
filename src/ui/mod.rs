@@ -1,50 +1,94 @@
-use crate::util::Save;
+use egui::{Color32, Rect, Response, TextBuffer, Ui, Vec2};
+use egui_extras::{Size, StripBuilder};
+use sotor_macros::EnumToString;
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-//#[derive(serde::Deserialize, serde::Serialize)]
-//#[serde(default)] // if we add new fields, give them default values when deserializing old state
+use crate::util::{seconds_to_time, Save};
+
+#[derive(EnumToString, PartialEq, Clone, Copy)]
+enum Tab {
+    General,
+    Globals,
+    Characters,
+    Inventory,
+    Quests,
+}
+
 pub struct TemplateApp {
-    save: Save
+    save: Save,
+    tab: Tab,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
-            save: Save::read_from_directory("./save/").unwrap()
+            save: Save::read_from_directory("./save/").unwrap(),
+            tab: Tab::General,
         }
     }
 }
 
+fn text_edit<'t>(ui: &mut Ui, text: &'t mut dyn TextBuffer, enabled: bool) -> Response {
+    ui.add_enabled(
+        enabled,
+        egui::TextEdit::singleline(text)
+            .vertical_align(egui::Align::Center)
+            .text_color(Color32::WHITE)
+            .min_size(Vec2::new(300.0, 0.0)),
+    )
+}
+
 impl TemplateApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_: &eframe::CreationContext<'_>) -> Self {
         Default::default()
+    }
+
+    fn show_general(&mut self, ui: &mut Ui) {
+        let nfo = &mut self.save.nfo;
+        egui::Grid::new("save_general")
+            .num_columns(4)
+            .spacing([20.0, 4.0])
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("Save name: ");
+                text_edit(ui, &mut nfo.save_name, true);
+                ui.label("Area name: ");
+                text_edit(ui, &mut nfo.area_name, false);
+                ui.end_row();
+
+                ui.label("Time played: ");
+                text_edit(ui, &mut seconds_to_time(nfo.time_played), false);
+                ui.label("Cheats used: ");
+                ui.checkbox(&mut nfo.cheats_used, "");
+                ui.end_row();
+
+                ui.label("Credits: ");
+                ui.label("Party XP: ");
+                ui.checkbox(&mut nfo.cheats_used, "");
+                ui.end_row();
+            });
     }
 }
 
 impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
-
+        egui::TopBottomPanel::top("save_tabs").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label("Write something: ");
+                for val in Tab::UNIT_VALUES {
+                    let btn = ui.button(val.to_string());
+                    if btn.clicked() {
+                        self.tab = val;
+                    }
+                    if self.tab == val {
+                        btn.highlight();
+                    }
+                }
             });
-
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
+        });
+        egui::CentralPanel::default().show(ctx, |ui| match self.tab {
+            Tab::General => self.show_general(ui),
+            _ => {}
         });
     }
 }

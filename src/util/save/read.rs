@@ -53,7 +53,7 @@ impl<'a> SaveReader<'a> {
             save_name: get_field!(fields, "SAVEGAMENAME")?,
             area_name: get_field!(fields, "AREANAME")?,
             last_module: get_field!(fields, "LASTMODULE")?,
-            cheat_used: get_field!(fields, "CHEATUSED", unwrap_byte)? != 0,
+            cheats_used: get_field!(fields, "CHEATUSED", unwrap_byte)? != 0,
             time_played: get_field!(fields, "TIMEPLAYED", unwrap_dword)?,
         })
     }
