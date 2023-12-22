@@ -60,12 +60,12 @@ pub fn read_bytes<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Ve
 }
 // reads <count> chunks of <chunk_size> into a buffer
 pub fn read_chunks<T: Read + Seek>(
-    reader: &mut T, 
+    reader: &mut T,
     count: usize,
     chunk_size: usize,
 ) -> io::Result<Vec<Vec<u8>>> {
     let buf = read_bytes(reader, count * chunk_size)?;
-    let result = buf.chunks_exact(chunk_size).map(|c| c.into()).collect();
+    let result = buf.chunks_exact(chunk_size).map(Into::into).collect();
 
     Ok(result)
 }
@@ -78,10 +78,11 @@ pub fn read_dwords<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<V
 }
 
 pub fn bytes_to_string(value: &[u8]) -> Result<String, Utf8Error> {
-    str::from_utf8(value).map(|str| str.to_owned())
+    str::from_utf8(value).map(str::to_owned)
 }
 
 // turns numerics (u16, f32, etc) into a u32, T can't be more than 4 bytes
+#[allow(clippy::needless_pass_by_value)]
 pub fn num_to_dword<T: ToBytes<SIZE>, const SIZE: usize>(num: T) -> u32 {
     assert!(SIZE <= 4, "T can't be larger than 4 bytes");
     let mut buf = [0u8; 4];
@@ -137,7 +138,7 @@ macro_rules! impl_to_bytes {
 impl_to_bytes!(u8 i8 u16 i16 u32 i32 u64 i64 f32 f64);
 
 pub fn array_to_bytes<T: ToBytes<SIZE>, const SIZE: usize>(data: &[T]) -> Vec<u8> {
-    let vec: Vec<u8> = data.iter().flat_map(|i| i.to_le_bytes()).collect();
+    let vec: Vec<u8> = data.iter().flat_map(T::to_le_bytes).collect();
     vec
 }
 macro_rules! seek_to {
@@ -153,7 +154,7 @@ pub(crate) use seek_to;
 pub fn nullpad_string(mut str: String, to_len: usize) -> String {
     let len = str.len();
     if len < to_len {
-        str.push_str(&"\0".repeat(to_len - len))
+        str.push_str(&"\0".repeat(to_len - len));
     }
     str
 }
