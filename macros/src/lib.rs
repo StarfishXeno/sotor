@@ -56,9 +56,7 @@ pub fn derive_enum_to_int(input: TokenStream) -> TokenStream {
     let mut str_to_int_arms = TokenStream2::new();
 
     for variant in &data.variants {
-        let v_value = if let Some((_, val)) = &variant.discriminant {
-            val
-        } else {
+        let Some((_, v_value)) = &variant.discriminant else {
             return derive_error!("Every IntEnum variant must have a defined disciminant");
         };
 
@@ -107,9 +105,7 @@ pub fn derive_enum_from_int(input: TokenStream) -> TokenStream {
     let mut match_arms = TokenStream2::new();
 
     for variant in &data.variants {
-        let v_value = if let Some((_, val)) = &variant.discriminant {
-            val
-        } else {
+        let Some((_, v_value)) = &variant.discriminant else {
             return derive_error!("Every EnumFromInt variant must have a defined disciminant");
         };
 
@@ -169,7 +165,7 @@ pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
         if is_unit {
             list.extend(quote_spanned! {variant.span()=>
                 #name::#v_name,
-            })
+            });
         }
     }
 

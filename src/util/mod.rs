@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use chrono::{Datelike, NaiveDate};
 
 mod bytes;
@@ -24,7 +22,7 @@ pub fn seconds_to_time(secs: u32) -> String {
     let minutes = secs / 60 % 60;
     let hours = secs / 60 / 60 % 24;
     let days = secs / 60 / 60 / 24;
-    
+
     if days > 0 {
         format!("{days}d {hours}h {minutes}m {seconds}s")
     } else if hours > 0 {

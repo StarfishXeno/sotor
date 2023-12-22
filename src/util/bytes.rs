@@ -60,7 +60,7 @@ pub fn read_bytes<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Ve
 }
 // reads <count> chunks of <chunk_size> into a buffer
 pub fn read_chunks<T: Read + Seek>(
-    reader: &mut T,
+    reader: &mut T, 
     count: usize,
     chunk_size: usize,
 ) -> io::Result<Vec<Vec<u8>>> {
@@ -110,7 +110,7 @@ where
     E: Debug,
 {
     fn to_usize_vec(self) -> Vec<usize> {
-        self.into_iter()
+        self.iter()
             .map(|i| (*i).clone().try_into().unwrap())
             .collect()
     }
@@ -137,7 +137,7 @@ macro_rules! impl_to_bytes {
 impl_to_bytes!(u8 i8 u16 i16 u32 i32 u64 i64 f32 f64);
 
 pub fn array_to_bytes<T: ToBytes<SIZE>, const SIZE: usize>(data: &[T]) -> Vec<u8> {
-    let vec: Vec<u8> = data.into_iter().flat_map(|i| i.to_le_bytes()).collect();
+    let vec: Vec<u8> = data.iter().flat_map(|i| i.to_le_bytes()).collect();
     vec
 }
 macro_rules! seek_to {

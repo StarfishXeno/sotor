@@ -33,12 +33,12 @@ impl fmt::Debug for Resource {
         f.debug_struct("Resource")
             .field("id", &self.id)
             .field("tp", &self.tp)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct ERF {
+pub struct Erf {
     pub file_type: String,
     pub file_version: String,
     pub build_year: u32,
@@ -51,17 +51,19 @@ pub struct ERF {
 
 #[cfg(test)]
 mod tests {
-    use crate::{formats::{
-        erf::{read, write, Resource, ERF},
-        LocString, ResourceType,
-    }, util::get_erf_date};
+    use crate::{
+        formats::{
+            erf::{read, write, Erf, Resource},
+            LocString, ResourceType,
+        },
+        util::get_erf_date,
+    };
 
     #[test]
     fn read_write() {
-
         let (build_year, build_day) = get_erf_date();
-        
-        let erf = ERF {
+
+        let erf = Erf {
             file_type: "TST ".to_owned(),
             file_version: "V0.0".to_owned(),
             build_year,
@@ -72,7 +74,7 @@ mod tests {
                     "pc".to_owned(),
                     Resource {
                         id: 0,
-                        tp: ResourceType::TXT,
+                        tp: ResourceType::Txt,
                         content: (*b"pc").into(),
                     },
                 ),
@@ -80,7 +82,7 @@ mod tests {
                     "inventory".to_owned(),
                     Resource {
                         id: 1,
-                        tp: ResourceType::TXT,
+                        tp: ResourceType::Txt,
                         content: (*b"inventory").into(),
                     },
                 ),

@@ -1,17 +1,17 @@
 use super::read_file;
 use crate::formats::{
-    erf::{self, ERF},
-    gff::{self, FieldValue, GFF},
+    erf::{self, Erf},
+    gff::{self, FieldValue, Gff},
 };
 
 mod read;
 
-pub struct SaveGlobals {
+pub struct Globals {
     booleans: Vec<(String, bool)>,
     numbers: Vec<(String, u8)>,
     strings: Vec<(String, String)>,
 }
-pub struct SaveNfo {
+pub struct Nfo {
     pub save_name: String,
     pub area_name: String,
     pub last_module: String,
@@ -19,8 +19,8 @@ pub struct SaveNfo {
     pub time_played: u32,
 }
 pub struct Save {
-    pub globals: SaveGlobals,
-    pub nfo: SaveNfo
+    pub globals: Globals,
+    pub nfo: Nfo,
 }
 
 const GFF_NAMES: &[&str] = &["savenfo.res", "globalvars.res", "partytable.res"];

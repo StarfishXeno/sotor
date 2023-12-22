@@ -27,7 +27,7 @@ impl Default for TemplateApp {
     }
 }
 
-fn text_edit<'t>(ui: &mut Ui, text: &'t mut dyn TextBuffer, enabled: bool) -> Response {
+fn text_edit(ui: &mut Ui, text: &mut dyn TextBuffer, enabled: bool) -> Response {
     ui.add_enabled(
         enabled,
         egui::TextEdit::singleline(text)
@@ -40,7 +40,7 @@ fn text_edit<'t>(ui: &mut Ui, text: &'t mut dyn TextBuffer, enabled: bool) -> Re
 impl TemplateApp {
     /// Called once before the first frame.
     pub fn new(_: &eframe::CreationContext<'_>) -> Self {
-        Default::default()
+        TemplateApp::default()
     }
 
     fn show_general(&mut self, ui: &mut Ui) {
@@ -88,6 +88,7 @@ impl eframe::App for TemplateApp {
         });
         egui::CentralPanel::default().show(ctx, |ui| match self.tab {
             Tab::General => self.show_general(ui),
+            Tab::Globals => {}
             _ => {}
         });
     }

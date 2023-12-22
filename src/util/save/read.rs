@@ -1,9 +1,9 @@
 use crate::formats::{
-    erf::{self, ERF},
-    gff::{self, FieldValue, Struct, GFF},
+    erf::{self, Erf},
+    gff::{self, FieldValue, Gff, Struct},
 };
 
-use super::{Save, SaveGlobals, SaveNfo};
+use super::{Globals, Nfo, Save};
 
 macro_rules! rf {
     ($($t:tt)*) => {{
@@ -24,13 +24,13 @@ macro_rules! get_field {
 }
 
 pub struct SaveReader<'a> {
-    nfo: &'a GFF,
-    globals: &'a GFF,
-    party_table: &'a GFF,
-    erf: &'a ERF,
+    nfo: &'a Gff,
+    globals: &'a Gff,
+    party_table: &'a Gff,
+    erf: &'a Erf,
 }
 impl<'a> SaveReader<'a> {
-    pub fn new(nfo: &'a GFF, globals: &'a GFF, party_table: &'a GFF, erf: &'a ERF) -> Self {
+    pub fn new(nfo: &'a Gff, globals: &'a Gff, party_table: &'a Gff, erf: &'a Erf) -> Self {
         Self {
             nfo,
             globals,
@@ -43,13 +43,13 @@ impl<'a> SaveReader<'a> {
         let nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
 
-        Ok(Save { nfo, globals })
+        Ok(Save { globals, nfo })
     }
 
-    fn read_nfo(&self) -> Result<SaveNfo, String> {
+    fn read_nfo(&self) -> Result<Nfo, String> {
         let fields = &self.nfo.content.fields;
 
-        Ok(SaveNfo {
+        Ok(Nfo {
             save_name: get_field!(fields, "SAVEGAMENAME")?,
             area_name: get_field!(fields, "AREANAME")?,
             last_module: get_field!(fields, "LASTMODULE")?,
@@ -58,7 +58,7 @@ impl<'a> SaveReader<'a> {
         })
     }
 
-    fn read_globals(&self) -> Result<SaveGlobals, String> {
+    fn read_globals(&self) -> Result<Globals, String> {
         let fields = &self.globals.content.fields;
 
         let types: &[&str] = &["Number", "Boolean", "String"];
@@ -68,12 +68,9 @@ impl<'a> SaveReader<'a> {
         let mut string_values = &vec![];
 
         for tp in types {
-            let name_list =
-                if let Some(FieldValue::List(list)) = fields.get(&("Cat".to_owned() + tp)) {
-                    list
-                } else {
-                    return Err(rf!("Globals: missing or invalid Cat{tp}"));
-                };
+            let Some(FieldValue::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
+                return Err(rf!("Globals: missing or invalid Cat{tp}"));
+            };
 
             let val = fields.get(&("Val".to_owned() + tp));
             if let Some(FieldValue::Void(bytes)) = val {
@@ -86,7 +83,7 @@ impl<'a> SaveReader<'a> {
 
             names.push(
                 name_list
-                    .into_iter()
+                    .iter()
                     .map(|s| get_field!(s.fields, "Name").unwrap())
                     .collect(),
             );
@@ -95,10 +92,10 @@ impl<'a> SaveReader<'a> {
         let mut numbers: Vec<_> = names
             .remove(0)
             .into_iter()
-            .zip(values[0].into_iter().map(|v| *v))
+            .zip(values[0].iter().copied())
             .collect();
 
-        let boolean_bytes: Vec<_> = values[1].into_iter().map(|b| b.reverse_bits()).collect();
+        let boolean_bytes: Vec<_> = values[1].iter().map(|b| b.reverse_bits()).collect();
         let mut booleans: Vec<_> = names
             .remove(0)
             .into_iter()
@@ -127,7 +124,7 @@ impl<'a> SaveReader<'a> {
         numbers.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
         strings.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
 
-        Ok(SaveGlobals {
+        Ok(Globals {
             booleans,
             numbers,
             strings,

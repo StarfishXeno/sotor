@@ -1,9 +1,12 @@
 use std::io::{Cursor, Seek, Write};
 
-use crate::{util::{array_to_bytes, bytes_to_sized_bytes, get_erf_date, nullpad_string, DWORD_SIZE}, formats::ResourceType};
+use crate::{
+    formats::ResourceType,
+    util::{array_to_bytes, bytes_to_sized_bytes, get_erf_date, nullpad_string, DWORD_SIZE},
+};
 
 use super::{
-    Resource, ERF, HEADER_PADDING_SIZE_BYTES, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES,
+    Erf, Resource, HEADER_PADDING_SIZE_BYTES, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES,
     RESOURCE_SIZE,
 };
 
@@ -13,7 +16,7 @@ struct KeyWrite {
     tp: ResourceType,
 }
 
-struct ResourseWrite {
+struct ResourceWrite {
     offset: u32,
     size: u32,
 }
@@ -26,7 +29,7 @@ pub struct Writer {
     loc_strings: Vec<u8>,
     loc_strings_count: u32,
     keys: Vec<KeyWrite>,
-    resources: Vec<ResourseWrite>,
+    resources: Vec<ResourceWrite>,
     data: Vec<u8>,
 }
 
@@ -42,7 +45,7 @@ macro_rules! wp {
 }
 
 impl Writer {
-    fn new(erf: ERF) -> Self {
+    fn new(erf: Erf) -> Self {
         let len = erf.resources.len();
         let mut keys = Vec::with_capacity(len);
         let mut resources = Vec::with_capacity(len);
@@ -69,7 +72,7 @@ impl Writer {
             let size = r.content.len() as u32;
             data.extend(r.content);
 
-            resources.push(ResourseWrite { offset, size })
+            resources.push(ResourceWrite { offset, size });
         }
 
         let mut loc_strings = vec![];
@@ -79,7 +82,7 @@ impl Writer {
             loc_strings.extend(bytes_to_sized_bytes::<DWORD_SIZE>(str.content.as_bytes()));
         }
 
-        let w = Self {
+        Self {
             file_type: erf.file_type,
             file_version: erf.file_version,
             description_str_ref: erf.description_str_ref,
@@ -89,12 +92,10 @@ impl Writer {
             keys,
             resources,
             data,
-        };
-
-        w
+        }
     }
 
-    fn to_bytes(self) -> Vec<u8> {
+    fn into_bytes(self) -> Vec<u8> {
         let buf = Vec::with_capacity(
             HEADER_SIZE * DWORD_SIZE
                 + HEADER_PADDING_SIZE_BYTES
@@ -170,22 +171,22 @@ impl Writer {
         cursor.write_all(file_version.as_bytes()).unwrap();
         cursor
             .write_all(&array_to_bytes(&[
-                loc_string_count as u32,
+                loc_string_count,
                 loc_string_bytes as u32,
                 entry_count as u32,
                 loc_string_offset as u32,
                 keys_offset as u32,
                 resources_offset as u32,
-                build_year as u32,
-                build_day as u32,
-                description_str_ref as u32,
+                build_year,
+                build_day,
+                description_str_ref,
             ]))
             .unwrap();
 
         cursor.into_inner()
     }
 }
-pub fn write(erf: ERF) -> Vec<u8> {
+pub fn write(erf: Erf) -> Vec<u8> {
     let writer = Writer::new(erf);
-    writer.to_bytes()
+    writer.into_bytes()
 }

@@ -3,7 +3,7 @@ use std::{
     io::{Cursor, Seek, Write},
 };
 
-use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE};
+use super::{FieldValue, FieldValueTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE};
 use crate::util::{array_to_bytes, bytes_to_sized_bytes, nullpad_string, num_to_dword, DWORD_SIZE};
 
 const MAX_LABEL_LEN: usize = 16;
@@ -44,7 +44,7 @@ macro_rules! wp {
 }
 
 impl Writer {
-    fn new(gff: GFF) -> Self {
+    fn new(gff: Gff) -> Self {
         let mut w = Self {
             file_type: gff.file_type,
             file_version: gff.file_version,
@@ -95,7 +95,7 @@ impl Writer {
 
         self.list_indices.push(size);
         self.list_indices
-            .extend(indices.into_iter().map(|i| (*i as u32)));
+            .extend(indices.iter().map(|i| (*i as u32)));
 
         (idx * DWORD_SIZE) as u32
     }
@@ -118,9 +118,7 @@ impl Writer {
                     Int64(v) => self.save_bytes(&v.to_le_bytes()),
                     Float(v) => num_to_dword(v),
                     Double(v) => self.save_bytes(&v.to_le_bytes()),
-                    String(v) => {
-                        self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes()))
-                    }
+                    String(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes())),
                     ResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
                     LocString(str_ref, v) => {
                         let string_count = v.len();
@@ -159,7 +157,7 @@ impl Writer {
             tp,
             label_index: label_index as u32,
             content: value,
-        })
+        });
     }
 
     fn save_struct(&mut self, tp: u32, my_idx: usize, field_count: u32) -> usize {
@@ -179,7 +177,7 @@ impl Writer {
         let my_idx = self.fields.len();
         self.fields.push(Vec::with_capacity(field_count));
 
-        for (label, value) in s.fields.into_iter() {
+        for (label, value) in s.fields {
             let label_idx = self.save_label(label);
 
             match value {
@@ -205,7 +203,7 @@ impl Writer {
         my_idx
     }
 
-    fn to_bytes(mut self) -> Vec<u8> {
+    fn into_bytes(mut self) -> Vec<u8> {
         let buf = Vec::with_capacity(self.fields.len() * 12 * DWORD_SIZE);
         let mut cursor = Cursor::new(buf);
         let field_count = self.field_count;
@@ -245,7 +243,7 @@ impl Writer {
                 }
                 (index_offset * DWORD_SIZE) as u32
             };
-            let data = [s.tp, idx as u32, s.field_count];
+            let data = [s.tp, idx, s.field_count];
             cursor.write_all(&array_to_bytes(&data)).unwrap();
         }
         // FIELDS
@@ -301,7 +299,7 @@ impl Writer {
         cursor.into_inner()
     }
 }
-pub fn write(gff: GFF) -> Vec<u8> {
+pub fn write(gff: Gff) -> Vec<u8> {
     let writer = Writer::new(gff);
-    writer.to_bytes()
+    writer.into_bytes()
 }

@@ -1,7 +1,4 @@
-use crate::{
-    formats::{erf, gff},
-    util::{read_file, get_erf_date}, ui::TemplateApp,
-};
+use crate::ui::TemplateApp;
 
 mod formats;
 mod ui;
@@ -16,7 +13,7 @@ fn main() -> eframe::Result<()> {
             .with_min_inner_size([900.0, 540.0]),
         ..Default::default()
     };
-    
+
     eframe::run_native(
         "Saves of The Old Republic",
         native_options,

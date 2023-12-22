@@ -1,4 +1,4 @@
-use super::{FieldValue, FieldValueTmp, Struct, FIELD_SIZE, GFF, HEADER_SIZE, STRUCT_SIZE};
+use super::{FieldValue, FieldValueTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE, STRUCT_SIZE};
 use crate::{
     formats::{
         gff::{Orientation, Vector},
@@ -121,10 +121,10 @@ impl<'a> Reader<'a> {
         })?;
         let mut offset = 0;
 
-        while dwords.len() > 0 {
+        while !dwords.is_empty() {
             let size = dwords[0] as usize;
             let end = size + 1;
-            let indices = &dwords[1..size + 1];
+            let indices = &dwords[1..=size];
 
             self.list_indices
                 .insert(offset * DWORD_SIZE, indices.to_usize_vec());
@@ -225,7 +225,7 @@ impl<'a> Reader<'a> {
                         .map_err(|_| rf!("Invalid CResRef data in field {i}: {label}"))?,
                 )),
                 12 => {
-                    let str_ref: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 1..]);
+                    let str_ref: u32 = cast_bytes(&field_data[inner + DWORD_SIZE..]);
                     let count: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 2..]);
                     let mut offset = inner + DWORD_SIZE * 3;
                     let mut strings = Vec::with_capacity(count as usize);
@@ -236,9 +236,7 @@ impl<'a> Reader<'a> {
                         let length = length as usize;
                         offset += DWORD_SIZE;
                         let content = bytes_to_string(&field_data[offset..offset + length])
-                            .map_err(|_| {
-                                rf!("Invalid CExoLocString {j} in field {i}: {label}")
-                            })?;
+                            .map_err(|_| rf!("Invalid CExoLocString {j} in field {i}: {label}"))?;
                         strings.push(LocString { id, content });
                         offset += length;
                     }
@@ -261,8 +259,8 @@ impl<'a> Reader<'a> {
                     let bytes = &field_data[inner..];
 
                     Simple(FieldValue::Orientation(Orientation {
-                        w: cast_bytes(&bytes[SIZE * 0..]),
-                        x: cast_bytes(&bytes[SIZE * 1..]),
+                        w: cast_bytes(&bytes[0..]),
+                        x: cast_bytes(&bytes[SIZE..]),
                         y: cast_bytes(&bytes[SIZE * 2..]),
                         z: cast_bytes(&bytes[SIZE * 3..]),
                     }))
@@ -272,8 +270,8 @@ impl<'a> Reader<'a> {
                     let bytes = &field_data[inner..];
 
                     Simple(FieldValue::Vector(Vector {
-                        x: cast_bytes(&bytes[SIZE * 0..]),
-                        y: cast_bytes(&bytes[SIZE * 1..]),
+                        x: cast_bytes(&bytes[0..]),
+                        y: cast_bytes(&bytes[SIZE..]),
                         z: cast_bytes(&bytes[SIZE * 2..]),
                     }))
                 }
@@ -324,7 +322,7 @@ impl<'a> Reader<'a> {
             }
             FieldValueTmp::List(indices) => {
                 let structs: Vec<Struct> = indices
-                    .into_iter()
+                    .iter()
                     .map(|idx| self.transform_struct(&self.structs[*idx]))
                     .collect();
 
@@ -345,8 +343,8 @@ impl<'a> Reader<'a> {
         }
     }
 
-    fn transform(self) -> GFF {
-        GFF {
+    fn transform(self) -> Gff {
+        Gff {
             content: self.transform_struct(&self.structs[0]),
 
             file_type: self.h.file_type,
@@ -355,7 +353,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8]) -> Result<GFF, String> {
+pub fn read(bytes: &[u8]) -> Result<Gff, String> {
     let mut cursor = Cursor::new(bytes);
     let h = Reader::read_header(&mut cursor)?;
     if cfg!(debug_assertions) {

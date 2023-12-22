@@ -72,7 +72,7 @@ pub struct Struct {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct GFF {
+pub struct Gff {
     pub file_type: String,
     pub file_version: String,
     pub content: Struct,
@@ -80,7 +80,7 @@ pub struct GFF {
 
 #[cfg(test)]
 mod tests {
-    use super::{read, write, FieldValue, LocString, Struct, GFF};
+    use super::{read, write, FieldValue, LocString, Struct, Gff};
 
     #[test]
     fn field_value_type() {
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn read_write() {
-        let gff = GFF {
+        let gff = Gff {
             file_type: "TST ".to_owned(),
             file_version: "V0.0".to_owned(),
             content: Struct {

@@ -13,3 +13,6 @@ convert_case = "0.4.0"
 
 [lib]
 proc-macro = true
+
+[lints]
+workspace = true

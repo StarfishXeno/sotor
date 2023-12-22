@@ -8,7 +8,7 @@ use crate::{
     util::{bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to, ToUSizeVec, DWORD_SIZE},
 };
 
-use super::{Resource, ERF, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES, RESOURCE_SIZE};
+use super::{Erf, Resource, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES, RESOURCE_SIZE};
 
 struct Header {
     file_type: String,
@@ -70,7 +70,7 @@ impl<'a> Reader<'a> {
             .map_err(|_| rf!("Couldn't parse file_type"))?;
         let file_version = bytes_to_string(&dwords[1].to_ne_bytes())
             .map_err(|_| rf!("Couldn't parse file_version"))?;
-        let mut dwords = dwords[2..].into_iter().copied();
+        let mut dwords = dwords[2..].iter().copied();
 
         Ok(Header {
             file_type,
@@ -163,7 +163,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn transform(self) -> Result<ERF, String> {
+    fn transform(self) -> Result<Erf, String> {
         let mut resources = HashMap::with_capacity(self.h.entry_count);
         let mut cursor = Cursor::new(self.cursor.into_inner());
 
@@ -184,7 +184,7 @@ impl<'a> Reader<'a> {
             );
         }
 
-        Ok(ERF {
+        Ok(Erf {
             file_type: self.h.file_type,
             file_version: self.h.file_version,
             build_year: self.h.build_year,
@@ -197,7 +197,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8]) -> Result<ERF, String> {
+pub fn read(bytes: &[u8]) -> Result<Erf, String> {
     let mut cursor = Cursor::new(bytes);
     let h = Reader::read_header(&mut cursor)?;
     if cfg!(debug_assertions) {
