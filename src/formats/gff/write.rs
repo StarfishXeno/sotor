@@ -3,7 +3,7 @@ use std::{
     io::{Cursor, Seek, Write},
 };
 
-use super::{FieldValue, FieldValueTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE};
+use super::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE};
 use crate::util::{array_to_bytes, bytes_to_sized_bytes, nullpad_string, num_to_dword, DWORD_SIZE};
 
 const MAX_LABEL_LEN: usize = 16;
@@ -100,27 +100,27 @@ impl Writer {
         (idx * DWORD_SIZE) as u32
     }
 
-    fn save_field(&mut self, block_idx: usize, field: FieldValueTmp, label_index: usize) {
-        use FieldValue::*;
-
+    fn save_field(&mut self, block_idx: usize, field: FieldTmp, label_index: usize) {
         let (tp, value): (u32, u32) = match field {
-            FieldValueTmp::Simple(v) => {
+            FieldTmp::Simple(v) => {
                 let tp = v.to_int();
 
                 let value = match v {
-                    Byte(v) => num_to_dword(v),
-                    Char(v) => num_to_dword(v),
-                    Word(v) => num_to_dword(v),
-                    Short(v) => num_to_dword(v),
-                    Dword(v) => num_to_dword(v),
-                    Int(v) => num_to_dword(v),
-                    Dword64(v) => self.save_bytes(&v.to_le_bytes()),
-                    Int64(v) => self.save_bytes(&v.to_le_bytes()),
-                    Float(v) => num_to_dword(v),
-                    Double(v) => self.save_bytes(&v.to_le_bytes()),
-                    String(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes())),
-                    ResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
-                    LocString(str_ref, v) => {
+                    Field::Byte(v) => num_to_dword(v),
+                    Field::Char(v) => num_to_dword(v),
+                    Field::Word(v) => num_to_dword(v),
+                    Field::Short(v) => num_to_dword(v),
+                    Field::Dword(v) => num_to_dword(v),
+                    Field::Int(v) => num_to_dword(v),
+                    Field::Dword64(v) => self.save_bytes(&v.to_le_bytes()),
+                    Field::Int64(v) => self.save_bytes(&v.to_le_bytes()),
+                    Field::Float(v) => num_to_dword(v),
+                    Field::Double(v) => self.save_bytes(&v.to_le_bytes()),
+                    Field::String(v) => {
+                        self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes()))
+                    }
+                    Field::ResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
+                    Field::LocString(str_ref, v) => {
                         let string_count = v.len();
                         // Total Size will be added in the end
                         let mut bytes = Vec::with_capacity(string_count * 10 + 2 * DWORD_SIZE);
@@ -137,17 +137,19 @@ impl Writer {
 
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&bytes))
                     }
-                    Void(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v)),
-                    Orientation(v) => self.save_bytes(&array_to_bytes(&[v.w, v.x, v.y, v.z])),
-                    Vector(v) => self.save_bytes(&array_to_bytes(&[v.x, v.y, v.z])),
+                    Field::Void(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v)),
+                    Field::Orientation(v) => {
+                        self.save_bytes(&array_to_bytes(&[v.w, v.x, v.y, v.z]))
+                    }
+                    Field::Vector(v) => self.save_bytes(&array_to_bytes(&[v.x, v.y, v.z])),
                     _ => unreachable!(),
                 };
 
                 (tp as u32, value)
             }
-            FieldValueTmp::Struct(idx) => (FieldValue::str_to_int("Struct") as u32, idx as u32),
-            FieldValueTmp::List(indices) => (
-                FieldValue::str_to_int("List") as u32,
+            FieldTmp::Struct(idx) => (Field::str_to_int("Struct") as u32, idx as u32),
+            FieldTmp::List(indices) => (
+                Field::str_to_int("List") as u32,
                 self.save_list_indices(&indices),
             ),
         };
@@ -181,19 +183,19 @@ impl Writer {
             let label_idx = self.save_label(label);
 
             match value {
-                FieldValue::Struct(s) => {
+                Field::Struct(s) => {
                     let struct_idx = self.collect(*s);
-                    self.save_field(my_idx, FieldValueTmp::Struct(struct_idx), label_idx);
+                    self.save_field(my_idx, FieldTmp::Struct(struct_idx), label_idx);
                 }
-                FieldValue::List(list) => {
+                Field::List(list) => {
                     let mut indices = Vec::with_capacity(list.len());
                     for s in list {
                         indices.push(self.collect(s));
                     }
-                    self.save_field(my_idx, FieldValueTmp::List(indices), label_idx);
+                    self.save_field(my_idx, FieldTmp::List(indices), label_idx);
                 }
                 v => {
-                    self.save_field(my_idx, FieldValueTmp::Simple(v), label_idx);
+                    self.save_field(my_idx, FieldTmp::Simple(v), label_idx);
                 }
             }
         }

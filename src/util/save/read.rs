@@ -1,6 +1,6 @@
 use crate::formats::{
     erf::{self, Erf},
-    gff::{self, FieldValue, Gff, Struct},
+    gff::{self, Field, Gff, Struct},
 };
 
 use super::{Globals, Nfo, Save};
@@ -68,14 +68,14 @@ impl<'a> SaveReader<'a> {
         let mut string_values = &vec![];
 
         for tp in types {
-            let Some(FieldValue::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
+            let Some(Field::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
                 return Err(rf!("Globals: missing or invalid Cat{tp}"));
             };
 
             let val = fields.get(&("Val".to_owned() + tp));
-            if let Some(FieldValue::Void(bytes)) = val {
+            if let Some(Field::Void(bytes)) = val {
                 values.push(bytes);
-            } else if let Some(FieldValue::List(list)) = val {
+            } else if let Some(Field::List(list)) = val {
                 string_values = list;
             } else {
                 return Err(rf!("Globals: missing or invalid Val{tp}"));

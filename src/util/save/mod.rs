@@ -1,7 +1,7 @@
 use super::read_file;
 use crate::formats::{
     erf::{self, Erf},
-    gff::{self, FieldValue, Gff},
+    gff::{self, Field, Gff},
 };
 
 mod read;

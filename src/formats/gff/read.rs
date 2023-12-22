@@ -1,4 +1,4 @@
-use super::{FieldValue, FieldValueTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE, STRUCT_SIZE};
+use super::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE, STRUCT_SIZE};
 use crate::{
     formats::{
         gff::{Orientation, Vector},
@@ -19,7 +19,7 @@ use std::{
 
 #[derive(Debug)]
 struct FieldReadTmp {
-    value: FieldValueTmp,
+    value: FieldTmp,
     label: String,
 }
 
@@ -193,7 +193,8 @@ impl<'a> Reader<'a> {
         let field_data = &self.field_data;
 
         for i in 0..self.h.field_count {
-            use FieldValueTmp::*;
+            use FieldTmp::Simple;
+
             let dwords = read_dwords(&mut self.cursor, FIELD_SIZE)
                 .map_err(|_| {
                     rf!(
@@ -206,21 +207,21 @@ impl<'a> Reader<'a> {
             let inner = dwords[2];
 
             let value = match dwords[0] {
-                0 => Simple(FieldValue::Byte(inner as u8)),
-                1 => Simple(FieldValue::Char(inner as i8)),
-                2 => Simple(FieldValue::Word(inner as u16)),
-                3 => Simple(FieldValue::Short(inner as i16)),
-                4 => Simple(FieldValue::Dword(inner as u32)),
-                5 => Simple(FieldValue::Int(inner as i32)),
-                6 => Simple(FieldValue::Dword64(cast_bytes(&field_data[inner..]))),
-                7 => Simple(FieldValue::Int64(cast_bytes(&field_data[inner..]))),
-                8 => Simple(FieldValue::Float(cast_bytes(&inner.to_ne_bytes()))),
-                9 => Simple(FieldValue::Double(cast_bytes(&field_data[inner..]))),
-                10 => Simple(FieldValue::String(
+                0 => Simple(Field::Byte(inner as u8)),
+                1 => Simple(Field::Char(inner as i8)),
+                2 => Simple(Field::Word(inner as u16)),
+                3 => Simple(Field::Short(inner as i16)),
+                4 => Simple(Field::Dword(inner as u32)),
+                5 => Simple(Field::Int(inner as i32)),
+                6 => Simple(Field::Dword64(cast_bytes(&field_data[inner..]))),
+                7 => Simple(Field::Int64(cast_bytes(&field_data[inner..]))),
+                8 => Simple(Field::Float(cast_bytes(&inner.to_ne_bytes()))),
+                9 => Simple(Field::Double(cast_bytes(&field_data[inner..]))),
+                10 => Simple(Field::String(
                     bytes_to_exo_string!(&field_data[inner..], u32)
                         .map_err(|_| rf!("Invalid CExoString data in field {i}: {label}"))?,
                 )),
-                11 => Simple(FieldValue::ResRef(
+                11 => Simple(Field::ResRef(
                     bytes_to_exo_string!(&field_data[inner..], u8)
                         .map_err(|_| rf!("Invalid CResRef data in field {i}: {label}"))?,
                 )),
@@ -240,25 +241,25 @@ impl<'a> Reader<'a> {
                         strings.push(LocString { id, content });
                         offset += length;
                     }
-                    Simple(FieldValue::LocString(str_ref, strings))
+                    Simple(Field::LocString(str_ref, strings))
                 }
-                13 => Simple(FieldValue::Void(
+                13 => Simple(Field::Void(
                     sized_bytes_to_bytes!(&field_data[inner..], u32).into(),
                 )),
-                14 => Struct(inner),
+                14 => FieldTmp::Struct(inner),
                 15 => {
                     let indices = self
                         .list_indices
                         .remove(&inner)
                         .ok_or(rf!("Couldn't find list indices at {inner} in field {i}"))?;
 
-                    List(indices)
+                    FieldTmp::List(indices)
                 }
                 16 => {
                     const SIZE: usize = size_of::<f32>();
                     let bytes = &field_data[inner..];
 
-                    Simple(FieldValue::Orientation(Orientation {
+                    Simple(Field::Orientation(Orientation {
                         w: cast_bytes(&bytes[0..]),
                         x: cast_bytes(&bytes[SIZE..]),
                         y: cast_bytes(&bytes[SIZE * 2..]),
@@ -269,7 +270,7 @@ impl<'a> Reader<'a> {
                     const SIZE: usize = size_of::<f32>();
                     let bytes = &field_data[inner..];
 
-                    Simple(FieldValue::Vector(Vector {
+                    Simple(Field::Vector(Vector {
                         x: cast_bytes(&bytes[0..]),
                         y: cast_bytes(&bytes[SIZE..]),
                         z: cast_bytes(&bytes[SIZE * 2..]),
@@ -314,19 +315,19 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn unwrap_tmp_field(&self, f: &FieldValueTmp) -> FieldValue {
+    fn unwrap_tmp_field(&self, f: &FieldTmp) -> Field {
         match f {
-            FieldValueTmp::Simple(value) => value.clone(),
-            FieldValueTmp::Struct(idx) => {
-                FieldValue::Struct(Box::new(self.transform_struct(&self.structs[*idx])))
+            FieldTmp::Simple(value) => value.clone(),
+            FieldTmp::Struct(idx) => {
+                Field::Struct(Box::new(self.transform_struct(&self.structs[*idx])))
             }
-            FieldValueTmp::List(indices) => {
+            FieldTmp::List(indices) => {
                 let structs: Vec<Struct> = indices
                     .iter()
                     .map(|idx| self.transform_struct(&self.structs[*idx]))
                     .collect();
 
-                FieldValue::List(structs)
+                Field::List(structs)
             }
         }
     }
