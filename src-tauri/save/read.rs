@@ -3,7 +3,7 @@ use crate::formats::{
     gff::{self, Field, Gff, Struct},
 };
 
-use super::{Globals, Nfo, Save};
+use super::{Global, Globals, Nfo, Save};
 
 macro_rules! rf {
     ($($t:tt)*) => {{
@@ -93,6 +93,7 @@ impl<'a> SaveReader<'a> {
             .remove(0)
             .into_iter()
             .zip(values[0].iter().copied())
+            .map(|(name, value)| Global { name, value })
             .collect();
 
         let boolean_bytes: Vec<_> = values[1].iter().map(|b| b.reverse_bits()).collect();
@@ -106,7 +107,10 @@ impl<'a> SaveReader<'a> {
                 let byte = boolean_bytes[byte_idx];
                 let bit = byte & (1 << bit_idx);
 
-                (name, bit != 0)
+                Global {
+                    name,
+                    value: bit != 0,
+                }
             })
             .collect();
 
@@ -118,11 +122,12 @@ impl<'a> SaveReader<'a> {
                     .iter()
                     .map(|v| get_field!(v.fields, "String").unwrap()),
             )
+            .map(|(name, value)| Global { name, value })
             .collect();
 
-        booleans.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
-        numbers.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
-        strings.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+        booleans.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+        numbers.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+        strings.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
         Ok(Globals {
             booleans,

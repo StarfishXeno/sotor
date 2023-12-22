@@ -6,8 +6,12 @@ authors = ["Starfish Xeno"]
 edition = "2021"
 rust-version = "1.74"
 
+[[bin]]
+name = "sotor"
+path = "src-tauri/main.rs"
+
 [workspace]
-members = ["macros"]
+members = ["src-tauri/macros"]
 
 [lints]
 workspace = true
@@ -27,11 +31,12 @@ cast_possible_wrap = "allow"
 cast_lossless = "allow"
 
 [dependencies]
-sotor_macros = { path = "./macros" }
+sotor_macros = { path = "./src-tauri/macros" }
 chrono = "0.4.31"
 tauri = { version = "1.2", features = ["shell-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+typeshare = "1.0.1"
 
 
 [build-dependencies]

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use typeshare::typeshare;
 
 use crate::{
     formats::{
@@ -10,12 +11,21 @@ use crate::{
 
 mod read;
 
+#[typeshare]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Global<T> {
+    name: String,
+    value: T,
+}
+
+#[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Globals {
-    booleans: Vec<(String, bool)>,
-    numbers: Vec<(String, u8)>,
-    strings: Vec<(String, String)>,
+    booleans: Vec<Global<bool>>,
+    numbers: Vec<Global<u8>>,
+    strings: Vec<Global<String>>,
 }
+#[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Nfo {
     pub save_name: String,
@@ -24,6 +34,7 @@ pub struct Nfo {
     pub cheats_used: bool,
     pub time_played: u32,
 }
+#[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Save {
     pub globals: Globals,
