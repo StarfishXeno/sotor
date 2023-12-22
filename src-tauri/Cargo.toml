@@ -1,0 +1,42 @@
+[package]
+name = "sotor"
+version = "0.0.0"
+description = "A Tauri App"
+authors = ["Starfish Xeno"]
+edition = "2021"
+rust-version = "1.74"
+
+[workspace]
+members = ["macros"]
+
+[lints]
+workspace = true
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+ignored_unit_patterns = "allow"
+missing_panics_doc = "allow"
+match_on_vec_items = "allow"
+cast_sign_loss = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_lossless = "allow"
+
+[dependencies]
+sotor_macros = { path = "./macros" }
+chrono = "0.4.31"
+tauri = { version = "1.2", features = ["shell-open"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+
+[build-dependencies]
+tauri-build = { version = "1.2", features = [] }
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
