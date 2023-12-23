@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import EditorGeneral from './EditorGeneral.vue';
 import Button from './elements/Button.vue';
-import { ref } from 'vue';
 
 enum Tab {
     General = 0,
@@ -10,22 +10,24 @@ enum Tab {
     Inventory,
 }
 
-const map = {
-    [Tab.General]: { component: EditorGeneral, name: Tab[Tab.General] },
-    [Tab.Globals]: { component: EditorGeneral, name: Tab[Tab.Globals] },
-    [Tab.Characters]: { component: EditorGeneral, name: Tab[Tab.Characters] },
-    [Tab.Inventory]: { component: EditorGeneral, name: Tab[Tab.Inventory] },
-};
+const components = [EditorGeneral, EditorGeneral, EditorGeneral, EditorGeneral];
+const tabs = [Tab.General, Tab.Globals, Tab.Characters, Tab.Inventory].map((value, idx) => ({
+    value,
+    component: components[idx],
+    name: Tab[value],
+}));
 const tab = ref(Tab.General);
-const setTab = (t: Tab) => (tab.value = t);
+const setTab = (t: Tab) => {
+    tab.value = t;
+};
 </script>
 
 <template>
     <div class="tabs">
         <Button
-            v-for="({ name }, value) in map"
+            v-for="{ name, value } in tabs"
             :key="value"
-            :active="value == tab"
+            :active="value === tab"
             class="tab"
             @click="setTab(value)"
         >
@@ -36,7 +38,7 @@ const setTab = (t: Tab) => (tab.value = t);
     </div>
 
     <div class="tab-container">
-        <component :is="map[tab].component" />
+        <component :is="tabs[tab].component" />
     </div>
 </template>
 <style scoped lang="scss">

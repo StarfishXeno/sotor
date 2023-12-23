@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Input from './elements/Input.vue';
-import { useSaveStore } from '../store';
+import useSaveStore from '../store';
 import { formatTime } from '../util';
 
 const { save } = useSaveStore();

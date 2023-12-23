@@ -6,7 +6,7 @@ const props = withDefaults(defineProps<TslButtonProps>(), { active: false });
 </script>
 
 <template>
-    <button class="btn" :class="{ active: props.active }"><slot /></button>
+    <button type="button" class="btn" :class="{ active: props.active }"><slot /></button>
 </template>
 <style scoped lang="scss">
 .btn {

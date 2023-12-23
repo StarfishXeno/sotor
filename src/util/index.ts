@@ -8,9 +8,9 @@ export const formatTime = (seconds: number) => {
 
     if (days > 0) {
         return `${days}d ${hours}h ${minutes}m ${secs}s`;
-    } else if (hours > 0) {
-        return `${hours}h ${minutes}m ${secs}s`;
-    } else {
-        return `${minutes}m ${secs}s`;
     }
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+    }
+    return `${minutes}m ${secs}s`;
 };

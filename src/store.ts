@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { readFromDirectory } from './util';
 import { Save } from '../bindings/types';
 
-export const useSaveStore = defineStore('save', {
+const useSaveStore = defineStore('save', {
     state: () => ({
         path: '',
         save: null as null | Save,
@@ -15,3 +15,4 @@ export const useSaveStore = defineStore('save', {
         },
     },
 });
+export default useSaveStore;

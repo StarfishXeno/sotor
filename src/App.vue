@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Editor from './components/Editor.vue';
-import { useSaveStore } from './store';
+import useSaveStore from './store';
 
 const store = useSaveStore();
 store.loadFromDirectory('./save');

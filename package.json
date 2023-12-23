@@ -8,8 +8,8 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint --ext .js,.ts,.vue  src",
+    "lint:fix": "eslint --ext .js,.ts,.vue src --fix",
     "type-check": "vue-tsc --noEmit",
     "bindgen": "typeshare ./src-tauri --lang=typescript --output-file=./bindings/types.ts"
   },
@@ -19,6 +19,8 @@
     "vue": "^3.2.45"
   },
   "devDependencies": {
+    "@rushstack/eslint-patch": "^1.6.1",
+    "@vue/eslint-config-airbnb-with-typescript": "^7.0.1",
     "@tauri-apps/cli": "^1.2.2",
     "@types/node": "^18.7.10",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
@@ -26,6 +28,7 @@
     "@vitejs/plugin-vue": "^4.0.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-prettier": "^5.1.1",
     "eslint-plugin-vue": "^9.19.2",
     "prettier": "^3.1.1",
