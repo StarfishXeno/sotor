@@ -1,7 +1,6 @@
 [package]
 name = "sotor"
 version = "0.0.0"
-description = "A Tauri App"
 authors = ["Starfish Xeno"]
 edition = "2021"
 rust-version = "1.74"

@@ -27,7 +27,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.sotor.org",
+      "identifier": "org.sotor",
       "targets": "all"
     },
     "security": {
@@ -40,9 +40,9 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "sotor",
-        "width": 800,
-        "height": 600
+        "title": "Saves of the Old Republic",
+        "width": 1024,
+        "height": 768
       }
     ]
   }

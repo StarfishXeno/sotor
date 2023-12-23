@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -24,5 +25,12 @@ export default defineConfig(async () => ({
         // produce sourcemaps for debug builds
         sourcemap: !!process.env.TAURI_DEBUG,
         outDir: './target/front_dist',
+    },
+    css: {
+        preprocessorOptions: {
+            scss: {
+                additionalData: `@use "./src/styles/globals";\n`,
+            },
+        },
     },
 }));

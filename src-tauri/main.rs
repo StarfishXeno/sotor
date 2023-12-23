@@ -6,13 +6,14 @@ use formats::{
     gff::{self, Gff},
 };
 use save::Save;
+use tauri::Manager;
 
 mod formats;
 mod save;
 mod util;
 
 #[tauri::command]
-fn read_from_firectory(path: &str) -> Result<Save, String> {
+fn read_from_directory(path: &str) -> Result<Save, String> {
     Save::read_from_directory(path)
 }
 
@@ -28,9 +29,19 @@ fn write_erf(erf: Erf) -> Vec<u8> {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![read_from_firectory])
-        .invoke_handler(tauri::generate_handler![write_gff])
-        .invoke_handler(tauri::generate_handler![write_erf])
+        .setup(|app| {
+            #[cfg(debug_assertions)] // only include this code on debug builds
+            {
+                let window = app.get_window("main").unwrap();
+                window.open_devtools();
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            read_from_directory,
+            write_gff,
+            write_erf
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

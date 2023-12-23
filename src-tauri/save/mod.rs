@@ -13,6 +13,7 @@ mod read;
 
 #[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Global<T> {
     name: String,
     value: T,
@@ -20,6 +21,7 @@ pub struct Global<T> {
 
 #[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Globals {
     booleans: Vec<Global<bool>>,
     numbers: Vec<Global<u8>>,
@@ -27,6 +29,7 @@ pub struct Globals {
 }
 #[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Nfo {
     pub save_name: String,
     pub area_name: String,
@@ -36,6 +39,7 @@ pub struct Nfo {
 }
 #[typeshare]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Save {
     pub globals: Globals,
     pub nfo: Nfo,

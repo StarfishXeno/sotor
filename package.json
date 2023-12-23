@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
+    "type-check": "vue-tsc --noEmit",
     "bindgen": "typeshare ./src-tauri --lang=typescript --output-file=./bindings/types.ts"
   },
   "dependencies": {
