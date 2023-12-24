@@ -1,6 +1,6 @@
 use crate::formats::{
-    erf::{self, Erf},
-    gff::{self, Field, Gff, Struct},
+    erf::Erf,
+    gff::{Field, Gff},
 };
 
 use super::{Global, Globals, Nfo, Save};

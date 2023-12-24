@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt};
 
 use crate::formats::LocString;
-use serde::{Deserialize, Serialize};
 
 mod read;
 mod write;
@@ -21,7 +20,7 @@ const KEY_SIZE_BYTES: usize = KEY_NAME_LEN + 4 + 2 + 2;
 // 2 DWORDs
 const RESOURCE_SIZE: usize = 2;
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Resource {
     pub id: u32,
     pub tp: ResourceType,
@@ -37,7 +36,7 @@ impl fmt::Debug for Resource {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Erf {
     pub file_type: String,
     pub file_version: String,

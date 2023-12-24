@@ -1,35 +1,23 @@
-use serde::{Deserialize, Serialize};
-use typeshare::typeshare;
-
 use crate::{
-    formats::{
-        erf::{self, Erf},
-        gff::{self, Field, Gff},
-    },
+    formats::{erf, gff},
     util::read_file,
 };
 
 mod read;
 
-#[typeshare]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Global<T> {
     name: String,
     value: T,
 }
 
-#[typeshare]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Globals {
     booleans: Vec<Global<bool>>,
     numbers: Vec<Global<u8>>,
     strings: Vec<Global<String>>,
 }
-#[typeshare]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Nfo {
     pub save_name: String,
     pub area_name: String,
@@ -37,9 +25,7 @@ pub struct Nfo {
     pub cheats_used: bool,
     pub time_played: u32,
 }
-#[typeshare]
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Save {
     pub globals: Globals,
     pub nfo: Nfo,
@@ -47,7 +33,6 @@ pub struct Save {
 
 const GFF_NAMES: &[&str] = &["savenfo.res", "globalvars.res", "partytable.res"];
 const ERF_NAME: &str = "savegame.sav";
-const ERF_GFF_NAMES: &[&str] = &["INVENTORY"];
 
 macro_rules! sf {
     ($($t:tt)*) => {{

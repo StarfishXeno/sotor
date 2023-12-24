@@ -1,5 +1,4 @@
 use super::LocString;
-use serde::{Deserialize, Serialize};
 use sotor_macros::{EnumToInt, UnwrapVariant};
 use std::collections::HashMap;
 
@@ -25,14 +24,14 @@ enum FieldTmp {
     // list of indices into struct array
     List(Vec<usize>),
 }
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Orientation {
     w: f32,
     x: f32,
     y: f32,
     z: f32,
 }
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Vector {
     x: f32,
     y: f32,
@@ -40,7 +39,7 @@ pub struct Vector {
 }
 
 #[repr(u8)]
-#[derive(EnumToInt, UnwrapVariant, Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(EnumToInt, UnwrapVariant, Debug, Clone, PartialEq)]
 pub enum Field {
     Byte(u8) = 0,
     Char(i8) = 1,
@@ -63,14 +62,14 @@ pub enum Field {
     Vector(Vector) = 17,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Struct {
     // type
     pub tp: u32,
     pub fields: HashMap<String, Field>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Gff {
     pub file_type: String,
     pub file_version: String,

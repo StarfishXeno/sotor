@@ -1,17 +1,11 @@
 [package]
 name = "sotor"
-version = "0.0.0"
-authors = ["Starfish Xeno"]
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.74"
-build = "src-tauri/build.rs"
-
-[[bin]]
-name = "sotor"
-path = "src-tauri/main.rs"
 
 [workspace]
-members = ["src-tauri/macros"]
+members = ["macros"]
 
 [lints]
 workspace = true
@@ -31,21 +25,30 @@ cast_possible_wrap = "allow"
 cast_lossless = "allow"
 
 [dependencies]
-sotor_macros = { path = "./src-tauri/macros" }
+sotor_macros = { path = "./macros" }
 chrono = "0.4.31"
-tauri = { version = "1.2", features = ["shell-open"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-typeshare = "1.0.1"
+serde = { version = "1.0.193", features = ["derive"] }
+egui = "0.24.1"
+eframe = { version = "0.24.1", default-features = false, features = [
+    "default_fonts", # Embed the default egui fonts.
+    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
+] }
+log = "0.4"
+egui_extras = "0.24.2"
 
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.10"
 
-[build-dependencies]
-tauri-build = { version = "1.2", features = [] }
+# web:
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
 
-[features]
-# this feature is used for production builds or when `devPath` points to the filesystem
-# DO NOT REMOVE!!
-custom-protocol = ["tauri/custom-protocol"]
 
 [profile.release]
+opt-level = 2 # fast and small wasm
 lto = true
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2
