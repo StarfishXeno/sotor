@@ -5,13 +5,13 @@ use crate::{
     util::format_seconds,
 };
 use egui::{
-    Button, ComboBox, CursorIcon, Frame, Grid, Label, Layout, Response, RichText, Sense, Slider,
-    TextBuffer, Ui, Vec2, Widget,
+    style::HandleShape, Button, ComboBox, CursorIcon, Frame, Grid, Label, Margin, Response,
+    RichText, Sense, Slider, SliderOrientation, TextBuffer, Ui, Vec2, Widget,
 };
-use emath::{Numeric, Rect};
+use emath::Numeric;
 use sotor_macros::EnumToString;
 
-use self::styles::{BLACK, DARK_GREY, GREEN, GREY, WHITE};
+use self::styles::{BLACK, GREEN, GREY, GREY_DARK, WHITE};
 
 mod styles;
 
@@ -26,6 +26,7 @@ enum Tab {
 
 pub struct SotorApp {
     party_names: &'static [&'static str],
+    selected_member: usize,
     save: Save,
     tab: Tab,
 }
@@ -35,6 +36,7 @@ impl Default for SotorApp {
         let save = Save::read_from_directory("./save/", Game::One).unwrap();
         Self {
             party_names: get_party_names(&save.game),
+            selected_member: 0,
             save,
             tab: Tab::General,
         }
@@ -52,10 +54,11 @@ fn text_edit(ui: &mut Ui, text: &mut dyn TextBuffer, enabled: bool) -> Response 
 }
 fn slider<T: Numeric>(ui: &mut Ui, value: &mut T, range: RangeInclusive<T>) {
     ui.horizontal(|ui| {
-        ui.style_mut().visuals.override_text_color = Some(BLACK);
+        ui.visuals_mut().override_text_color = Some(BLACK);
         ui.add(
             Slider::new(value, range)
                 .logarithmic(true)
+                .handle_shape(HandleShape::Rect { aspect_ratio: 1.0 })
                 .clamp_to_range(true),
         )
     });
@@ -67,7 +70,17 @@ fn set_button_styles(ui: &mut Ui) {
     widgets.active.weak_bg_fill = BLACK;
     widgets.active.bg_stroke = (2.0, WHITE).into();
 }
-fn button(ui: &mut Ui, text: &str, selected: bool) -> Response {
+
+fn set_button_styles_disabled(ui: &mut Ui) {
+    let visuals = ui.visuals_mut();
+    let widgets = &mut visuals.widgets;
+    let stroke = (2.0, GREY).into();
+    visuals.override_text_color = Some(GREY);
+    widgets.inactive.bg_stroke = stroke;
+    widgets.hovered.bg_stroke = stroke;
+    widgets.active.bg_stroke = stroke;
+}
+fn button(ui: &mut Ui, text: &str, selected: bool, disabled: bool) -> Response {
     let mut text = RichText::new(text);
     if selected {
         text = text.color(WHITE);
@@ -76,20 +89,25 @@ fn button(ui: &mut Ui, text: &str, selected: bool) -> Response {
     if selected {
         btn = btn.stroke((2.0, WHITE));
     }
-    btn.ui(ui).on_hover_cursor(CursorIcon::PointingHand)
+    btn.ui(ui).on_hover_cursor(if disabled {
+        CursorIcon::NotAllowed
+    } else {
+        CursorIcon::PointingHand
+    })
 }
 fn checkbox(ui: &mut Ui, value: &mut bool, text: &str) {
     ui.horizontal(|ui| {
+        let widgets = &mut ui.visuals_mut().widgets;
         let stroke = (2.0, BLACK).into();
-        ui.style_mut().visuals.widgets.hovered.fg_stroke = stroke;
-        ui.style_mut().visuals.widgets.active.fg_stroke = stroke;
-        ui.style_mut().visuals.widgets.inactive.fg_stroke = stroke;
+        widgets.hovered.fg_stroke = stroke;
+        widgets.active.fg_stroke = stroke;
+        widgets.inactive.fg_stroke = stroke;
         ui.checkbox(value, text)
             .on_hover_cursor(CursorIcon::PointingHand);
     });
 }
-const fn get_party_names(game: &Game) -> &'static [&'static str] {
-    const PARTY_1: &[&str] = &[
+fn get_party_names(game: &Game) -> &'static [&'static str] {
+    static PARTY_1: &[&str] = &[
         "Bastila",
         "Canderous",
         "Carth",
@@ -101,7 +119,7 @@ const fn get_party_names(game: &Game) -> &'static [&'static str] {
         "Zaalbar",
     ];
 
-    const PARTY_2: &[&str] = &[
+    static PARTY_2: &[&str] = &[
         "Atton",
         "Bao-Dur",
         "Mandalore",
@@ -121,6 +139,7 @@ const fn get_party_names(game: &Game) -> &'static [&'static str] {
         Game::Two => PARTY_2,
     }
 }
+
 impl SotorApp {
     pub fn new(ctx: &eframe::CreationContext<'_>) -> Self {
         styles::set_style(&ctx.egui_ctx);
@@ -130,7 +149,6 @@ impl SotorApp {
     fn show_general(&mut self, ui: &mut Ui) {
         let nfo = &mut self.save.nfo;
         let pt = &mut self.save.party_table;
-        let member_indices: Vec<_> = pt.party.iter().map(|m| m.idx).collect();
 
         egui::Grid::new("save_general")
             .num_columns(4)
@@ -154,70 +172,53 @@ impl SotorApp {
                 slider(ui, &mut pt.party_xp, 0..=9_999_999);
                 ui.end_row();
             });
-        ui.separator();
-        ui.label("Current party: ");
 
+        ui.separator();
+
+        ui.label("Current party: ");
         Frame::default()
             .stroke((2.0, GREEN))
             .inner_margin(10.0)
+            .outer_margin({
+                let mut margin = Margin::ZERO;
+                margin.bottom = 5.0;
+                margin
+            })
             .rounding(5.0)
             .show(ui, |ui| {
-                ui.visuals_mut().faint_bg_color = DARK_GREY;
+                ui.visuals_mut().faint_bg_color = GREY_DARK;
 
                 Grid::new("save_general_party")
                     .num_columns(2)
                     .spacing([10.0, 6.0])
-                    .show(ui, |ui| Self::fill_member_table(ui, pt, self.party_names));
+                    .show(ui, |ui| self.member_table(ui));
             });
 
-        let mut member_to_add = None;
-        ui.horizontal(|ui| {
-            let available: Vec<_> = self
-                .party_names
-                .into_iter()
-                .enumerate()
-                .filter(|(idx, _)| member_indices.contains(idx))
-                .collect();
-
-            let mut selected = available[0].0;
-            ComboBox::new("save_general_pt_member", "")
-                .selected_text(self.party_names[selected])
-                .show_ui(ui, |ui| {
-                    for (idx, name) in available {
-                        ui.selectable_value(&mut selected, idx, *name);
-                    }
-                });
-            set_button_styles(ui);
-            let btn = button(ui, "Add", false);
-            if btn.clicked() {
-                member_to_add = Some(PartyMember {
-                    idx: selected,
-                    is_leader: false,
-                });
-            }
-        });
-        if let Some(member) = member_to_add {
-            pt.party.push(member)
-        }
+        ui.horizontal(|ui| self.party_member_selection(ui));
     }
-    fn fill_member_table(ui: &mut Ui, pt: &mut PartyTable, names: &[&str]) {
-        let party = &mut pt.party;
+    fn member_table(&mut self, ui: &mut Ui) {
+        let members = &mut self.save.party_table.members;
+
         ui.label(RichText::new("Name").underline());
         ui.label(RichText::new("Party leader").underline());
         ui.end_row();
 
         let mut removed = None;
-        for (idx, member) in party.iter_mut().enumerate() {
+        for (idx, member) in members.iter_mut().enumerate() {
             ui.horizontal(|ui| {
                 let btn = Label::new(RichText::new("🚷").size(16.0).color(WHITE))
                     .sense(Sense::click())
                     .ui(ui)
-                    .on_hover_cursor(CursorIcon::PointingHand);
+                    .on_hover_cursor(CursorIcon::PointingHand)
+                    .on_hover_text("Remove from party");
 
                 if btn.clicked() {
                     removed = Some(idx);
                 }
-                ui.label(RichText::new(*names.get(member.idx).unwrap_or(&"UNKNOWN")).color(WHITE));
+                ui.label(
+                    RichText::new(*self.party_names.get(member.idx).unwrap_or(&"UNKNOWN"))
+                        .color(WHITE),
+                );
             });
 
             checkbox(ui, &mut member.is_leader, "");
@@ -225,7 +226,59 @@ impl SotorApp {
             ui.end_row();
         }
         if let Some(idx) = removed {
-            party.remove(idx);
+            members.remove(idx);
+        }
+    }
+
+    fn party_member_selection(&mut self, ui: &mut Ui) {
+        let members = &mut self.save.party_table.members;
+        let available: Vec<_> = self
+            .party_names
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| members.binary_search_by_key(idx, |m| m.idx).is_err())
+            .map(|(idx, name)| (idx, *name))
+            .collect();
+
+        if available.is_empty() {
+            return;
+        }
+
+        let visuals = ui.visuals_mut();
+        visuals.override_text_color = Some(BLACK);
+
+        ComboBox::from_id_source("save_general_pt_member")
+            .selected_text(self.party_names[self.selected_member])
+            .show_ui(ui, |ui| {
+                let visuals = ui.visuals_mut();
+                visuals.override_text_color = Some(WHITE);
+                visuals.selection.bg_fill = GREY_DARK;
+                visuals.widgets.hovered.weak_bg_fill = GREY_DARK;
+
+                for (idx, name) in available {
+                    ui.selectable_value(&mut self.selected_member, idx, name);
+                }
+            });
+
+        let visuals = ui.visuals_mut();
+        visuals.override_text_color = Some(GREEN);
+
+        set_button_styles(ui);
+        let cant_add = members.len() >= 2;
+        if cant_add {
+            set_button_styles_disabled(ui);
+        }
+        let mut btn = button(ui, "Add", false, cant_add);
+
+        if cant_add {
+            btn = btn.on_hover_text("Can't have more than 2 members");
+        }
+
+        if btn.clicked() {
+            members.push(PartyMember {
+                idx: self.selected_member,
+                is_leader: false,
+            });
         }
     }
     fn show_globals(&mut self, ui: &mut Ui) {}
@@ -234,17 +287,20 @@ impl SotorApp {
 impl eframe::App for SotorApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("save_tabs").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                set_button_styles(ui);
-                for tab in Tab::UNIT_VALUES {
-                    let btn = button(ui, &tab.to_string(), self.tab == tab);
-                    if btn.clicked() {
-                        self.tab = tab;
+        egui::TopBottomPanel::top("save_tabs")
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    set_button_styles(ui);
+                    for tab in Tab::UNIT_VALUES {
+                        let btn = button(ui, &tab.to_string(), self.tab == tab, false);
+                        if btn.clicked() {
+                            self.tab = tab;
+                        }
                     }
-                }
+                });
+                ui.separator();
             });
-        });
         egui::CentralPanel::default().show(ctx, |ui| match self.tab {
             Tab::General => self.show_general(ui),
             Tab::Globals => self.show_globals(ui),

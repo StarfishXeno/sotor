@@ -186,7 +186,7 @@ impl<'a> SaveReader<'a> {
             journal,
             cheats_used,
             credits,
-            party,
+            members: party,
             party_xp,
         })
     }

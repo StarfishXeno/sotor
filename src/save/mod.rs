@@ -24,7 +24,7 @@ pub struct PartyTable {
     pub journal: Vec<JournalEntry>,
     pub cheats_used: bool,
     pub credits: u32,
-    pub party: Vec<PartyMember>,
+    pub members: Vec<PartyMember>,
     pub party_xp: i32,
 }
 
