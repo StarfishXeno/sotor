@@ -53,6 +53,41 @@ pub enum Game {
     One,
     Two,
 }
+impl Game {
+    pub fn get_party_names(&self) -> &'static [&'static str] {
+        static PARTY_1: &[&str] = &[
+            "Bastila",
+            "Canderous",
+            "Carth",
+            "HK-47",
+            "Jolee",
+            "Juhani",
+            "Mission",
+            "T3-M4",
+            "Zaalbar",
+        ];
+
+        static PARTY_2: &[&str] = &[
+            "Atton",
+            "Bao-Dur",
+            "Mandalore",
+            "G0-T0",
+            "Handmaiden",
+            "HK-47",
+            "Kreia",
+            "Mira",
+            "T3-M4",
+            "Visas",
+            "Hanharr",
+            "Disciple",
+        ];
+
+        match self {
+            Game::One => PARTY_1,
+            Game::Two => PARTY_2,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Save {
     pub game: Game,

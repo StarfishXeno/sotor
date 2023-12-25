@@ -1,9 +1,9 @@
-use egui::style::{Interaction, Selection, Spacing, WidgetVisuals, Widgets};
-use egui::FontFamily::{self, Proportional};
 use egui::{
-    Color32, Context, FontData, FontId, Margin, Rounding, Stroke, TextEdit, TextStyle, Visuals,
+    style::{Selection, Spacing, WidgetVisuals, Widgets},
+    Color32, Context, FontData, FontDefinitions,
+    FontFamily::{self, Proportional},
+    FontId, TextStyle, Ui, Visuals,
 };
-use egui::{FontDefinitions, TextStyle::*};
 
 pub const WHITE: Color32 = Color32::from_rgb(223, 223, 201);
 pub const GREEN: Color32 = Color32::from_rgb(47, 192, 161);
@@ -13,9 +13,49 @@ pub const GREY: Color32 = Color32::from_rgb(131, 131, 106);
 pub const GREY_DARK: Color32 = Color32::from_rgb(52, 52, 52);
 pub const BLACK: Color32 = Color32::from_rgb(26, 26, 26);
 
-const FONT_NAME: &str = "Roboto_Medium";
+pub fn set_selectable_styles(ui: &mut Ui) {
+    let visuals = ui.visuals_mut();
+    visuals.override_text_color = Some(WHITE);
+    visuals.selection.bg_fill = GREY_DARK;
+    visuals.widgets.hovered.weak_bg_fill = GREY_DARK;
+}
+pub fn set_combobox_styles(ui: &mut Ui) {
+    let visuals = ui.visuals_mut();
+    visuals.override_text_color = Some(BLACK);
+}
+pub fn set_slider_styles(ui: &mut Ui) {
+    let visuals = ui.visuals_mut();
+    visuals.override_text_color = Some(BLACK);
+}
+pub fn set_checkbox_styles(ui: &mut Ui) {
+    let widgets = &mut ui.visuals_mut().widgets;
+    let stroke = (2.0, BLACK).into();
+    widgets.hovered.fg_stroke = stroke;
+    widgets.active.fg_stroke = stroke;
+    widgets.inactive.fg_stroke = stroke;
+}
+
+pub fn set_button_styles(ui: &mut Ui) {
+    let widgets = &mut ui.visuals_mut().widgets;
+    widgets.inactive.weak_bg_fill = BLACK;
+    widgets.hovered.weak_bg_fill = BLACK;
+    widgets.active.weak_bg_fill = BLACK;
+    widgets.active.bg_stroke = (2.0, WHITE).into();
+}
+
+pub fn set_button_styles_disabled(ui: &mut Ui) {
+    let visuals = ui.visuals_mut();
+    let widgets = &mut visuals.widgets;
+    let stroke = (2.0, GREY).into();
+    visuals.override_text_color = Some(GREY);
+    widgets.inactive.bg_stroke = stroke;
+    widgets.hovered.bg_stroke = stroke;
+    widgets.active.bg_stroke = stroke;
+}
 
 pub fn make_fonts() -> FontDefinitions {
+    const FONT_NAME: &str = "Roboto-Medium";
+
     let mut fonts = FontDefinitions::default();
 
     fonts.font_data.insert(
@@ -42,15 +82,15 @@ pub fn make_fonts() -> FontDefinitions {
     fonts
 }
 
-pub fn set_style(ctx: &Context) {
+pub fn set_styles(ctx: &Context) {
     let mut style = (*ctx.style()).clone();
     ctx.set_fonts(make_fonts());
     style.text_styles = [
-        (Heading, FontId::new(22.0, Proportional)),
-        (Body, FontId::new(14.0, Proportional)),
-        (Monospace, FontId::new(14.0, Proportional)),
-        (Button, FontId::new(14.0, Proportional)),
-        (Small, FontId::new(12.0, Proportional)),
+        (TextStyle::Heading, FontId::new(22.0, Proportional)),
+        (TextStyle::Body, FontId::new(14.0, Proportional)),
+        (TextStyle::Monospace, FontId::new(14.0, Proportional)),
+        (TextStyle::Button, FontId::new(14.0, Proportional)),
+        (TextStyle::Small, FontId::new(12.0, Proportional)),
     ]
     .into();
     style.spacing = Spacing { ..style.spacing };
