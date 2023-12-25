@@ -5,7 +5,7 @@ use formats::{
     gff::{self, Gff, Struct},
 };
 
-use crate::ui::TemplateApp;
+use crate::ui::SotorApp;
 
 mod formats;
 mod save;
@@ -43,6 +43,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Saves of The Old Republic",
         native_options,
-        Box::new(|cc| Box::new(TemplateApp::new(cc))),
+        Box::new(|cc| Box::new(SotorApp::new(cc))),
     )
 }

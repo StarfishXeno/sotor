@@ -1,21 +1,23 @@
-use chrono::{Datelike, NaiveDate};
+use time::{macros::datetime, OffsetDateTime};
 
 mod bytes;
 pub use bytes::*;
 
+// years since 1900 and days since jan 1
 pub fn get_erf_date() -> (u32, u32) {
-    let now = chrono::Utc::now().date_naive();
+    let now = OffsetDateTime::now_utc();
+    let past = datetime!(1900 - 01 - 01 0:00 UTC);
 
-    let past = NaiveDate::from_ymd_opt(1900, 1, 1).unwrap();
-    let build_year = now.years_since(past).unwrap();
+    let build_year = now.year() - past.year();
 
-    let past = NaiveDate::from_ymd_opt(now.year_ce().1 as i32, 1, 1).unwrap();
-    let build_day = (now - past).num_days() as u32;
+    past.replace_year(now.year()).unwrap();
 
-    (build_year, build_day - 1)
+    let build_day = (now - past).whole_days();
+
+    (build_year as u32, build_day as u32)
 }
 
-pub fn seconds_to_time(secs: u32) -> String {
+pub fn format_seconds(secs: u32) -> String {
     let seconds = secs % 60;
     let minutes = secs / 60 % 60;
     let hours = secs / 60 / 60 % 24;

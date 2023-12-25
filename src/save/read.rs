@@ -3,7 +3,7 @@ use crate::formats::{
     gff::{Field, Gff},
 };
 
-use super::{Global, Globals, Nfo, Save};
+use super::{Game, Global, Globals, JournalEntry, Nfo, PartyMember, PartyTable, Save};
 
 macro_rules! rf {
     ($($t:tt)*) => {{
@@ -24,14 +24,22 @@ macro_rules! get_field {
 }
 
 pub struct SaveReader<'a> {
+    game: Game,
     nfo: &'a Gff,
     globals: &'a Gff,
     party_table: &'a Gff,
     erf: &'a Erf,
 }
 impl<'a> SaveReader<'a> {
-    pub fn new(nfo: &'a Gff, globals: &'a Gff, party_table: &'a Gff, erf: &'a Erf) -> Self {
+    pub fn new(
+        game: Game,
+        nfo: &'a Gff,
+        globals: &'a Gff,
+        party_table: &'a Gff,
+        erf: &'a Erf,
+    ) -> Self {
         Self {
+            game,
             nfo,
             globals,
             party_table,
@@ -40,10 +48,20 @@ impl<'a> SaveReader<'a> {
     }
 
     pub fn process(self) -> Result<Save, String> {
-        let nfo = self.read_nfo()?;
+        let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
+        let mut party_table = self.read_party_table()?;
 
-        Ok(Save { globals, nfo })
+        // unifying the flag in case it's somehow out of sync
+        nfo.cheats_used = nfo.cheats_used || party_table.cheats_used;
+        party_table.cheats_used = nfo.cheats_used;
+
+        Ok(Save {
+            game: self.game,
+            globals,
+            nfo,
+            party_table,
+        })
     }
 
     fn read_nfo(&self) -> Result<Nfo, String> {
@@ -133,6 +151,43 @@ impl<'a> SaveReader<'a> {
             booleans,
             numbers,
             strings,
+        })
+    }
+    fn read_party_table(&self) -> Result<PartyTable, String> {
+        let fields = &self.party_table.content.fields;
+        let journal_list = get_field!(fields, "JNL_Entries", unwrap_list)?;
+        let mut journal = Vec::with_capacity(journal_list.len());
+        for entry in journal_list {
+            journal.push(JournalEntry {
+                id: get_field!(entry.fields, "JNL_PlotID")?,
+                state: get_field!(entry.fields, "JNL_State", unwrap_int)?,
+                time: get_field!(entry.fields, "JNL_Time", unwrap_dword)?,
+                date: get_field!(entry.fields, "JNL_Date", unwrap_dword)?,
+            });
+        }
+        let cheats_used = get_field!(fields, "PT_CHEAT_USED", unwrap_byte)? != 0;
+        let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
+        let party_list = get_field!(fields, "PT_MEMBERS", unwrap_list)?;
+
+        let party: Result<_, String> = party_list
+            .into_iter()
+            .map(|m| {
+                Ok(PartyMember {
+                    idx: get_field!(m.fields, "PT_MEMBER_ID", unwrap_int)? as usize,
+                    is_leader: get_field!(m.fields, "PT_IS_LEADER", unwrap_byte)? != 0,
+                })
+            })
+            .collect();
+        let party = party?;
+
+        let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
+
+        Ok(PartyTable {
+            journal,
+            cheats_used,
+            credits,
+            party,
+            party_xp,
         })
     }
 }
