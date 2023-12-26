@@ -4,7 +4,7 @@ use egui::{
     style::HandleShape, Button, CursorIcon, Response, RichText, Slider, TextBuffer, TextEdit, Ui,
     Widget as _,
 };
-use emath::Numeric;
+use emath::{Numeric, Rect};
 
 use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, WHITE};
 
@@ -26,6 +26,7 @@ pub trait UiExt {
     fn s_checkbox_raw(&mut self, value: &mut bool) -> Response;
     fn s_checkbox(&mut self, value: &mut bool);
     fn s_text(&mut self, text: &str) -> Response;
+    fn s_scroll_to_end(&mut self);
 }
 
 impl UiExt for Ui {
@@ -94,5 +95,11 @@ impl UiExt for Ui {
 
     fn s_text(&mut self, text: &str) -> Response {
         self.label(white_text(text))
+    }
+    fn s_scroll_to_end(&mut self) {
+        self.scroll_to_rect(
+            Rect::from_min_max([f32::MAX, f32::MAX].into(), [f32::MAX, f32::MAX].into()),
+            None,
+        );
     }
 }

@@ -1,6 +1,9 @@
 use crate::save::JournalEntry;
 use egui::{DragValue, Grid, RichText, ScrollArea, TextStyle};
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 use super::{
     styles::{
@@ -10,14 +13,16 @@ use super::{
     UiRef,
 };
 
-fn area(ui: UiRef, idx: u8, add_contents: impl FnOnce(UiRef)) {
+fn area(ui: UiRef, add_contents: impl FnOnce(UiRef)) {
     ScrollArea::vertical()
-        .id_source(format!("editor_quests_scroll_{idx}"))
+        .id_source("editor_quests_scroll")
+        .stick_to_bottom(true)
+        .max_height(ui.max_rect().height() - 65.0)
         .show(ui, |ui| {
             set_striped_styles(ui);
 
-            Grid::new(format!("editor_quests_grid_{idx}"))
-                .num_columns(7)
+            Grid::new("editor_quests_grid")
+                .num_columns(8)
                 .spacing([5.0, 5.0])
                 .striped(true)
                 .show(ui, add_contents);
@@ -50,7 +55,7 @@ impl<'a> EditorQuests<'a> {
     }
 
     pub fn show(&mut self, ui: UiRef) {
-        area(ui, 0, |ui| {
+        area(ui, |ui| {
             self.table(ui);
         });
 
@@ -66,6 +71,7 @@ impl<'a> EditorQuests<'a> {
         ui.label(RichText::new("Name").underline());
         ui.label(RichText::new("State").underline());
         ui.label("");
+        ui.label("");
         ui.end_row();
         set_drag_value_styles(ui);
 
@@ -77,8 +83,10 @@ impl<'a> EditorQuests<'a> {
                 ui.label("");
                 row(ui, &mut entries[1], &mut removed, idx + 1);
             }
+            ui.label("");
             ui.end_row();
         }
+
         if let Some(idx) = removed {
             self.journal.remove(idx);
         }
@@ -107,12 +115,17 @@ impl<'a> EditorQuests<'a> {
         set_drag_value_styles(ui);
         ui.add(DragValue::new(&mut state.state));
 
-        let disabled = state.id.is_empty();
+        let set: HashSet<_> = self.journal.iter().map(|e| &e.id).collect();
+        let already_there = set.contains(&state.id);
+        let disabled = state.id.is_empty() || already_there;
         set_button_styles(ui);
         if disabled {
             set_button_styles_disabled(ui);
         }
-        let btn = ui.s_button("Add", false, disabled);
+        let mut btn = ui.s_button("Add", false, disabled);
+        if already_there {
+            btn = btn.on_hover_text("This quest is already present");
+        }
         if !disabled && btn.clicked() {
             let last = self.journal.last();
             self.journal.push(JournalEntry {
