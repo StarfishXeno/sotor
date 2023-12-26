@@ -1,4 +1,7 @@
-use self::{editor_general::EditorGeneral, styles::set_button_styles, widgets::UiExt};
+use self::{
+    editor_general::EditorGeneral, editor_globals::EditorGlobals, styles::set_button_styles,
+    widgets::UiExt,
+};
 use crate::save::{Game, Save};
 use egui::{panel::Side, Layout, TextureHandle, TextureOptions, Ui};
 use emath::Align;
@@ -6,6 +9,8 @@ use image::io::Reader as ImageReader;
 use sotor_macros::EnumToString;
 
 mod editor_general;
+mod editor_globals;
+mod save_select;
 mod styles;
 mod widgets;
 
@@ -74,7 +79,7 @@ impl eframe::App for SotorApp {
             ui.separator();
             match self.tab {
                 Tab::General => EditorGeneral::new(&mut self.save, &self.texture).show(ui),
-                Tab::Globals => println!("globals"),
+                Tab::Globals => EditorGlobals::new(&mut self.save.globals).show(ui),
                 _ => {}
             }
         });

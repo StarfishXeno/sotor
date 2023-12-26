@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use egui::{
     style::{Selection, Spacing, WidgetVisuals, Widgets},
     Color32, Context, FontData, FontDefinitions,
@@ -20,17 +22,34 @@ pub fn set_selectable_styles(ui: &mut Ui) {
     visuals.selection.bg_fill = GREY_DARK;
     visuals.widgets.hovered.weak_bg_fill = GREY_DARK;
 }
+
 pub fn set_combobox_styles(ui: &mut Ui) {
     let visuals = ui.visuals_mut();
     visuals.override_text_color = Some(BLACK);
 }
+
+pub fn set_drag_value_styles(ui: &mut Ui) {
+    let styles = ui.style_mut();
+    let visuals = &mut styles.visuals;
+
+    styles.spacing.interact_size = [20.0, 20.0].into();
+
+    visuals.override_text_color = Some(BLACK);
+}
 pub fn set_slider_styles(ui: &mut Ui) {
-    let visuals = ui.visuals_mut();
+    let styles = ui.style_mut();
+    let visuals = &mut styles.visuals;
+
+    styles.drag_value_text_style = TextStyle::Body;
+
     visuals.override_text_color = Some(BLACK);
 }
 pub fn set_checkbox_styles(ui: &mut Ui) {
-    let widgets = &mut ui.visuals_mut().widgets;
-    let stroke = (2.0, BLACK).into();
+    let visuals = ui.visuals_mut();
+    let widgets = &mut visuals.widgets;
+    let stroke = (3.0, BLACK).into();
+
+    visuals.override_text_color = Some(BLACK);
 
     widgets.hovered.fg_stroke = stroke;
     widgets.active.fg_stroke = stroke;
@@ -96,13 +115,22 @@ pub fn set_styles(ctx: &Context) {
     ctx.set_fonts(make_fonts());
     style.text_styles = [
         (TextStyle::Heading, FontId::new(22.0, Proportional)),
+        (
+            TextStyle::Name("Large".into()),
+            FontId::new(16.0, Proportional),
+        ),
         (TextStyle::Body, FontId::new(14.0, Proportional)),
         (TextStyle::Monospace, FontId::new(14.0, Proportional)),
         (TextStyle::Button, FontId::new(14.0, Proportional)),
-        (TextStyle::Small, FontId::new(12.0, Proportional)),
+        (TextStyle::Small, FontId::new(13.0, Proportional)),
     ]
     .into();
-    style.spacing = Spacing { ..style.spacing };
+    style.spacing = Spacing {
+        icon_width: 18.0,
+        icon_width_inner: 10.0,
+        ..style.spacing
+    };
+    style.drag_value_text_style = TextStyle::Name("Large".into());
 
     style.visuals = Visuals {
         text_cursor: (2.0, GREY).into(),

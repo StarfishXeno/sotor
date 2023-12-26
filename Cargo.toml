@@ -25,7 +25,7 @@ cast_possible_wrap = "allow"
 cast_lossless = "allow"
 
 [dependencies]
-image = { version = "0.24", features = ["tga"] }
+image = { version = "0.24", default-features = false, features = ["tga"] }
 sotor_macros = { path = "./macros" }
 emath = "0.24.1"
 time = { version = "0.3.31", features = ["macros"] }

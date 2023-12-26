@@ -6,8 +6,8 @@ use egui::{ComboBox, Frame, Grid, Image, Margin, RichText, TextureHandle};
 
 use super::{
     styles::{
-        set_button_styles, set_button_styles_disabled, set_combobox_styles, set_selectable_styles,
-        GREEN, GREY_DARK,
+        set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_combobox_styles,
+        set_selectable_styles, GREEN, GREY_DARK,
     },
     widgets::UiExt,
     UiRef,
@@ -94,7 +94,7 @@ impl<'a> EditorGeneral<'a> {
         let nfo = &mut self.save.nfo;
         let pt = &mut self.save.party_table;
         ui.label("Save name: ");
-        ui.s_text_edit(&mut nfo.save_name);
+        ui.s_text_edit(&mut nfo.save_name, 200.0);
         ui.end_row();
 
         ui.label("Area name: ");
@@ -114,15 +114,15 @@ impl<'a> EditorGeneral<'a> {
         ui.end_row();
 
         ui.label("Cheats used: ");
-        ui.s_checkbox(&mut nfo.cheats_used, "");
+        ui.s_checkbox(&mut nfo.cheats_used);
         ui.end_row();
 
         ui.label("Credits: ");
-        ui.s_slider(&mut pt.credits, 0..=9_999_999);
+        ui.s_slider(&mut pt.credits, 0..=9_999_999, false);
         ui.end_row();
 
         ui.label("Party XP: ");
-        ui.s_slider(&mut pt.party_xp, 0..=9_999_999);
+        ui.s_slider(&mut pt.party_xp, 0..=9_999_999, true);
         ui.end_row();
     }
 
@@ -139,7 +139,7 @@ impl<'a> EditorGeneral<'a> {
 
         for (idx, member) in members.iter_mut().enumerate() {
             ui.s_text(self.party_names.get(member.idx).unwrap_or(&"UNKNOWN"));
-            ui.s_checkbox(&mut member.leader, "");
+            ui.s_checkbox(&mut member.leader);
 
             let btn = ui.s_button_basic("Remove");
 
@@ -215,16 +215,17 @@ impl<'a> EditorGeneral<'a> {
         ui.label(RichText::new("Selectable").underline());
         ui.end_row();
 
+        set_checkbox_styles(ui);
         for (idx, members) in members.chunks_mut(2).enumerate() {
             ui.s_text(self.party_names.get(idx * 2).unwrap_or(&"UNKNOWN"));
-            ui.s_checkbox(&mut members[0].available, "");
-            ui.s_checkbox(&mut members[0].selectable, "");
+            ui.s_checkbox_raw(&mut members[0].available);
+            ui.s_checkbox_raw(&mut members[0].selectable);
 
             if members.len() > 1 {
                 ui.label("");
                 ui.s_text(self.party_names.get(idx * 2 + 1).unwrap_or(&"UNKNOWN"));
-                ui.s_checkbox(&mut members[1].available, "");
-                ui.s_checkbox(&mut members[1].selectable, "");
+                ui.s_checkbox_raw(&mut members[1].available);
+                ui.s_checkbox_raw(&mut members[1].selectable);
             }
 
             ui.end_row();

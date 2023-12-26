@@ -42,15 +42,15 @@ pub struct PartyTable {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Global<T> {
-    name: String,
-    value: T,
+    pub name: String,
+    pub value: T,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Globals {
-    booleans: Vec<Global<bool>>,
-    numbers: Vec<Global<u8>>,
-    strings: Vec<Global<String>>,
+    pub booleans: Vec<Global<bool>>,
+    pub numbers: Vec<Global<u8>>,
+    pub strings: Vec<Global<String>>,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nfo {
