@@ -1,6 +1,6 @@
 use self::{
-    editor_general::EditorGeneral, editor_globals::EditorGlobals, styles::set_button_styles,
-    widgets::UiExt,
+    editor_general::EditorGeneral, editor_globals::EditorGlobals, editor_quests::EditorQuests,
+    styles::set_button_styles, widgets::UiExt,
 };
 use crate::save::{Game, Save};
 use egui::{panel::Side, Layout, TextureHandle, TextureOptions, Ui};
@@ -10,6 +10,7 @@ use sotor_macros::EnumToString;
 
 mod editor_general;
 mod editor_globals;
+mod editor_quests;
 mod save_select;
 mod styles;
 mod widgets;
@@ -80,6 +81,8 @@ impl eframe::App for SotorApp {
             match self.tab {
                 Tab::General => EditorGeneral::new(&mut self.save, &self.texture).show(ui),
                 Tab::Globals => EditorGlobals::new(&mut self.save.globals).show(ui),
+                Tab::Quests => EditorQuests::new(&mut self.save.party_table.journal).show(ui),
+
                 _ => {}
             }
         });

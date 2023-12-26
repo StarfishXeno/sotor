@@ -151,7 +151,7 @@ impl<'a> EditorGeneral<'a> {
         ui.end_row();
 
         ui.label("Credits: ");
-        ui.s_slider(&mut pt.credits, 0..=9_999_999, false);
+        ui.s_slider(&mut pt.credits, 0..=9_999_999, true);
         ui.end_row();
 
         ui.label("Party XP: ");

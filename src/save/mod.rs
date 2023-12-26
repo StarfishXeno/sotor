@@ -24,10 +24,10 @@ pub struct AvailablePartyMember {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct JournalEntry {
-    id: String,
-    state: i32,
-    date: u32,
-    time: u32,
+    pub id: String,
+    pub state: i32,
+    pub date: u32,
+    pub time: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]

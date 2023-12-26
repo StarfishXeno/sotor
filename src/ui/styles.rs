@@ -35,10 +35,15 @@ pub fn set_striped_styles(ui: UiRef) {
 pub fn set_drag_value_styles(ui: UiRef) {
     let styles = ui.style_mut();
     let visuals = &mut styles.visuals;
+    let widgets = &mut visuals.widgets;
 
     styles.spacing.interact_size = [20.0, 20.0].into();
-
     visuals.override_text_color = Some(BLACK);
+
+    widgets.inactive.weak_bg_fill = WHITE;
+    widgets.hovered.weak_bg_fill = WHITE;
+    widgets.active.weak_bg_fill = WHITE;
+    widgets.active.bg_stroke = (2.0, GREEN).into();
 }
 pub fn set_slider_styles(ui: UiRef) {
     let styles = ui.style_mut();
