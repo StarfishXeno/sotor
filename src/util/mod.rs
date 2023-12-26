@@ -31,3 +31,9 @@ pub fn format_seconds(secs: u32) -> String {
         format!("{minutes}m {seconds}s")
     }
 }
+macro_rules! join {
+    ($($xs:tt)*) => {{
+        [$($xs)*].join("/")
+    }};
+}
+pub(crate) use join;

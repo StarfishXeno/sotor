@@ -34,8 +34,7 @@ impl<'a> EditorGeneral<'a> {
                 .stroke((4.0, GREEN))
                 .rounding(5.0)
                 .outer_margin({
-                    let mut margin = Margin::ZERO;
-                    margin.bottom = 5.0;
+                    let mut margin = Margin::symmetric(0.0, 5.0);
                     margin.right = 10.0;
                     margin
                 })
@@ -63,6 +62,13 @@ impl<'a> EditorGeneral<'a> {
             })
         });
     }
+    fn image(&mut self, ui: UiRef) {
+        let scale = 1.3;
+        let image =
+            Image::from((self.image.id(), (256.0 * scale, 144.0 * scale).into())).rounding(5.0);
+        ui.add(image);
+    }
+
     fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
         Frame::default()
             .stroke((2.0, GREEN))
@@ -82,12 +88,6 @@ impl<'a> EditorGeneral<'a> {
                     .spacing([10.0, 6.0])
                     .show(ui, add_contents);
             });
-    }
-    fn image(&mut self, ui: UiRef) {
-        let scale = ui.ctx().native_pixels_per_point().unwrap_or(1.0);
-        let image =
-            Image::from((self.image.id(), (256.0 * scale, 144.0 * scale).into())).rounding(5.0);
-        ui.add(image);
     }
 
     fn main_table(&mut self, ui: UiRef) {
