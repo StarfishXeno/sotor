@@ -12,14 +12,16 @@ pub trait UiExt {
     fn s_text_edit(&mut self, text: &mut dyn TextBuffer) -> Response;
     fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>);
     fn s_button(&mut self, text: &str, selected: bool, disabled: bool) -> Response;
+    fn s_button_basic(&mut self, text: &str) -> Response;
     fn s_checkbox(&mut self, value: &mut bool, text: &str);
+    fn s_text(&mut self, text: &str) -> Response;
 }
 
 impl UiExt for Ui {
     fn s_text_edit(&mut self, text: &mut dyn TextBuffer) -> Response {
         TextEdit::singleline(text)
             .vertical_align(egui::Align::Center)
-            .min_size(Vec2::new(300.0, 0.0))
+            .min_size(Vec2::new(200.0, 0.0))
             .text_color(BLACK)
             .ui(self)
     }
@@ -50,11 +52,20 @@ impl UiExt for Ui {
             CursorIcon::PointingHand
         })
     }
+
+    fn s_button_basic(&mut self, text: &str) -> Response {
+        self.s_button(text, false, false)
+    }
+
     fn s_checkbox(&mut self, value: &mut bool, text: &str) {
         self.horizontal(|ui| {
             set_checkbox_styles(ui);
             ui.checkbox(value, text)
                 .on_hover_cursor(CursorIcon::PointingHand);
         });
+    }
+
+    fn s_text(&mut self, text: &str) -> Response {
+        self.label(RichText::new(text).color(WHITE))
     }
 }

@@ -25,6 +25,7 @@ cast_possible_wrap = "allow"
 cast_lossless = "allow"
 
 [dependencies]
+image = { version = "0.24", features = ["tga"] }
 sotor_macros = { path = "./macros" }
 emath = "0.24.1"
 time = { version = "0.3.31", features = ["macros"] }
@@ -34,7 +35,6 @@ eframe = { version = "0.24.1", default-features = false, features = [
     "glow", # Use the glow rendering backend. Alternative: "wgpu".
 ] }
 log = "0.4"
-
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10"

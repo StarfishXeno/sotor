@@ -1,9 +1,9 @@
-use crate::formats::{
-    erf::Erf,
-    gff::{Field, Gff},
-};
+use crate::formats::gff::Field;
 
-use super::{Game, Global, Globals, JournalEntry, Nfo, PartyMember, PartyTable, Save};
+use super::{
+    AvailablePartyMember, Game, Global, Globals, JournalEntry, Nfo, PartyMember, PartyTable, Save,
+    SaveInternals,
+};
 
 macro_rules! rf {
     ($($t:tt)*) => {{
@@ -23,28 +23,13 @@ macro_rules! get_field {
     };
 }
 
-pub struct SaveReader<'a> {
+pub struct Reader {
     game: Game,
-    nfo: &'a Gff,
-    globals: &'a Gff,
-    party_table: &'a Gff,
-    erf: &'a Erf,
+    inner: SaveInternals,
 }
-impl<'a> SaveReader<'a> {
-    pub fn new(
-        game: Game,
-        nfo: &'a Gff,
-        globals: &'a Gff,
-        party_table: &'a Gff,
-        erf: &'a Erf,
-    ) -> Self {
-        Self {
-            game,
-            nfo,
-            globals,
-            party_table,
-            erf,
-        }
+impl Reader {
+    pub fn new(inner: SaveInternals, game: Game) -> Self {
+        Self { game, inner }
     }
 
     pub fn process(self) -> Result<Save, String> {
@@ -61,11 +46,13 @@ impl<'a> SaveReader<'a> {
             globals,
             nfo,
             party_table,
+
+            inner: self.inner,
         })
     }
 
     fn read_nfo(&self) -> Result<Nfo, String> {
-        let fields = &self.nfo.content.fields;
+        let fields = &self.inner.nfo.content.fields;
 
         Ok(Nfo {
             save_name: get_field!(fields, "SAVEGAMENAME")?,
@@ -77,15 +64,16 @@ impl<'a> SaveReader<'a> {
     }
 
     fn read_globals(&self) -> Result<Globals, String> {
-        let fields = &self.globals.content.fields;
+        static TYPES: &[&str] = &["Number", "Boolean", "String"];
 
-        let types: &[&str] = &["Number", "Boolean", "String"];
-        let mut names: Vec<Vec<_>> = Vec::with_capacity(types.len());
+        let fields = &self.inner.globals.content.fields;
+
+        let mut names: Vec<Vec<_>> = Vec::with_capacity(TYPES.len());
         // Strings are stored as a struct list and go into a separate vector
-        let mut values = Vec::with_capacity(types.len() - 1);
+        let mut values = Vec::with_capacity(TYPES.len() - 1);
         let mut string_values = &vec![];
 
-        for tp in types {
+        for tp in TYPES {
             let Some(Field::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
                 return Err(rf!("Globals: missing or invalid Cat{tp}"));
             };
@@ -114,14 +102,14 @@ impl<'a> SaveReader<'a> {
             .map(|(name, value)| Global { name, value })
             .collect();
 
-        let boolean_bytes: Vec<_> = values[1].iter().map(|b| b.reverse_bits()).collect();
+        let boolean_bytes = values[1];
         let mut booleans: Vec<_> = names
             .remove(0)
             .into_iter()
             .enumerate()
             .map(|(idx, name)| {
                 let byte_idx = idx / 8;
-                let bit_idx = idx % 8;
+                let bit_idx = 7 - idx % 8;
                 let byte = boolean_bytes[byte_idx];
                 let bit = byte & (1 << bit_idx);
 
@@ -154,7 +142,7 @@ impl<'a> SaveReader<'a> {
         })
     }
     fn read_party_table(&self) -> Result<PartyTable, String> {
-        let fields = &self.party_table.content.fields;
+        let fields = &self.inner.party_table.content.fields;
         let journal_list = get_field!(fields, "JNL_Entries", unwrap_list)?;
         let mut journal = Vec::with_capacity(journal_list.len());
         for entry in journal_list {
@@ -167,18 +155,30 @@ impl<'a> SaveReader<'a> {
         }
         let cheats_used = get_field!(fields, "PT_CHEAT_USED", unwrap_byte)? != 0;
         let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
-        let party_list = get_field!(fields, "PT_MEMBERS", unwrap_list)?;
 
-        let party: Result<_, String> = party_list
+        let members_list = get_field!(fields, "PT_MEMBERS", unwrap_list)?;
+        let members: Result<_, String> = members_list
             .into_iter()
             .map(|m| {
                 Ok(PartyMember {
                     idx: get_field!(m.fields, "PT_MEMBER_ID", unwrap_int)? as usize,
-                    is_leader: get_field!(m.fields, "PT_IS_LEADER", unwrap_byte)? != 0,
+                    leader: get_field!(m.fields, "PT_IS_LEADER", unwrap_byte)? != 0,
                 })
             })
             .collect();
-        let party = party?;
+        let members = members?;
+
+        let av_members_list = get_field!(fields, "PT_AVAIL_NPCS", unwrap_list)?;
+        let available_members: Result<_, String> = av_members_list
+            .into_iter()
+            .map(|m| {
+                Ok(AvailablePartyMember {
+                    available: get_field!(m.fields, "PT_NPC_AVAIL", unwrap_byte)? != 0,
+                    selectable: get_field!(m.fields, "PT_NPC_SELECT", unwrap_byte)? != 0,
+                })
+            })
+            .collect();
+        let available_members = available_members?;
 
         let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
 
@@ -186,7 +186,8 @@ impl<'a> SaveReader<'a> {
             journal,
             cheats_used,
             credits,
-            members: party,
+            members,
+            available_members,
             party_xp,
         })
     }

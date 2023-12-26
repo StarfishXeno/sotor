@@ -40,8 +40,6 @@ impl fmt::Debug for Resource {
 pub struct Erf {
     pub file_type: String,
     pub file_version: String,
-    pub build_year: u32,
-    pub build_day: u32,
 
     pub resources: HashMap<String, Resource>,
     pub loc_strings: Vec<LocString>,
@@ -50,23 +48,16 @@ pub struct Erf {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        formats::{
-            erf::{read, write, Erf, Resource},
-            LocString, ResourceType,
-        },
-        util::get_erf_date,
+    use crate::formats::{
+        erf::{read, write, Erf, Resource},
+        LocString, ResourceType,
     };
 
     #[test]
     fn read_write() {
-        let (build_year, build_day) = get_erf_date();
-
         let erf = Erf {
             file_type: "TST ".to_owned(),
             file_version: "V0.0".to_owned(),
-            build_year,
-            build_day,
 
             resources: [
                 (

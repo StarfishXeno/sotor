@@ -68,6 +68,11 @@ pub struct Struct {
     pub tp: u32,
     pub fields: HashMap<String, Field>,
 }
+impl Struct {
+    pub fn new(fields: HashMap<String, Field>) -> Self {
+        Self { tp: 0, fields }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Gff {
@@ -92,9 +97,8 @@ mod tests {
         let gff = Gff {
             file_type: "TST ".to_owned(),
             file_version: "V0.0".to_owned(),
-            content: Struct {
-                tp: 0,
-                fields: [
+            content: Struct::new(
+                [
                     ("Byte".to_owned(), Field::Byte(u8::MAX)),
                     ("Char".to_owned(), Field::Char(i8::MIN)),
                     ("Word".to_owned(), Field::Word(u16::MAX)),
@@ -137,7 +141,7 @@ mod tests {
                     ),
                 ]
                 .into(),
-            },
+            ),
         };
         let bytes = write(gff.clone());
         let new_gff = read(&bytes).unwrap();

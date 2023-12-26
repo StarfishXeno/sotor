@@ -17,6 +17,14 @@ pub fn read_file(path: &str) -> io::Result<Vec<u8>> {
     Ok(buf)
 }
 
+// write the whole buffer into a file
+pub fn write_file(path: &str, buf: &[u8]) -> io::Result<()> {
+    let mut file = File::create(path)?;
+    file.write_all(buf)?;
+
+    Ok(())
+}
+
 // turns &[u8] into a u32, f64, etc.
 pub fn cast_bytes<T: ToBytes<SIZE>, const SIZE: usize>(bytes: &[u8]) -> T {
     let source: [u8; SIZE] = bytes[..SIZE].try_into().unwrap();

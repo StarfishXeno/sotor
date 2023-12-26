@@ -9,6 +9,7 @@ pub const WHITE: Color32 = Color32::from_rgb(223, 223, 201);
 pub const GREEN: Color32 = Color32::from_rgb(47, 192, 161);
 pub const GREEN_DARK: Color32 = Color32::from_rgb(29, 119, 99);
 pub const BLUE: Color32 = Color32::from_rgb(199, 255, 250);
+pub const RED: Color32 = Color32::from_rgb(183, 26, 0);
 pub const GREY: Color32 = Color32::from_rgb(131, 131, 106);
 pub const GREY_DARK: Color32 = Color32::from_rgb(52, 52, 52);
 pub const BLACK: Color32 = Color32::from_rgb(26, 26, 26);
@@ -30,13 +31,19 @@ pub fn set_slider_styles(ui: &mut Ui) {
 pub fn set_checkbox_styles(ui: &mut Ui) {
     let widgets = &mut ui.visuals_mut().widgets;
     let stroke = (2.0, BLACK).into();
+
     widgets.hovered.fg_stroke = stroke;
     widgets.active.fg_stroke = stroke;
     widgets.inactive.fg_stroke = stroke;
+    widgets.active.bg_stroke = (2.0, GREEN).into();
 }
 
 pub fn set_button_styles(ui: &mut Ui) {
-    let widgets = &mut ui.visuals_mut().widgets;
+    let visuals = ui.visuals_mut();
+    let widgets = &mut visuals.widgets;
+
+    visuals.override_text_color = Some(GREEN);
+
     widgets.inactive.weak_bg_fill = BLACK;
     widgets.hovered.weak_bg_fill = BLACK;
     widgets.active.weak_bg_fill = BLACK;
@@ -47,7 +54,9 @@ pub fn set_button_styles_disabled(ui: &mut Ui) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
     let stroke = (2.0, GREY).into();
+
     visuals.override_text_color = Some(GREY);
+
     widgets.inactive.bg_stroke = stroke;
     widgets.hovered.bg_stroke = stroke;
     widgets.active.bg_stroke = stroke;

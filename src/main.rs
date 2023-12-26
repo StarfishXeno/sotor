@@ -18,8 +18,6 @@ fn main() -> eframe::Result<()> {
     erf::write(Erf {
         file_type: "a".into(),
         file_version: "a".into(),
-        build_day: 0,
-        build_year: 0,
         resources: HashMap::new(),
         loc_strings: vec![],
         description_str_ref: 0,
@@ -32,11 +30,8 @@ fn main() -> eframe::Result<()> {
             fields: HashMap::new(),
         },
     });
-
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([400.0, 300.0])
-            .with_min_inner_size([900.0, 540.0]),
+        viewport: egui::ViewportBuilder::default().with_min_inner_size([1080.0, 540.0]),
         ..Default::default()
     };
 

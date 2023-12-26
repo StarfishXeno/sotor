@@ -1,14 +1,25 @@
 use crate::{
-    formats::{erf, gff},
-    util::read_file,
+    formats::{
+        erf::{self, Erf},
+        gff::{self, Gff},
+    },
+    util::{read_file, write_file},
 };
 
+use self::write::Writer;
+
 mod read;
+mod write;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyMember {
     pub idx: usize,
-    pub is_leader: bool,
+    pub leader: bool,
+}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AvailablePartyMember {
+    pub available: bool,
+    pub selectable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,6 +36,7 @@ pub struct PartyTable {
     pub cheats_used: bool,
     pub credits: u32,
     pub members: Vec<PartyMember>,
+    pub available_members: Vec<AvailablePartyMember>,
     pub party_xp: i32,
 }
 
@@ -89,11 +101,20 @@ impl Game {
     }
 }
 #[derive(Debug, Clone, PartialEq)]
+struct SaveInternals {
+    nfo: Gff,
+    globals: Gff,
+    party_table: Gff,
+    erf: Erf,
+}
+#[derive(Debug, Clone, PartialEq)]
 pub struct Save {
     pub game: Game,
     pub globals: Globals,
     pub nfo: Nfo,
     pub party_table: PartyTable,
+
+    inner: SaveInternals,
 }
 
 const GFF_NAMES: &[&str] = &["savenfo.res", "globalvars.res", "partytable.res"];
@@ -119,8 +140,30 @@ impl Save {
         let erf_bytes = read_file(&(path.to_owned() + "/" + ERF_NAME))
             .map_err(|_| sf!("Couldn't read ERF file"))?;
         let erf = erf::read(&erf_bytes)?;
-        let reader = read::SaveReader::new(game, &gffs[0], &gffs[1], &gffs[2], &erf);
+        let reader = read::Reader::new(
+            SaveInternals {
+                nfo: gffs.remove(0),
+                globals: gffs.remove(0),
+                party_table: gffs.remove(0),
+                erf,
+            },
+            game,
+        );
 
         reader.process()
+    }
+    pub fn save_to_directory(path: &str, save: Save) -> Result<Save, String> {
+        let new_save = Writer::new(save).process();
+        for (name, gff) in GFF_NAMES.iter().zip([
+            &new_save.inner.nfo,
+            &new_save.inner.globals,
+            &new_save.inner.party_table,
+        ]) {
+            let bytes = gff::write(gff.clone());
+            write_file(&(path.to_owned() + "/" + name), &bytes)
+                .map_err(|err| sf!("Couldn't write gff file {name}: {}", err.to_string()))?;
+        }
+
+        Ok(new_save)
     }
 }

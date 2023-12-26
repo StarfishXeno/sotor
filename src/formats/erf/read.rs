@@ -187,8 +187,6 @@ impl<'a> Reader<'a> {
         Ok(Erf {
             file_type: self.h.file_type,
             file_version: self.h.file_version,
-            build_year: self.h.build_year,
-            build_day: self.h.build_day,
             loc_strings: self.loc_strings,
             description_str_ref: self.h.description_str_ref,
 
