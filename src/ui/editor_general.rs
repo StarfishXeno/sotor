@@ -42,9 +42,14 @@ fn member_row(
     member: &mut AvailablePartyMember,
     members: &mut Vec<PartyMember>,
 ) {
-    let in_party_idx = in_party.binary_search(&idx);
+    let in_party_idx = in_party
+        .iter()
+        .copied()
+        .enumerate()
+        .find(|(_, i)| *i == idx);
     let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
-    ui.label(if in_party_idx.is_ok() {
+
+    ui.label(if in_party_idx.is_some() {
         RichText::new(*name).color(BLUE)
     } else {
         white_text(name)
@@ -53,7 +58,7 @@ fn member_row(
     ui.s_checkbox_raw(&mut member.selectable);
     ui.horizontal(|ui| {
         set_button_styles(ui);
-        if let Ok(idx) = in_party_idx {
+        if let Some((idx, _)) = in_party_idx {
             let btn = ui.s_button_basic("Remove");
 
             if btn.clicked() {
