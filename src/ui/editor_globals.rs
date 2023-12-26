@@ -1,20 +1,24 @@
-use crate::{
-    save::{Globals, PartyMember, Save},
-    util::format_seconds,
-};
-use egui::{
-    ComboBox, DragValue, Frame, Grid, Image, Margin, RichText, ScrollArea, Sense, TextStyle,
-    TextureHandle,
-};
+use crate::save::Globals;
+use egui::{DragValue, Grid, ScrollArea, TextStyle};
 
 use super::{
-    styles::{
-        set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_combobox_styles,
-        set_drag_value_styles, set_selectable_styles, set_slider_styles, GREEN, GREY_DARK, WHITE,
-    },
+    styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles},
     widgets::{white_text, UiExt},
     UiRef,
 };
+fn area(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
+    ScrollArea::vertical()
+        .id_source(id.to_owned() + "_scroll")
+        .show(ui, |ui| {
+            set_striped_styles(ui);
+
+            Grid::new(id)
+                .num_columns(2)
+                .spacing([5.0, 5.0])
+                .striped(true)
+                .show(ui, add_contents);
+        });
+}
 
 pub struct EditorGlobals<'a> {
     globals: &'a mut Globals,
@@ -25,27 +29,10 @@ impl<'a> EditorGlobals<'a> {
     }
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal_top(|ui| {
-            Self::area("globals_numbers", ui, |ui| {
-                self.numbers(ui);
-            });
-            Self::area("globals_booleans", ui, |ui| {
-                self.booleans(ui);
-            });
-            Self::area("globals_strings", ui, |ui| {
-                self.strings(ui);
-            });
+            area("globals_numbers", ui, |ui| self.numbers(ui));
+            area("globals_booleans", ui, |ui| self.booleans(ui));
+            area("globals_strings", ui, |ui| self.strings(ui));
         });
-    }
-
-    fn area(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
-        ScrollArea::vertical()
-            .id_source(id.to_owned() + "_scroll")
-            .show(ui, |ui| {
-                Grid::new(id)
-                    .num_columns(2)
-                    .spacing([5.0, 5.0])
-                    .show(ui, add_contents);
-            });
     }
 
     fn numbers(&mut self, ui: UiRef) {
@@ -56,8 +43,7 @@ impl<'a> EditorGlobals<'a> {
             ui.horizontal(|ui| {
                 ui.add(DragValue::new(&mut global.value));
                 // ghetto padding
-                ui.label("");
-                ui.label("");
+                ui.label(" ");
             });
             ui.end_row();
         }

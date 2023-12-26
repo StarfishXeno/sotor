@@ -33,6 +33,7 @@ impl UiExt for Ui {
         TextEdit::singleline(text)
             .vertical_align(egui::Align::Center)
             .min_size([width, 0.0].into())
+            .margin([4.0, 1.6].into())
             .desired_width(width)
             .text_color(BLACK)
             .ui(self)

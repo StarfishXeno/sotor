@@ -1,34 +1,38 @@
-use std::sync::Arc;
-
 use egui::{
     style::{Selection, Spacing, WidgetVisuals, Widgets},
     Color32, Context, FontData, FontDefinitions,
     FontFamily::{self, Proportional},
-    FontId, TextStyle, Ui, Visuals,
+    FontId, TextStyle, Visuals,
 };
+
+use super::UiRef;
 
 pub const WHITE: Color32 = Color32::from_rgb(223, 223, 201);
 pub const GREEN: Color32 = Color32::from_rgb(47, 192, 161);
 pub const GREEN_DARK: Color32 = Color32::from_rgb(29, 119, 99);
-pub const BLUE: Color32 = Color32::from_rgb(199, 255, 250);
+pub const BLUE: Color32 = Color32::from_rgb(0, 168, 249);
 pub const RED: Color32 = Color32::from_rgb(183, 26, 0);
 pub const GREY: Color32 = Color32::from_rgb(131, 131, 106);
 pub const GREY_DARK: Color32 = Color32::from_rgb(52, 52, 52);
 pub const BLACK: Color32 = Color32::from_rgb(26, 26, 26);
 
-pub fn set_selectable_styles(ui: &mut Ui) {
+pub fn set_selectable_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     visuals.override_text_color = Some(WHITE);
     visuals.selection.bg_fill = GREY_DARK;
     visuals.widgets.hovered.weak_bg_fill = GREY_DARK;
 }
 
-pub fn set_combobox_styles(ui: &mut Ui) {
+pub fn set_combobox_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     visuals.override_text_color = Some(BLACK);
 }
 
-pub fn set_drag_value_styles(ui: &mut Ui) {
+pub fn set_striped_styles(ui: UiRef) {
+    ui.visuals_mut().faint_bg_color = GREY_DARK;
+}
+
+pub fn set_drag_value_styles(ui: UiRef) {
     let styles = ui.style_mut();
     let visuals = &mut styles.visuals;
 
@@ -36,7 +40,7 @@ pub fn set_drag_value_styles(ui: &mut Ui) {
 
     visuals.override_text_color = Some(BLACK);
 }
-pub fn set_slider_styles(ui: &mut Ui) {
+pub fn set_slider_styles(ui: UiRef) {
     let styles = ui.style_mut();
     let visuals = &mut styles.visuals;
 
@@ -44,7 +48,7 @@ pub fn set_slider_styles(ui: &mut Ui) {
 
     visuals.override_text_color = Some(BLACK);
 }
-pub fn set_checkbox_styles(ui: &mut Ui) {
+pub fn set_checkbox_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
     let stroke = (3.0, BLACK).into();
@@ -57,7 +61,7 @@ pub fn set_checkbox_styles(ui: &mut Ui) {
     widgets.active.bg_stroke = (2.0, GREEN).into();
 }
 
-pub fn set_button_styles(ui: &mut Ui) {
+pub fn set_button_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
 
@@ -69,7 +73,7 @@ pub fn set_button_styles(ui: &mut Ui) {
     widgets.active.bg_stroke = (2.0, WHITE).into();
 }
 
-pub fn set_button_styles_disabled(ui: &mut Ui) {
+pub fn set_button_styles_disabled(ui: UiRef) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
     let stroke = (2.0, GREY).into();
@@ -126,11 +130,11 @@ pub fn set_styles(ctx: &Context) {
     ]
     .into();
     style.spacing = Spacing {
-        icon_width: 18.0,
-        icon_width_inner: 10.0,
+        icon_width: 20.0,
+        icon_width_inner: 11.0,
         ..style.spacing
     };
-    style.drag_value_text_style = TextStyle::Name("Large".into());
+    style.drag_value_text_style = TextStyle::Body;
 
     style.visuals = Visuals {
         text_cursor: (2.0, GREY).into(),

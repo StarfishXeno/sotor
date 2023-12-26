@@ -1,23 +1,82 @@
 use crate::{
-    save::{PartyMember, Save},
+    save::{AvailablePartyMember, PartyMember, Save},
     util::format_seconds,
 };
-use egui::{ComboBox, Frame, Grid, Image, Margin, RichText, TextureHandle};
+use egui::{Frame, Grid, Image, Margin, RichText, TextureHandle};
 
 use super::{
     styles::{
-        set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_combobox_styles,
-        set_selectable_styles, GREEN, GREY_DARK,
+        set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_striped_styles,
+        BLUE, GREEN,
     },
-    widgets::UiExt,
+    widgets::{white_text, UiExt},
     UiRef,
 };
 
+fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
+    Frame::default()
+        .stroke((2.0, GREEN))
+        .inner_margin(10.0)
+        .outer_margin({
+            let mut margin = Margin::ZERO;
+            margin.top = 4.0;
+            margin.bottom = 8.0;
+            margin
+        })
+        .rounding(5.0)
+        .show(ui, |ui| {
+            set_striped_styles(ui);
+
+            Grid::new(id)
+                .num_columns(columns)
+                .spacing([10.0, 6.0])
+                .striped(true)
+                .show(ui, add_contents);
+        });
+}
+fn member_row(
+    ui: UiRef,
+    idx: usize,
+    in_party: &[usize],
+    party_names: &[&str],
+    member: &mut AvailablePartyMember,
+    members: &mut Vec<PartyMember>,
+) {
+    let in_party_idx = in_party.binary_search(&idx);
+    let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
+    ui.label(if in_party_idx.is_ok() {
+        RichText::new(*name).color(BLUE)
+    } else {
+        white_text(name)
+    });
+    ui.s_checkbox_raw(&mut member.available);
+    ui.s_checkbox_raw(&mut member.selectable);
+    ui.horizontal(|ui| {
+        set_button_styles(ui);
+        if let Ok(idx) = in_party_idx {
+            let btn = ui.s_button_basic("Remove");
+
+            if btn.clicked() {
+                members.remove(idx);
+            }
+        } else {
+            ui.style_mut().spacing.button_padding = [17.2, 1.0].into();
+            let cant_add = members.len() >= 2 || !member.available || !member.selectable;
+            if cant_add {
+                set_button_styles_disabled(ui);
+            }
+            let btn = ui.s_button("Add", false, cant_add);
+
+            if !cant_add && btn.clicked() {
+                members.push(PartyMember { idx, leader: false });
+            }
+        }
+    });
+}
 pub struct EditorGeneral<'a> {
     image: &'a TextureHandle,
     save: &'a mut Save,
     party_names: &'static [&'static str],
-    selected_member: usize,
 }
 impl<'a> EditorGeneral<'a> {
     pub fn new(save: &'a mut Save, image: &'a TextureHandle) -> Self {
@@ -25,7 +84,6 @@ impl<'a> EditorGeneral<'a> {
             party_names: save.game.get_party_names(),
             image,
             save,
-            selected_member: 0,
         }
     }
     pub fn show(&mut self, ui: UiRef) {
@@ -48,46 +106,16 @@ impl<'a> EditorGeneral<'a> {
 
         ui.separator();
 
-        ui.horizontal_top(|ui| {
-            ui.vertical(|ui| {
-                ui.label("Current party: ");
-                Self::party_grid(ui, "save_general_party", 3, |ui| self.member_table(ui));
-                ui.horizontal(|ui| self.party_member_selection(ui));
-            });
-            ui.vertical(|ui| {
-                ui.label("Available party: ");
-                Self::party_grid(ui, "save_general_party_available", 7, |ui| {
-                    self.available_table(ui);
-                });
-            })
+        party_grid(ui, "save_general_party_available", 9, |ui| {
+            self.party_table(ui);
         });
+        ui.label(RichText::new("*currently in your party").color(BLUE));
     }
     fn image(&mut self, ui: UiRef) {
         let scale = 1.3;
         let image =
             Image::from((self.image.id(), (256.0 * scale, 144.0 * scale).into())).rounding(5.0);
         ui.add(image);
-    }
-
-    fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
-        Frame::default()
-            .stroke((2.0, GREEN))
-            .inner_margin(10.0)
-            .outer_margin({
-                let mut margin = Margin::ZERO;
-                margin.top = 4.0;
-                margin.bottom = 8.0;
-                margin
-            })
-            .rounding(5.0)
-            .show(ui, |ui| {
-                ui.visuals_mut().faint_bg_color = GREY_DARK;
-
-                Grid::new(id)
-                    .num_columns(columns)
-                    .spacing([10.0, 6.0])
-                    .show(ui, add_contents);
-            });
     }
 
     fn main_table(&mut self, ui: UiRef) {
@@ -126,108 +154,48 @@ impl<'a> EditorGeneral<'a> {
         ui.end_row();
     }
 
-    fn member_table(&mut self, ui: UiRef) {
+    fn party_table(&mut self, ui: UiRef) {
         let members = &mut self.save.party_table.members;
-
-        ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("Party leader").underline());
-        ui.label("");
-        ui.end_row();
-
-        let mut removed = None;
-        set_button_styles(ui);
-
-        for (idx, member) in members.iter_mut().enumerate() {
-            ui.s_text(self.party_names.get(member.idx).unwrap_or(&"UNKNOWN"));
-            ui.s_checkbox(&mut member.leader);
-
-            let btn = ui.s_button_basic("Remove");
-
-            if btn.clicked() {
-                removed = Some(idx);
-            }
-            ui.end_row();
-        }
-        if let Some(idx) = removed {
-            members.remove(idx);
-        }
-    }
-
-    fn party_member_selection(&mut self, ui: UiRef) {
-        let pt = &mut self.save.party_table;
-        let members = &mut pt.members;
-
-        let available: Vec<_> = self
-            .party_names
-            .iter()
-            .enumerate()
-            .filter(|(idx, _)| {
-                members.binary_search_by_key(idx, |m| m.idx).is_err()
-                    && pt.available_members[*idx].available
-                    && pt.available_members[*idx].selectable
-            })
-            .map(|(idx, name)| (idx, *name))
-            .collect();
-
-        if available.is_empty() {
-            return;
-        }
-
-        set_combobox_styles(ui);
-
-        ComboBox::from_id_source("save_general_pt_member")
-            .selected_text(self.party_names[self.selected_member])
-            .show_ui(ui, |ui| {
-                set_selectable_styles(ui);
-                for (idx, name) in available {
-                    ui.selectable_value(&mut self.selected_member, idx, name);
-                }
-            });
-
-        set_button_styles(ui);
-        let cant_add = members.len() >= 2;
-        if cant_add {
-            set_button_styles_disabled(ui);
-        }
-        let mut btn = ui.s_button("Add", false, cant_add);
-
-        if cant_add {
-            btn = btn.on_hover_text("Can't have more than 2 members");
-        }
-
-        if !cant_add && btn.clicked() {
-            members.push(PartyMember {
-                idx: self.selected_member,
-                leader: false,
-            });
-        }
-    }
-
-    fn available_table(&mut self, ui: UiRef) {
-        let members = &mut self.save.party_table.available_members;
+        let available_members = &mut self.save.party_table.available_members;
 
         ui.label(RichText::new("Name").underline());
         ui.label(RichText::new("Available").underline());
         ui.label(RichText::new("Selectable").underline());
         ui.label("");
+        ui.label("");
         ui.label(RichText::new("Name").underline());
         ui.label(RichText::new("Available").underline());
         ui.label(RichText::new("Selectable").underline());
+        ui.label("");
         ui.end_row();
 
         set_checkbox_styles(ui);
-        for (idx, members) in members.chunks_mut(2).enumerate() {
-            ui.s_text(self.party_names.get(idx * 2).unwrap_or(&"UNKNOWN"));
-            ui.s_checkbox_raw(&mut members[0].available);
-            ui.s_checkbox_raw(&mut members[0].selectable);
+        let spacing = ui.spacing_mut();
+        spacing.icon_width = 18.0;
+        spacing.icon_width_inner = 10.0;
 
-            if members.len() > 1 {
+        let in_party: Vec<_> = members.iter().map(|m| m.idx).collect();
+
+        for (idx, chunk) in available_members.chunks_mut(2).enumerate() {
+            member_row(
+                ui,
+                idx * 2,
+                &in_party,
+                self.party_names,
+                &mut chunk[0],
+                members,
+            );
+            if chunk.len() > 1 {
                 ui.label("");
-                ui.s_text(self.party_names.get(idx * 2 + 1).unwrap_or(&"UNKNOWN"));
-                ui.s_checkbox_raw(&mut members[1].available);
-                ui.s_checkbox_raw(&mut members[1].selectable);
+                member_row(
+                    ui,
+                    idx * 2 + 1,
+                    &in_party,
+                    self.party_names,
+                    &mut chunk[1],
+                    members,
+                );
             }
-
             ui.end_row();
         }
     }
