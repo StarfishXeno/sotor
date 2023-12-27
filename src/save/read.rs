@@ -4,7 +4,7 @@ use crate::formats::gff::Field;
 
 use super::{
     AvailablePartyMember, Game, Global, Globals, JournalEntry, Nfo, PartyMember, PartyTable, Save,
-    SaveInternals,
+    SaveInternals, GLOBALS_TYPES,
 };
 
 macro_rules! rf {
@@ -33,7 +33,7 @@ pub struct Reader {
 
 impl Reader {
     pub fn new(inner: SaveInternals, image: TextureHandle) -> Self {
-        let game = if inner.erf.resources.get("pc").is_some() {
+        let game = if inner.erf.resources.get("pc").is_none() {
             Game::One
         } else {
             Game::Two
@@ -75,16 +75,14 @@ impl Reader {
     }
 
     fn read_globals(&self) -> Result<Globals, String> {
-        static TYPES: &[&str] = &["Number", "Boolean", "String"];
-
         let fields = &self.inner.globals.content.fields;
 
-        let mut names: Vec<Vec<_>> = Vec::with_capacity(TYPES.len());
+        let mut names: Vec<Vec<_>> = Vec::with_capacity(GLOBALS_TYPES.len());
         // Strings are stored as a struct list and go into a separate vector
-        let mut values = Vec::with_capacity(TYPES.len() - 1);
+        let mut values = Vec::with_capacity(GLOBALS_TYPES.len() - 1);
         let mut string_values = &vec![];
 
-        for tp in TYPES {
+        for tp in GLOBALS_TYPES {
             let Some(Field::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
                 return Err(rf!("Globals: missing or invalid Cat{tp}"));
             };

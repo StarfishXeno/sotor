@@ -13,6 +13,8 @@ use crate::{
 mod read;
 mod update;
 
+const GLOBALS_TYPES: &[&str] = &["Number", "Boolean", "String"];
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyMember {
     pub idx: usize,

@@ -1,6 +1,6 @@
 use crate::formats::gff::{Field, Struct};
 
-use super::{Global, Save};
+use super::{Global, Save, GLOBALS_TYPES};
 
 fn global_names<T>(globals: &[Global<T>]) -> Vec<String> {
     globals.iter().map(|g| g.name.clone()).collect()
@@ -32,19 +32,17 @@ impl<'a> Updater<'a> {
     }
 
     fn write_globals(&mut self) {
-        static TYPES: &[&str] = &["Number", "Boolean", "String"];
-
         let globals = &self.save.globals;
         let fields = &mut self.save.inner.globals.content.fields;
 
         // remove the old data first
-        for tp in TYPES {
+        for tp in GLOBALS_TYPES {
             fields.remove(&("Val".to_owned() + tp));
             fields.remove(&("Cat".to_owned() + tp));
         }
 
-        // write the names of all globals
-        let pairs: Vec<_> = TYPES
+        // write the names of all the globals
+        let pairs: Vec<_> = GLOBALS_TYPES
             .iter()
             .zip([
                 global_names(&globals.numbers),
@@ -77,6 +75,7 @@ impl<'a> Updater<'a> {
             boolean_values[byte_idx] |= (field.value as u8) << bit_idx;
         }
         fields.insert("ValBoolean".to_owned(), Field::Void(boolean_values));
+
         // STRINGS
         let string_values = globals
             .strings

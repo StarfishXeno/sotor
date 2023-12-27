@@ -44,9 +44,17 @@ impl<'a> EditorGeneral<'a> {
 
         ui.separator();
 
-        Self::party_grid(ui, "save_general_party_available", 9, |ui| {
-            self.party_table(ui);
-        });
+        set_striped_styles(ui);
+
+        Grid::new("save_general_party")
+            .num_columns(9)
+            .spacing([10.0, 6.0])
+            .striped(true)
+            .show(ui, |ui| {
+                self.party_table(ui);
+            });
+
+        ui.s_offset([0.0, 2.0]);
         ui.label(RichText::new("*currently in your party").color(BLUE));
     }
 
@@ -137,28 +145,6 @@ impl<'a> EditorGeneral<'a> {
             }
             ui.end_row();
         }
-    }
-
-    fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
-        Frame::default()
-            .stroke((2.0, GREEN))
-            .inner_margin(10.0)
-            .outer_margin({
-                let mut margin = Margin::ZERO;
-                margin.top = 4.0;
-                margin.bottom = 8.0;
-                margin
-            })
-            .rounding(5.0)
-            .show(ui, |ui| {
-                set_striped_styles(ui);
-
-                Grid::new(id)
-                    .num_columns(columns)
-                    .spacing([10.0, 6.0])
-                    .striped(true)
-                    .show(ui, add_contents);
-            });
     }
 
     fn member_row(

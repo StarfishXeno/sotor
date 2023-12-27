@@ -1,8 +1,8 @@
 use std::ops::RangeInclusive;
 
 use egui::{
-    style::HandleShape, Button, CursorIcon, Response, RichText, Slider, TextBuffer, TextEdit, Ui,
-    Widget as _,
+    style::HandleShape, Button, CursorIcon, Response, RichText, Sense, Slider, TextBuffer,
+    TextEdit, Ui, Widget as _,
 };
 use emath::{Numeric, Rect};
 
@@ -27,6 +27,7 @@ pub trait UiExt {
     fn s_checkbox(&mut self, value: &mut bool);
     fn s_text(&mut self, text: &str) -> Response;
     fn s_scroll_to_end(&mut self);
+    fn s_offset(&mut self, offset: [f32; 2]);
 }
 
 impl UiExt for Ui {
@@ -96,10 +97,17 @@ impl UiExt for Ui {
     fn s_text(&mut self, text: &str) -> Response {
         self.label(white_text(text))
     }
+
     fn s_scroll_to_end(&mut self) {
         self.scroll_to_rect(
             Rect::from_min_max([f32::MAX, f32::MAX].into(), [f32::MAX, f32::MAX].into()),
             None,
         );
+    }
+
+    fn s_offset(&mut self, offset: [f32; 2]) {
+        println!("{:?}", self.min_rect());
+        println!("{:?}", self.cursor());
+        self.allocate_exact_size(offset.into(), Sense::hover());
     }
 }
