@@ -10,19 +10,17 @@ use crate::{
     },
     util::format_seconds,
 };
-use egui::{Frame, Grid, Image, Margin, RichText, TextureHandle};
+use egui::{Frame, Grid, Image, Margin, RichText};
 
 pub struct EditorGeneral<'a> {
     save: &'a mut Save,
-    image: &'a Option<TextureHandle>,
     party_names: &'static [&'static str],
 }
 
 impl<'a> EditorGeneral<'a> {
-    pub fn new(save: &'a mut Save, image: &'a Option<TextureHandle>) -> Self {
+    pub fn new(save: &'a mut Save) -> Self {
         Self {
             party_names: save.game.get_party_names(),
-            image,
             save,
         }
     }
@@ -53,11 +51,9 @@ impl<'a> EditorGeneral<'a> {
     }
 
     fn image(&mut self, ui: UiRef) {
-        let Some(handle) = self.image else {
-            return;
-        };
         let scale = 1.3;
-        let image = Image::from((handle.id(), (256.0 * scale, 144.0 * scale).into())).rounding(5.0);
+        let image = Image::from((self.save.image.id(), (256.0 * scale, 144.0 * scale).into()))
+            .rounding(5.0);
         ui.add(image);
     }
 

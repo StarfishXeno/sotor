@@ -5,16 +5,16 @@ use super::{Global, Save};
 fn global_names<T>(globals: &[Global<T>]) -> Vec<String> {
     globals.iter().map(|g| g.name.clone()).collect()
 }
-pub struct Writer {
-    save: Save,
+pub struct Writer<'a> {
+    save: &'a mut Save,
 }
 
-impl Writer {
-    pub fn new(save: Save) -> Self {
+impl<'a> Writer<'a> {
+    pub fn new(save: &'a mut Save) -> Self {
         Self { save }
     }
 
-    pub fn process(mut self) -> Save {
+    pub fn process(mut self) -> &'a mut Save {
         self.write_nfo();
         self.write_globals();
         self.write_party_table();
@@ -109,13 +109,7 @@ impl Writer {
             .collect();
         fields.insert("JNL_Entries".to_owned(), Field::List(journal_list));
 
-        fields.insert(
-            "PT_CHEAT_USED".to_owned(),
-            Field::Byte(self.save.nfo.cheats_used as u8),
-        );
-        fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
-
-        let members_list = pt
+        let members_list: Vec<_> = pt
             .members
             .iter()
             .map(|m| {
@@ -128,6 +122,10 @@ impl Writer {
                 )
             })
             .collect();
+        fields.insert(
+            "PT_NUM_MEMBERS".to_owned(),
+            Field::Byte(members_list.len() as u8),
+        );
         fields.insert("PT_MEMBERS".to_owned(), Field::List(members_list));
 
         let av_members_list = pt
@@ -145,6 +143,11 @@ impl Writer {
             .collect();
         fields.insert("PT_AVAIL_NPCS".to_owned(), Field::List(av_members_list));
 
+        fields.insert(
+            "PT_CHEAT_USED".to_owned(),
+            Field::Byte(self.save.nfo.cheats_used as u8),
+        );
+        fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
         fields.insert("PT_XP_POOL".to_owned(), Field::Int(pt.party_xp));
     }
 }

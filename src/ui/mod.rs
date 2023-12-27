@@ -1,8 +1,7 @@
-use crate::{
-    save::{Game, Save},
-    util::load_tga,
-};
-use egui::{panel::Side, TextureHandle, TextureOptions, Ui};
+use std::process;
+
+use crate::save::Save;
+use egui::{panel::Side, Ui};
 use sotor_macros::EnumToString;
 
 mod editor;
@@ -21,27 +20,23 @@ enum Tab {
     Quests,
 }
 pub struct SotorApp {
-    texture: Option<TextureHandle>,
     save: Option<Save>,
     tab: Tab,
 }
 
 impl SotorApp {
     pub fn new(ctx: &eframe::CreationContext<'_>) -> Self {
-        let path = "./save/";
-        let save = Save::read_from_directory(path, Game::One).ok();
         styles::set_styles(&ctx.egui_ctx);
-
-        let tga = load_tga(path);
-        let texture = tga.map(|i| {
-            ctx.egui_ctx
-                .load_texture("save_image", i, TextureOptions::NEAREST)
-        });
-
-        Self {
-            texture,
-            save,
-            tab: Tab::General,
+        let path = "./assets/k1/saves/000000 - QUICKSAVE/";
+        match Save::read_from_directory(path, &ctx.egui_ctx) {
+            Ok(save) => Self {
+                save: Some(save),
+                tab: Tab::General,
+            },
+            Err(err) => {
+                println!("{err}");
+                process::exit(1);
+            }
         }
     }
 }
@@ -52,7 +47,7 @@ impl eframe::App for SotorApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(save) = &mut self.save {
-                editor::Editor::new(save, &mut self.tab, &self.texture).show(ui);
+                editor::Editor::new(save, &mut self.tab).show(ui);
             } else {
                 editor::EditorPlaceholder::new().show(ui);
             };

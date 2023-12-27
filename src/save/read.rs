@@ -1,3 +1,5 @@
+use egui::TextureHandle;
+
 use crate::formats::gff::Field;
 
 use super::{
@@ -24,15 +26,23 @@ macro_rules! get_field {
 }
 
 pub struct Reader {
-    game: Game,
     inner: SaveInternals,
+    game: Game,
+    image: TextureHandle,
 }
+
 impl Reader {
-    pub fn new(inner: SaveInternals, game: Game) -> Self {
-        Self { game, inner }
+    pub fn new(inner: SaveInternals, image: TextureHandle) -> Self {
+        let game = if inner.erf.resources.get("pc").is_some() {
+            Game::One
+        } else {
+            Game::Two
+        };
+
+        Self { inner, game, image }
     }
 
-    pub fn process(self) -> Result<Save, String> {
+    pub fn into_save(self) -> Result<Save, String> {
         let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
@@ -42,11 +52,12 @@ impl Reader {
         party_table.cheats_used = nfo.cheats_used;
 
         Ok(Save {
-            game: self.game,
             globals,
             nfo,
             party_table,
 
+            image: self.image,
+            game: self.game,
             inner: self.inner,
         })
     }

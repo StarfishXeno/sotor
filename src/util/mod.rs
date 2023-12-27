@@ -33,16 +33,18 @@ pub fn format_seconds(secs: u32) -> String {
         format!("{minutes}m {seconds}s")
     }
 }
-pub fn load_tga(path: &str) -> Option<ColorImage> {
-    let img = ImageReader::open([path, "screen.tga"].join("/"))
-        .ok()?
+
+pub fn load_tga(path: &str) -> Result<ColorImage, String> {
+    let img = ImageReader::open(path)
+        .map_err(|err| err.to_string())?
         .decode()
-        .ok()?;
+        .map_err(|err| err.to_string())?;
+
     let size = [img.width() as _, img.height() as _];
     let data = img.to_rgba8();
     let data = data.as_flat_samples();
 
-    Some(egui::ColorImage::from_rgba_unmultiplied(
+    Ok(egui::ColorImage::from_rgba_unmultiplied(
         size,
         data.as_slice(),
     ))

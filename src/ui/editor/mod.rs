@@ -1,4 +1,4 @@
-use egui::{Layout, TextureHandle};
+use egui::{Direction, Layout};
 use emath::Align;
 
 use crate::save::Save;
@@ -16,19 +16,20 @@ impl EditorPlaceholder {
         Self {}
     }
     pub fn show(&self, ui: UiRef) {
-        ui.vertical_centered(|ui| ui.label("Please select a save"));
+        ui.with_layout(Layout::centered_and_justified(Direction::TopDown), |ui| {
+            ui.label("Please select a save")
+        });
     }
 }
 
 pub struct Editor<'a> {
     save: &'a mut Save,
     tab: &'a mut Tab,
-    texture: &'a Option<TextureHandle>,
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(save: &'a mut Save, tab: &'a mut Tab, texture: &'a Option<TextureHandle>) -> Self {
-        Self { save, tab, texture }
+    pub fn new(save: &'a mut Save, tab: &'a mut Tab) -> Self {
+        Self { save, tab }
     }
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal(|ui| {
@@ -43,13 +44,14 @@ impl<'a> Editor<'a> {
                 set_button_styles(ui);
                 let btn = ui.s_button_basic("Save");
                 if btn.clicked() {
-                    *self.save = Save::save_to_directory("./save", self.save.clone()).unwrap();
+                    Save::save_to_directory("./save", self.save).unwrap();
                 }
             })
         });
+
         ui.separator();
         match self.tab {
-            Tab::General => general::EditorGeneral::new(self.save, self.texture).show(ui),
+            Tab::General => general::EditorGeneral::new(self.save).show(ui),
             Tab::Globals => globals::EditorGlobals::new(&mut self.save.globals).show(ui),
             Tab::Quests => quests::EditorQuests::new(&mut self.save.party_table.journal).show(ui),
 
