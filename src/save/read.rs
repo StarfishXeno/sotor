@@ -162,8 +162,6 @@ impl Reader {
                 date: get_field!(entry.fields, "JNL_Date", unwrap_dword)?,
             });
         }
-        let cheats_used = get_field!(fields, "PT_CHEAT_USED", unwrap_byte)? != 0;
-        let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
 
         let members_list = get_field!(fields, "PT_MEMBERS", unwrap_list)?;
         let members: Result<_, String> = members_list
@@ -190,6 +188,15 @@ impl Reader {
         let available_members = available_members?;
 
         let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
+        let cheats_used = get_field!(fields, "PT_CHEAT_USED", unwrap_byte)? != 0;
+        let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
+        let (components, chemicals) = match self.game {
+            Game::One => (0, 0),
+            Game::Two => (
+                get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?,
+                get_field!(fields, "PT_ITEM_CHEMICAL", unwrap_dword)?,
+            ),
+        };
 
         Ok(PartyTable {
             journal,
@@ -198,6 +205,8 @@ impl Reader {
             members,
             available_members,
             party_xp,
+            components,
+            chemicals,
         })
     }
 }

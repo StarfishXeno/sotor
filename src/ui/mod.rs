@@ -27,7 +27,7 @@ pub struct SotorApp {
 impl SotorApp {
     pub fn new(ctx: &eframe::CreationContext<'_>) -> Self {
         styles::set_styles(&ctx.egui_ctx);
-        let path = "./assets/k1/saves/000000 - QUICKSAVE/";
+        let path = "./assets/k2/saves/000000 - QUICKSAVE/";
         match Save::read_from_directory(path, &ctx.egui_ctx) {
             Ok(save) => Self {
                 save: Some(save),

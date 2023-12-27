@@ -1,5 +1,5 @@
 use crate::{
-    save::{AvailablePartyMember, PartyMember, Save},
+    save::{AvailablePartyMember, Game, PartyMember, Save},
     ui::{
         styles::{
             set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_striped_styles,
@@ -10,7 +10,7 @@ use crate::{
     },
     util::format_seconds,
 };
-use egui::{Frame, Grid, Image, Margin, RichText};
+use egui::{Frame, Grid, Image, Layout, Margin, RichText};
 
 pub struct EditorGeneral<'a> {
     save: &'a mut Save,
@@ -26,20 +26,22 @@ impl<'a> EditorGeneral<'a> {
     }
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal_top(|ui| {
-            Frame::default()
-                .stroke((4.0, GREEN))
-                .rounding(5.0)
-                .outer_margin({
-                    let mut margin = Margin::symmetric(0.0, 5.0);
-                    margin.right = 10.0;
-                    margin
-                })
-                .show(ui, |ui| self.image(ui));
-
             egui::Grid::new("save_general")
                 .num_columns(2)
                 .spacing([20.0, 6.0])
                 .show(ui, |ui| self.main_table(ui));
+
+            ui.with_layout(Layout::right_to_left(emath::Align::Min), |ui| {
+                Frame::default()
+                    .stroke((4.0, GREEN))
+                    .rounding(5.0)
+                    .outer_margin({
+                        let mut margin = Margin::symmetric(0.0, 5.0);
+                        margin.left = 10.0;
+                        margin
+                    })
+                    .show(ui, |ui| self.image(ui));
+            })
         });
 
         ui.separator();
@@ -93,12 +95,22 @@ impl<'a> EditorGeneral<'a> {
         ui.end_row();
 
         ui.label("Credits: ");
-        ui.s_slider(&mut pt.credits, 0..=9_999_999, true);
+        ui.s_slider(&mut pt.credits, 0..=9_999_999);
         ui.end_row();
 
         ui.label("Party XP: ");
-        ui.s_slider(&mut pt.party_xp, 0..=9_999_999, true);
+        ui.s_slider(&mut pt.party_xp, 0..=9_999_999);
         ui.end_row();
+
+        if self.save.game == Game::Two {
+            ui.label("Components: ");
+            ui.s_slider(&mut pt.components, 0..=99_999);
+            ui.end_row();
+
+            ui.label("Chemicals: ");
+            ui.s_slider(&mut pt.chemicals, 0..=99_999);
+            ui.end_row();
+        }
     }
 
     fn party_table(&mut self, ui: UiRef) {

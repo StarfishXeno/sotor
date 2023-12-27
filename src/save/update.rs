@@ -1,6 +1,6 @@
 use crate::formats::gff::{Field, Struct};
 
-use super::{Global, Save, GLOBALS_TYPES};
+use super::{Global, Save, GLOBALS_TYPES, Game};
 
 fn global_names<T>(globals: &[Global<T>]) -> Vec<String> {
     globals.iter().map(|g| g.name.clone()).collect()
@@ -146,5 +146,10 @@ impl<'a> Updater<'a> {
         );
         fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
         fields.insert("PT_XP_POOL".to_owned(), Field::Int(pt.party_xp));
+        
+        if self.save.game == Game::Two {
+            fields.insert("PT_ITEM_COMPONEN".to_owned(), Field::Dword(pt.components));
+            fields.insert("PT_ITEM_CHEMICAL".to_owned(), Field::Dword(pt.chemicals));
+        }
     }
 }

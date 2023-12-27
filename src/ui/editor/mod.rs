@@ -31,18 +31,21 @@ impl<'a> Editor<'a> {
     pub fn new(save: &'a mut Save, tab: &'a mut Tab) -> Self {
         Self { save, tab }
     }
+
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal(|ui| {
             set_button_styles(ui);
+
             for tab in Tab::UNIT_VALUES {
                 let btn = ui.s_button(&tab.to_string(), *self.tab == tab, false);
                 if btn.clicked() {
                     *self.tab = tab;
                 }
             }
+
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                set_button_styles(ui);
                 let btn = ui.s_button_basic("Save");
+
                 if btn.clicked() {
                     Save::save_to_directory("./save", self.save).unwrap();
                 }
@@ -50,6 +53,7 @@ impl<'a> Editor<'a> {
         });
 
         ui.separator();
+
         match self.tab {
             Tab::General => general::EditorGeneral::new(self.save).show(ui),
             Tab::Globals => globals::EditorGlobals::new(&mut self.save.globals).show(ui),

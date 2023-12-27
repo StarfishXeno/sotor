@@ -42,6 +42,8 @@ pub struct PartyTable {
     pub members: Vec<PartyMember>,
     pub available_members: Vec<AvailablePartyMember>,
     pub party_xp: i32,
+    pub components: u32,
+    pub chemicals: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]

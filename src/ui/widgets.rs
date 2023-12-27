@@ -20,7 +20,7 @@ pub trait UiExt {
         range: RangeInclusive<T>,
         logarithmic: bool,
     ) -> Response;
-    fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>, logarithmic: bool);
+    fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>);
     fn s_button(&mut self, text: &str, selected: bool, disabled: bool) -> Response;
     fn s_button_basic(&mut self, text: &str) -> Response;
     fn s_checkbox_raw(&mut self, value: &mut bool) -> Response;
@@ -55,10 +55,11 @@ impl UiExt for Ui {
         )
     }
 
-    fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>, logarithmic: bool) {
+    fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>) {
         self.horizontal(|ui| {
             set_slider_styles(ui);
-            ui.s_slider_raw(value, range, logarithmic);
+
+            ui.s_slider_raw(value, range, true);
         });
     }
 
@@ -106,8 +107,6 @@ impl UiExt for Ui {
     }
 
     fn s_offset(&mut self, offset: [f32; 2]) {
-        println!("{:?}", self.min_rect());
-        println!("{:?}", self.cursor());
         self.allocate_exact_size(offset.into(), Sense::hover());
     }
 }
