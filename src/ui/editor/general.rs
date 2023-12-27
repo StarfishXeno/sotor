@@ -12,78 +12,14 @@ use crate::{
 };
 use egui::{Frame, Grid, Image, Margin, RichText, TextureHandle};
 
-fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
-    Frame::default()
-        .stroke((2.0, GREEN))
-        .inner_margin(10.0)
-        .outer_margin({
-            let mut margin = Margin::ZERO;
-            margin.top = 4.0;
-            margin.bottom = 8.0;
-            margin
-        })
-        .rounding(5.0)
-        .show(ui, |ui| {
-            set_striped_styles(ui);
-
-            Grid::new(id)
-                .num_columns(columns)
-                .spacing([10.0, 6.0])
-                .striped(true)
-                .show(ui, add_contents);
-        });
-}
-fn member_row(
-    ui: UiRef,
-    idx: usize,
-    in_party: &[usize],
-    party_names: &[&str],
-    member: &mut AvailablePartyMember,
-    members: &mut Vec<PartyMember>,
-) {
-    let in_party_idx = in_party
-        .iter()
-        .copied()
-        .enumerate()
-        .find(|(_, i)| *i == idx);
-    let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
-
-    ui.label(if in_party_idx.is_some() {
-        RichText::new(*name).color(BLUE)
-    } else {
-        white_text(name)
-    });
-    ui.add_enabled_ui(false, |ui| ui.s_checkbox_raw(&mut member.available));
-    ui.s_checkbox_raw(&mut member.selectable);
-    ui.horizontal(|ui| {
-        set_button_styles(ui);
-        if let Some((idx, _)) = in_party_idx {
-            let btn = ui.s_button_basic("Remove");
-
-            if btn.clicked() {
-                members.remove(idx);
-            }
-        } else {
-            ui.style_mut().spacing.button_padding = [17.2, 1.0].into();
-            let cant_add = members.len() >= 2 || !member.available || !member.selectable;
-            if cant_add {
-                set_button_styles_disabled(ui);
-            }
-            let btn = ui.s_button("Add", false, cant_add);
-
-            if !cant_add && btn.clicked() {
-                members.push(PartyMember { idx, leader: false });
-            }
-        }
-    });
-}
 pub struct EditorGeneral<'a> {
-    image: &'a TextureHandle,
     save: &'a mut Save,
+    image: &'a Option<TextureHandle>,
     party_names: &'static [&'static str],
 }
+
 impl<'a> EditorGeneral<'a> {
-    pub fn new(save: &'a mut Save, image: &'a TextureHandle) -> Self {
+    pub fn new(save: &'a mut Save, image: &'a Option<TextureHandle>) -> Self {
         Self {
             party_names: save.game.get_party_names(),
             image,
@@ -110,15 +46,18 @@ impl<'a> EditorGeneral<'a> {
 
         ui.separator();
 
-        party_grid(ui, "save_general_party_available", 9, |ui| {
+        Self::party_grid(ui, "save_general_party_available", 9, |ui| {
             self.party_table(ui);
         });
         ui.label(RichText::new("*currently in your party").color(BLUE));
     }
+
     fn image(&mut self, ui: UiRef) {
+        let Some(handle) = self.image else {
+            return;
+        };
         let scale = 1.3;
-        let image =
-            Image::from((self.image.id(), (256.0 * scale, 144.0 * scale).into())).rounding(5.0);
+        let image = Image::from((handle.id(), (256.0 * scale, 144.0 * scale).into())).rounding(5.0);
         ui.add(image);
     }
 
@@ -181,7 +120,7 @@ impl<'a> EditorGeneral<'a> {
         let in_party: Vec<_> = members.iter().map(|m| m.idx).collect();
 
         for (idx, chunk) in available_members.chunks_mut(2).enumerate() {
-            member_row(
+            Self::member_row(
                 ui,
                 idx * 2,
                 &in_party,
@@ -191,7 +130,7 @@ impl<'a> EditorGeneral<'a> {
             );
             if chunk.len() > 1 {
                 ui.label("");
-                member_row(
+                Self::member_row(
                     ui,
                     idx * 2 + 1,
                     &in_party,
@@ -202,5 +141,72 @@ impl<'a> EditorGeneral<'a> {
             }
             ui.end_row();
         }
+    }
+
+    fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
+        Frame::default()
+            .stroke((2.0, GREEN))
+            .inner_margin(10.0)
+            .outer_margin({
+                let mut margin = Margin::ZERO;
+                margin.top = 4.0;
+                margin.bottom = 8.0;
+                margin
+            })
+            .rounding(5.0)
+            .show(ui, |ui| {
+                set_striped_styles(ui);
+
+                Grid::new(id)
+                    .num_columns(columns)
+                    .spacing([10.0, 6.0])
+                    .striped(true)
+                    .show(ui, add_contents);
+            });
+    }
+
+    fn member_row(
+        ui: UiRef,
+        idx: usize,
+        in_party: &[usize],
+        party_names: &[&str],
+        member: &mut AvailablePartyMember,
+        members: &mut Vec<PartyMember>,
+    ) {
+        let in_party_idx = in_party
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, i)| *i == idx);
+        let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
+
+        ui.label(if in_party_idx.is_some() {
+            RichText::new(*name).color(BLUE)
+        } else {
+            white_text(name)
+        });
+        ui.add_enabled_ui(false, |ui| ui.s_checkbox_raw(&mut member.available));
+        ui.s_checkbox_raw(&mut member.selectable);
+        ui.horizontal(|ui| {
+            set_button_styles(ui);
+            if let Some((idx, _)) = in_party_idx {
+                let btn = ui.s_button_basic("Remove");
+
+                if btn.clicked() {
+                    members.remove(idx);
+                }
+            } else {
+                ui.style_mut().spacing.button_padding = [17.2, 1.0].into();
+                let cant_add = members.len() >= 2 || !member.available || !member.selectable;
+                if cant_add {
+                    set_button_styles_disabled(ui);
+                }
+                let btn = ui.s_button("Add", false, cant_add);
+
+                if !cant_add && btn.clicked() {
+                    members.push(PartyMember { idx, leader: false });
+                }
+            }
+        });
     }
 }

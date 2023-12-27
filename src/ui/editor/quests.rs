@@ -15,33 +15,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-fn area(ui: UiRef, add_contents: impl FnOnce(UiRef)) {
-    ScrollArea::vertical()
-        .id_source("editor_quests_scroll")
-        .stick_to_bottom(true)
-        .max_height(ui.max_rect().height() - 65.0)
-        .show(ui, |ui| {
-            set_striped_styles(ui);
-
-            Grid::new("editor_quests_grid")
-                .num_columns(8)
-                .spacing([5.0, 5.0])
-                .striped(true)
-                .show(ui, add_contents);
-        });
-}
-
-fn row(ui: UiRef, entry: &mut JournalEntry, removed: &mut Option<usize>, idx: usize) {
-    ui.label(white_text(&entry.id).text_style(TextStyle::Small));
-    set_drag_value_styles(ui);
-    ui.add(DragValue::new(&mut entry.state));
-    set_button_styles(ui);
-    let btn = ui.s_button_basic("Remove");
-    if btn.clicked() {
-        *removed = Some(idx);
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct EditorQuestsState {
     id: String,
@@ -57,7 +30,7 @@ impl<'a> EditorQuests<'a> {
     }
 
     pub fn show(&mut self, ui: UiRef) {
-        area(ui, |ui| {
+        Self::area(ui, |ui| {
             self.table(ui);
         });
 
@@ -80,10 +53,10 @@ impl<'a> EditorQuests<'a> {
         let mut removed = None;
         for (chunk_idx, entries) in self.journal.chunks_mut(2).enumerate() {
             let idx = chunk_idx * 2;
-            row(ui, &mut entries[0], &mut removed, idx);
+            Self::row(ui, &mut entries[0], &mut removed, idx);
             if entries.len() > 1 {
                 ui.label("");
-                row(ui, &mut entries[1], &mut removed, idx + 1);
+                Self::row(ui, &mut entries[1], &mut removed, idx + 1);
             }
             ui.label("");
             ui.end_row();
@@ -138,6 +111,33 @@ impl<'a> EditorQuests<'a> {
             });
             state.id = String::new();
             state.state = 0;
+        }
+    }
+
+    fn area(ui: UiRef, add_contents: impl FnOnce(UiRef)) {
+        ScrollArea::vertical()
+            .id_source("editor_quests_scroll")
+            .stick_to_bottom(true)
+            .max_height(ui.max_rect().height() - 65.0)
+            .show(ui, |ui| {
+                set_striped_styles(ui);
+
+                Grid::new("editor_quests_grid")
+                    .num_columns(8)
+                    .spacing([5.0, 5.0])
+                    .striped(true)
+                    .show(ui, add_contents);
+            });
+    }
+
+    fn row(ui: UiRef, entry: &mut JournalEntry, removed: &mut Option<usize>, idx: usize) {
+        ui.label(white_text(&entry.id).text_style(TextStyle::Small));
+        set_drag_value_styles(ui);
+        ui.add(DragValue::new(&mut entry.state));
+        set_button_styles(ui);
+        let btn = ui.s_button_basic("Remove");
+        if btn.clicked() {
+            *removed = Some(idx);
         }
     }
 }

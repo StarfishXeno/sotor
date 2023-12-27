@@ -3,7 +3,7 @@ use crate::{
         erf::{self, Erf},
         gff::{self, Gff},
     },
-    util::{join, read_file, write_file},
+    util::{read_file, write_file},
 };
 
 use self::write::Writer;
@@ -131,14 +131,14 @@ impl Save {
         let mut gffs = Vec::with_capacity(GFF_NAMES.len());
 
         for name in GFF_NAMES {
-            let file =
-                read_file(&join!(path, name)).map_err(|_| sf!("Couldn't read GFF file {name}"))?;
+            let file = read_file(&(path.to_owned() + name))
+                .map_err(|_| sf!("Couldn't read GFF file {name}"))?;
             let gff = gff::read(&file)?;
             gffs.push(gff);
         }
 
         let erf_bytes =
-            read_file(&join!(path, ERF_NAME)).map_err(|_| sf!("Couldn't read ERF file"))?;
+            read_file(&(path.to_owned() + ERF_NAME)).map_err(|_| sf!("Couldn't read ERF file"))?;
         let erf = erf::read(&erf_bytes)?;
         let reader = read::Reader::new(
             SaveInternals {
@@ -160,7 +160,7 @@ impl Save {
             &new_save.inner.party_table,
         ]) {
             let bytes = gff::write(gff.clone());
-            write_file(&join!(path, name), &bytes)
+            write_file(&(path.to_owned() + name), &bytes)
                 .map_err(|err| sf!("Couldn't write gff file {name}: {}", err.to_string()))?;
         }
 

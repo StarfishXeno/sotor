@@ -17,14 +17,13 @@ macro_rules! derive_error {
 macro_rules! parse_enum {
     ($input:ident) => {{
         let input: DeriveInput = parse_macro_input!($input as DeriveInput);
-
         let name = input.ident.clone();
-
         let data = if let Data::Enum(data) = &input.data {
             data.clone()
         } else {
             return derive_error!("This macro is only implemented for enums");
         };
+
         (name, input, data)
     }};
 }
@@ -39,6 +38,7 @@ macro_rules! get_enum_repr {
             ident = Some(attr.parse_args().unwrap());
             break;
         }
+
         if let Some(ident) = ident {
             ident
         } else {

@@ -8,32 +8,20 @@ use crate::{
 };
 use egui::{DragValue, Grid, ScrollArea, TextStyle};
 
-fn area(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
-    ScrollArea::vertical()
-        .id_source(id.to_owned() + "_scroll")
-        .show(ui, |ui| {
-            set_striped_styles(ui);
-
-            Grid::new(id)
-                .num_columns(2)
-                .spacing([5.0, 5.0])
-                .striped(true)
-                .show(ui, add_contents);
-        });
-}
-
 pub struct EditorGlobals<'a> {
     globals: &'a mut Globals,
 }
+
 impl<'a> EditorGlobals<'a> {
     pub fn new(globals: &'a mut Globals) -> Self {
         Self { globals }
     }
+
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal_top(|ui| {
-            area("globals_numbers", ui, |ui| self.numbers(ui));
-            area("globals_booleans", ui, |ui| self.booleans(ui));
-            area("globals_strings", ui, |ui| self.strings(ui));
+            Self::area("globals_numbers", ui, |ui| self.numbers(ui));
+            Self::area("globals_booleans", ui, |ui| self.booleans(ui));
+            Self::area("globals_strings", ui, |ui| self.strings(ui));
         });
     }
 
@@ -66,5 +54,19 @@ impl<'a> EditorGlobals<'a> {
             ui.s_text_edit(&mut global.value, 100.0);
             ui.end_row();
         }
+    }
+
+    fn area(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
+        ScrollArea::vertical()
+            .id_source(id.to_owned() + "_scroll")
+            .show(ui, |ui| {
+                set_striped_styles(ui);
+
+                Grid::new(id)
+                    .num_columns(2)
+                    .spacing([5.0, 5.0])
+                    .striped(true)
+                    .show(ui, add_contents);
+            });
     }
 }

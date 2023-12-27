@@ -9,14 +9,25 @@ mod general;
 mod globals;
 mod quests;
 
+pub struct EditorPlaceholder {}
+
+impl EditorPlaceholder {
+    pub fn new() -> Self {
+        Self {}
+    }
+    pub fn show(&self, ui: UiRef) {
+        ui.vertical_centered(|ui| ui.label("Please select a save"));
+    }
+}
+
 pub struct Editor<'a> {
     save: &'a mut Save,
     tab: &'a mut Tab,
-    texture: &'a TextureHandle,
+    texture: &'a Option<TextureHandle>,
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(save: &'a mut Save, tab: &'a mut Tab, texture: &'a TextureHandle) -> Self {
+    pub fn new(save: &'a mut Save, tab: &'a mut Tab, texture: &'a Option<TextureHandle>) -> Self {
         Self { save, tab, texture }
     }
     pub fn show(&mut self, ui: UiRef) {
