@@ -1,12 +1,15 @@
 use egui::{ColorImage, Context};
 use image::io::Reader as ImageReader;
+use rfd::{AsyncFileDialog, FileHandle};
 use std::{
     any::Any,
+    future::Future,
     sync::mpsc::{channel, Receiver, Sender},
 };
 
 pub enum Message {
     ReloadSave,
+    LoadFromDirectory(String),
 }
 pub trait ContextExt {
     fn set_channel(&self) -> Receiver<Message>;
@@ -38,15 +41,30 @@ impl ContextExt for Context {
     }
 }
 
+// something is wrong with either egui or kotor's TGAs as the normal loader fails, so have to do it this way
 pub fn load_tga(path: &str) -> Result<ColorImage, String> {
     let img = ImageReader::open(path)
         .map_err(|err| err.to_string())?
         .decode()
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| err.to_string())?
+        .brighten(10); // they're also too dark for some reason
 
     let size = [img.width() as _, img.height() as _];
     let rgba = img.to_rgba8();
     let flat = rgba.as_flat_samples();
 
     Ok(ColorImage::from_rgba_unmultiplied(size, flat.as_slice()))
+}
+
+pub fn select_directory(title: String) -> Option<FileHandle> {
+    execute(async { AsyncFileDialog::new().set_title(title).pick_folder().await })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn execute<T: 'static + Send, F: Future<Output = T> + Send + 'static>(f: F) -> T {
+    futures_lite::future::block_on(f)
+}
+#[cfg(target_arch = "wasm32")]
+fn execute<T: 'static + Send, F: Future<Output = T> + Send + 'static>(f: F) -> T {
+    wasm_bindgen_futures::spawn_local(f);
 }

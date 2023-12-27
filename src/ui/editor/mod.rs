@@ -1,8 +1,8 @@
 use crate::{
     save::Save,
-    util::{ContextExt, Message},
+    util::{select_directory, ContextExt, Message},
 };
-use egui::{Direction, Layout};
+use egui::Layout;
 use emath::Align;
 use sotor_macros::EnumToString;
 
@@ -13,8 +13,27 @@ mod globals;
 mod quests;
 
 pub fn editor_placeholder(ui: UiRef) {
-    ui.with_layout(Layout::centered_and_justified(Direction::TopDown), |ui| {
-        ui.label("Please select a save")
+    ui.horizontal_centered(|ui| {
+        // TODO there should be a better way to center vertically
+        ui.s_offset([ui.max_rect().width() / 2.0 - 100.0, 0.0]);
+
+        ui.label("Please");
+
+        set_button_styles(ui);
+        let btn = ui.s_button_basic("Select");
+        if btn.clicked() {
+            let dir = select_directory("Select a save directory".to_owned());
+            if let Some(handle) = dir {
+                ui.ctx()
+                    .get_channel()
+                    .send(Message::LoadFromDirectory(
+                        handle.path().to_str().unwrap().to_owned(),
+                    ))
+                    .unwrap();
+            }
+        }
+
+        ui.label("a save");
     });
 }
 

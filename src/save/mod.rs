@@ -160,7 +160,7 @@ impl Save {
         let erf_name = file_names
             .get(ERF_NAME)
             .ok_or(sf!("Couldn't find ERF file {ERF_NAME}"))?;
-        let erf_bytes = read_file(&(path.to_owned() + erf_name))
+        let erf_bytes = read_file(&[path, erf_name].join("/"))
             .map_err(|err| sf!("Couldn't read ERF file {erf_name}: {err}"))?;
         let erf = erf::read(&erf_bytes)?;
 
@@ -170,7 +170,7 @@ impl Save {
             let gff_name = file_names
                 .get(*name)
                 .ok_or(sf!("Couldn't find GFF file {name}"))?;
-            let file = read_file(&(path.to_owned() + gff_name))
+            let file = read_file(&[path, gff_name].join("/"))
                 .map_err(|err| sf!("Couldn't read GFF file {gff_name}: {err}"))?;
             gffs.push(gff::read(&file)?);
         }
@@ -179,7 +179,7 @@ impl Save {
         let image_name = file_names
             .get(IMAGE_NAME)
             .ok_or(sf!("Couldn't find save image {IMAGE_NAME}"))?;
-        let tga = load_tga(&(path.to_owned() + image_name))
+        let tga = load_tga(&[path, image_name].join("/"))
             .map_err(|err| sf!("Couldn't read image {image_name}: {err}"))?;
         let texture = ctx.load_texture("save_image", tga, TextureOptions::NEAREST);
 
@@ -207,14 +207,14 @@ impl Save {
         ]) {
             let bytes = gff::write(gff.clone());
             write_file(&(path.to_owned() + name), &bytes)
-                .map_err(|err| sf!("Couldn't write gff file {name}: {}", err.to_string()))?;
+                .map_err(|err| sf!("Couldn't write GFF file {name}: {}", err.to_string()))?;
         }
 
         write_file(
             &(path.to_owned() + ERF_NAME),
             &erf::write(save.inner.erf.clone()),
         )
-        .map_err(|err| sf!("Couldn't write erf file: {}", err.to_string()))?;
+        .map_err(|err| sf!("Couldn't write ERF file: {}", err.to_string()))?;
 
         Ok(())
     }

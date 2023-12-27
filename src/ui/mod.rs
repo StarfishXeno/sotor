@@ -3,6 +3,7 @@ use crate::{
     util::{ContextExt as _, Message},
 };
 use egui::{panel::Side, Context, Ui};
+use log::{error, info};
 use std::sync::mpsc::Receiver;
 
 mod editor;
@@ -29,13 +30,15 @@ impl SotorApp {
             channel: receiver,
         };
 
-        let path = "./assets/k2/saves/000000 - QUICKSAVE/".to_owned();
+        let path = "./assets/k1/saves/000000 - QUICKSAVE".to_owned();
         res.load_save(path, &ctx.egui_ctx);
 
         res
     }
 
     fn load_save(&mut self, path: String, ctx: &Context) {
+        info!("Loading save from: {path}");
+
         match Save::read_from_directory(&path, ctx) {
             Ok(new_save) => {
                 self.save = Some(new_save);
@@ -44,7 +47,8 @@ impl SotorApp {
             Err(err) => {
                 self.save = None;
                 self.save_path = None;
-                println!("{err}");
+
+                error!("{err}");
             }
         }
     }
@@ -55,6 +59,7 @@ impl eframe::App for SotorApp {
         while let Ok(message) = self.channel.try_recv() {
             match message {
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx),
+                Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx),
             }
         }
 
