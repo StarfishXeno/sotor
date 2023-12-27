@@ -32,17 +32,6 @@ pub struct Writer {
     list_indices: Vec<u32>,
 }
 
-macro_rules! wf {
-    ($($t:tt)*) => {{
-        format!("GFF::write| {}", format!($($t)*))
-    }};
-}
-macro_rules! wp {
-    ($($t:tt)*) => {{
-        println!("{}", wf!($($t)*))
-    }};
-}
-
 impl Writer {
     fn new(gff: Gff) -> Self {
         let mut w = Self {
@@ -67,12 +56,6 @@ impl Writer {
             return *idx;
         }
         // all labels are exactly 16 bytes, padded with \0 if shorter
-        let len = label.len();
-        debug_assert!(
-            len <= MAX_LABEL_LEN,
-            "{}",
-            wf!("labels should be 16 bytes or less")
-        );
         let padded = nullpad_string(label.clone(), MAX_LABEL_LEN);
 
         let idx = self.labels.len();
@@ -272,12 +255,6 @@ impl Writer {
             .write_all(&array_to_bytes(&self.list_indices))
             .unwrap();
         // HEADER
-        if cfg!(debug_assertions) {
-            wp!("Header: {file_type} {file_version}");
-            wp!("Structs: {struct_count} at {struct_offset}, Fields: {field_count} at {field_offset}, Labels: {label_count} at {label_offset}");
-            wp!("Field data: {field_data_bytes}B at {field_data_offset}, Field indices: {field_indices_bytes}B at {field_indices_offset}, List indices: {list_indices_bytes}B at {list_indices_offset}");
-            println!("******************");
-        }
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();
         cursor.write_all(file_version.as_bytes()).unwrap();

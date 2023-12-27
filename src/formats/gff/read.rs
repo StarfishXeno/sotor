@@ -67,12 +67,6 @@ macro_rules! rf {
     }};
 }
 
-macro_rules! rp {
-    ($($t:tt)*) => {{
-        println!("{}", rf!($($t)*))
-    }};
-}
-
 impl<'a> Reader<'a> {
     fn seek(&mut self, pos: usize) -> RResult {
         seek_to!(self.cursor, pos, rf)
@@ -357,28 +351,6 @@ impl<'a> Reader<'a> {
 pub fn read(bytes: &[u8]) -> Result<Gff, String> {
     let mut cursor = Cursor::new(bytes);
     let h = Reader::read_header(&mut cursor)?;
-    if cfg!(debug_assertions) {
-        rp!("Header: {} {}", h.file_type, h.file_version);
-        rp!(
-            "Structs: {} at {}, Fields: {} at {}, Labels: {} at {}",
-            h.struct_count,
-            h.struct_offset,
-            h.field_count,
-            h.field_offset,
-            h.label_count,
-            h.label_offset
-        );
-        rp!(
-            "Field data: {}B at {}, Field indices: {}B at {}, List indices: {}B at {}",
-            h.field_data_bytes,
-            h.field_data_offset,
-            h.field_indices_bytes,
-            h.field_indices_offset,
-            h.list_indices_bytes,
-            h.list_indices_offset
-        );
-        println!("******************");
-    }
     let mut r = Reader {
         cursor,
 
@@ -392,29 +364,11 @@ pub fn read(bytes: &[u8]) -> Result<Gff, String> {
         h,
     };
     r.read_list_indices()?;
-    if cfg!(debug_assertions) {
-        rp!("List indices: {:#?}", r.list_indices.len());
-    }
     r.read_field_indices()?;
-    if cfg!(debug_assertions) {
-        rp!("Field indices: {:#?}", r.field_indices.len());
-    }
     r.read_field_data()?;
-    if cfg!(debug_assertions) {
-        rp!("Field data: {:#?}", r.field_data.len());
-    }
     r.read_labels()?;
-    if cfg!(debug_assertions) {
-        rp!("Labels: {:#?}", r.labels.len());
-    }
     r.read_fields()?;
-    if cfg!(debug_assertions) {
-        rp!("Fields: {:#?}", r.fields.len());
-    }
     r.read_structs()?;
-    if cfg!(debug_assertions) {
-        rp!("Structs: {:#?}", r.structs.len());
-        println!("******************");
-    }
+
     Ok(r.transform())
 }

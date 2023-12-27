@@ -33,17 +33,6 @@ pub struct Writer {
     data: Vec<u8>,
 }
 
-macro_rules! wf {
-    ($($t:tt)*) => {{
-        format!("ERF::write| {}", format!($($t)*))
-    }};
-}
-macro_rules! wp {
-    ($($t:tt)*) => {{
-        println!("{}", wf!($($t)*))
-    }};
-}
-
 impl Writer {
     fn new(erf: Erf) -> Self {
         let len = erf.resources.len();
@@ -140,32 +129,8 @@ impl Writer {
         let file_type = self.file_type;
         let file_version = self.file_version;
         let description_str_ref = self.description_str_ref;
-
         let (build_year, build_day) = get_erf_date();
 
-        if cfg!(debug_assertions) {
-            wp!(
-                "Header: {} {}, built year {} day {}",
-                file_type,
-                file_version,
-                build_year,
-                build_day
-            );
-            wp!(
-                "LocStrings: {}, {}B at {}, DescriptionStrRef: {}",
-                loc_string_count,
-                loc_string_bytes,
-                loc_string_offset,
-                description_str_ref
-            );
-            wp!(
-                "Entries: {}, KeyList at {}, ResourceList at {}",
-                entry_count,
-                keys_offset,
-                resources_offset,
-            );
-            println!("******************");
-        }
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();
         cursor.write_all(file_version.as_bytes()).unwrap();
@@ -186,6 +151,7 @@ impl Writer {
         cursor.into_inner()
     }
 }
+
 pub fn write(erf: Erf) -> Vec<u8> {
     let writer = Writer::new(erf);
     writer.into_bytes()

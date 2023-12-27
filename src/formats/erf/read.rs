@@ -14,13 +14,10 @@ struct Header {
     file_type: String,
     file_version: String,
     loc_string_count: u32,
-    loc_string_bytes: u32,
     entry_count: usize,
     loc_string_offset: u32,
     keys_offset: u32,
     resources_offset: u32,
-    build_year: u32,
-    build_day: u32,
     description_str_ref: u32,
 }
 struct KeyRead {
@@ -51,12 +48,6 @@ macro_rules! rf {
     }};
 }
 
-macro_rules! rp {
-    ($($t:tt)*) => {{
-        println!("{}", rf!($($t)*))
-    }};
-}
-
 impl<'a> Reader<'a> {
     fn seek(&mut self, pos: u32) -> RResult {
         seek_to!(self.cursor, pos, rf)
@@ -77,14 +68,20 @@ impl<'a> Reader<'a> {
             file_version,
 
             loc_string_count: dwords.next().unwrap(),
-            loc_string_bytes: dwords.next().unwrap(),
-            entry_count: dwords.next().unwrap() as usize,
+            entry_count: {
+                // don't need loc bytes
+                dwords.next();
+                dwords.next().unwrap() as usize
+            },
             loc_string_offset: dwords.next().unwrap(),
             keys_offset: dwords.next().unwrap(),
             resources_offset: dwords.next().unwrap(),
-            build_year: dwords.next().unwrap(),
-            build_day: dwords.next().unwrap(),
-            description_str_ref: dwords.next().unwrap(),
+            description_str_ref: {
+                // don't need build year and day
+                dwords.next();
+                dwords.next();
+                dwords.next().unwrap()
+            },
         })
     }
 
@@ -198,29 +195,6 @@ impl<'a> Reader<'a> {
 pub fn read(bytes: &[u8]) -> Result<Erf, String> {
     let mut cursor = Cursor::new(bytes);
     let h = Reader::read_header(&mut cursor)?;
-    if cfg!(debug_assertions) {
-        rp!(
-            "Header: {} {}, built year {} day {}",
-            h.file_type,
-            h.file_version,
-            h.build_year,
-            h.build_day
-        );
-        rp!(
-            "LocStrings: {}, {}B at {}, DescriptionStrRef: {}",
-            h.loc_string_count,
-            h.loc_string_bytes,
-            h.loc_string_offset,
-            h.description_str_ref
-        );
-        rp!(
-            "Entries: {}, KeyList at {}, ResourceList at {}",
-            h.entry_count,
-            h.keys_offset,
-            h.resources_offset,
-        );
-        println!("******************");
-    }
     let mut r = Reader {
         cursor,
 
@@ -231,17 +205,8 @@ pub fn read(bytes: &[u8]) -> Result<Erf, String> {
         h,
     };
     r.read_loc_strings()?;
-    if cfg!(debug_assertions) {
-        rp!("LocStrings: {:#?}", r.loc_strings.len());
-    }
     r.read_key_list()?;
-    if cfg!(debug_assertions) {
-        rp!("Keys: {:#?}", r.keys.len());
-    }
     r.read_resources()?;
-    if cfg!(debug_assertions) {
-        rp!("Resources: {:#?}", r.resources.len());
-    }
 
     r.transform()
 }
