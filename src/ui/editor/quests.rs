@@ -8,6 +8,7 @@ use crate::{
         widgets::{white_text, UiExt},
         UiRef,
     },
+    util::ContextExt as _,
 };
 use egui::{DragValue, Grid, RichText, ScrollArea, TextStyle};
 use std::{
@@ -20,10 +21,12 @@ pub struct EditorQuestsState {
     id: String,
     state: i32,
 }
+const QUESTS_STATE_ID: &str = "editor_quests_state";
 
 pub struct EditorQuests<'a> {
     journal: &'a mut Vec<JournalEntry>,
 }
+
 impl<'a> EditorQuests<'a> {
     pub fn new(journal: &'a mut Vec<JournalEntry>) -> Self {
         Self { journal }
@@ -68,17 +71,12 @@ impl<'a> EditorQuests<'a> {
     }
 
     fn addition(&mut self, ui: UiRef) {
-        let state = ui.ctx().memory_mut(|mem| {
-            let data = &mut mem.data;
-
-            let state = data
-                .get_temp_mut_or_insert_with("editor_quests".into(), || {
-                    Arc::new(Mutex::new(EditorQuestsState {
-                        id: String::new(),
-                        state: 0,
-                    }))
-                })
-                .clone();
+        let state = ui.ctx().get_data(QUESTS_STATE_ID).unwrap_or_else(|| {
+            let state = Arc::new(Mutex::new(EditorQuestsState {
+                id: String::new(),
+                state: 0,
+            }));
+            ui.ctx().set_data(QUESTS_STATE_ID, state.clone());
 
             state
         });

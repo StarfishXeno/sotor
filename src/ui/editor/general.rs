@@ -74,12 +74,12 @@ impl<'a> EditorGeneral<'a> {
         ui.s_text_edit(&mut nfo.save_name, 200.0);
         ui.end_row();
 
-        ui.label("Area name: ");
-        ui.s_text(&nfo.area_name);
-        ui.end_row();
-
         ui.label("PC name: ");
         ui.s_text("TMP");
+        ui.end_row();
+
+        ui.label("Area name: ");
+        ui.s_text(&nfo.area_name);
         ui.end_row();
 
         ui.label("Last module: ");

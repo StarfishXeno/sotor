@@ -1,8 +1,9 @@
-use std::process;
-
-use crate::save::Save;
-use egui::{panel::Side, Ui};
-use sotor_macros::EnumToString;
+use crate::{
+    save::Save,
+    util::{ContextExt as _, Message},
+};
+use egui::{panel::Side, Context, Ui};
+use std::sync::mpsc::Receiver;
 
 mod editor;
 mod save_select;
@@ -11,43 +12,59 @@ mod widgets;
 
 type UiRef<'a> = &'a mut Ui;
 
-#[derive(EnumToString, PartialEq, Clone, Copy)]
-enum Tab {
-    General,
-    Globals,
-    Characters,
-    Inventory,
-    Quests,
-}
 pub struct SotorApp {
     save: Option<Save>,
-    tab: Tab,
+    save_path: Option<String>,
+    channel: Receiver<Message>,
 }
 
 impl SotorApp {
     pub fn new(ctx: &eframe::CreationContext<'_>) -> Self {
         styles::set_styles(&ctx.egui_ctx);
-        let path = "./assets/k2/saves/000000 - QUICKSAVE/";
-        match Save::read_from_directory(path, &ctx.egui_ctx) {
-            Ok(save) => Self {
-                save: Some(save),
-                tab: Tab::General,
-            },
+        let receiver = ctx.egui_ctx.set_channel();
+
+        let mut res = Self {
+            save: None,
+            save_path: None,
+            channel: receiver,
+        };
+
+        let path = "./assets/k2/saves/000000 - QUICKSAVE/".to_owned();
+        res.load_save(path, &ctx.egui_ctx);
+
+        res
+    }
+
+    fn load_save(&mut self, path: String, ctx: &Context) {
+        match Save::read_from_directory(&path, ctx) {
+            Ok(new_save) => {
+                self.save = Some(new_save);
+                self.save_path = Some(path);
+            }
             Err(err) => {
+                self.save = None;
+                self.save_path = None;
                 println!("{err}");
-                process::exit(1);
             }
         }
     }
 }
 
 impl eframe::App for SotorApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::new(Side::Left, "save_select").show(ctx, |_ui| {});
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        egui::SidePanel::new(Side::Left, "save_select")
+            .show_separator_line(false)
+            .show(ctx, |_ui| {});
+
+        while let Ok(message) = self.channel.try_recv() {
+            match message {
+                Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx),
+            }
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(save) = &mut self.save {
-                editor::Editor::new(save, &mut self.tab).show(ui);
+                editor::Editor::new(save).show(ui);
             } else {
                 editor::EditorPlaceholder::new().show(ui);
             };

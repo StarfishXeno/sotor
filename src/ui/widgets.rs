@@ -1,12 +1,10 @@
-use std::ops::RangeInclusive;
-
+use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, WHITE};
 use egui::{
     style::HandleShape, Button, CursorIcon, Response, RichText, Sense, Slider, TextBuffer,
     TextEdit, Ui, Widget as _,
 };
 use emath::{Numeric, Rect};
-
-use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, WHITE};
+use std::ops::RangeInclusive;
 
 pub fn white_text(text: &str) -> RichText {
     RichText::new(text).color(WHITE)
