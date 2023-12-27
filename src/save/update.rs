@@ -5,21 +5,19 @@ use super::{Global, Save};
 fn global_names<T>(globals: &[Global<T>]) -> Vec<String> {
     globals.iter().map(|g| g.name.clone()).collect()
 }
-pub struct Writer<'a> {
+pub struct Updater<'a> {
     save: &'a mut Save,
 }
 
-impl<'a> Writer<'a> {
+impl<'a> Updater<'a> {
     pub fn new(save: &'a mut Save) -> Self {
         Self { save }
     }
 
-    pub fn process(mut self) -> &'a mut Save {
+    pub fn process(mut self) {
         self.write_nfo();
         self.write_globals();
         self.write_party_table();
-
-        self.save
     }
 
     fn write_nfo(&mut self) {

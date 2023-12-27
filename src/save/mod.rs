@@ -10,10 +10,8 @@ use crate::{
     util::{load_tga, read_file, write_file},
 };
 
-use self::write::Writer;
-
 mod read;
-mod write;
+mod update;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyMember {
@@ -196,7 +194,7 @@ impl Save {
     }
 
     pub fn save_to_directory(path: &str, save: &mut Save) -> Result<(), String> {
-        Writer::new(save).process();
+        update::Updater::new(save).process();
 
         for (name, gff) in GFF_NAMES.iter().zip([
             &save.inner.nfo,
