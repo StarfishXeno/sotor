@@ -20,7 +20,7 @@ impl ContextExt for Context {
     fn set_channel(&self) -> Receiver<Message> {
         let (sender, receiver) = channel();
         self.data_mut(|data| {
-            data.insert_temp(CHANNEL_ID.into(), sender.clone());
+            data.insert_temp(CHANNEL_ID.into(), sender);
         });
         receiver
     }

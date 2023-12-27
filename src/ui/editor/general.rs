@@ -94,12 +94,12 @@ impl<'a> EditorGeneral<'a> {
         ui.s_checkbox(&mut nfo.cheats_used);
         ui.end_row();
 
-        ui.label("Credits: ");
-        ui.s_slider(&mut pt.credits, 0..=9_999_999);
-        ui.end_row();
-
         ui.label("Party XP: ");
         ui.s_slider(&mut pt.party_xp, 0..=9_999_999);
+        ui.end_row();
+
+        ui.label("Credits: ");
+        ui.s_slider(&mut pt.credits, 0..=9_999_999);
         ui.end_row();
 
         if self.save.game == Game::Two {

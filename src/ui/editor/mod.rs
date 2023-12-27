@@ -12,17 +12,10 @@ mod general;
 mod globals;
 mod quests;
 
-pub struct EditorPlaceholder {}
-
-impl EditorPlaceholder {
-    pub fn new() -> Self {
-        Self {}
-    }
-    pub fn show(&self, ui: UiRef) {
-        ui.with_layout(Layout::centered_and_justified(Direction::TopDown), |ui| {
-            ui.label("Please select a save")
-        });
-    }
+pub fn editor_placeholder(ui: UiRef) {
+    ui.with_layout(Layout::centered_and_justified(Direction::TopDown), |ui| {
+        ui.label("Please select a save")
+    });
 }
 
 #[derive(EnumToString, PartialEq, Clone, Copy, Default)]

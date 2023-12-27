@@ -6,7 +6,7 @@ use egui::{panel::Side, Context, Ui};
 use std::sync::mpsc::Receiver;
 
 mod editor;
-mod save_select;
+mod side_panel;
 mod styles;
 mod widgets;
 
@@ -52,21 +52,22 @@ impl SotorApp {
 
 impl eframe::App for SotorApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::new(Side::Left, "save_select")
-            .show_separator_line(false)
-            .show(ctx, |_ui| {});
-
         while let Ok(message) = self.channel.try_recv() {
             match message {
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx),
             }
         }
 
+        egui::SidePanel::new(Side::Left, "save_select")
+            .resizable(true)
+            .max_width(ctx.screen_rect().width() - 700.0)
+            .show(ctx, |ui| side_panel::SidePanel::new().show(ui));
+
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(save) = &mut self.save {
                 editor::Editor::new(save).show(ui);
             } else {
-                editor::EditorPlaceholder::new().show(ui);
+                editor::editor_placeholder(ui);
             };
         });
     }
