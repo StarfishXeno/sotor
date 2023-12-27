@@ -45,11 +45,8 @@ pub fn load_tga(path: &str) -> Result<ColorImage, String> {
         .map_err(|err| err.to_string())?;
 
     let size = [img.width() as _, img.height() as _];
-    let data = img.to_rgba8();
-    let data = data.as_flat_samples();
+    let rgba = img.to_rgba8();
+    let flat = rgba.as_flat_samples();
 
-    Ok(egui::ColorImage::from_rgba_unmultiplied(
-        size,
-        data.as_slice(),
-    ))
+    Ok(ColorImage::from_rgba_unmultiplied(size, flat.as_slice()))
 }
