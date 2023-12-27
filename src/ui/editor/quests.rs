@@ -1,16 +1,18 @@
-use crate::save::JournalEntry;
+use crate::{
+    save::JournalEntry,
+    ui::{
+        styles::{
+            set_button_styles, set_button_styles_disabled, set_drag_value_styles,
+            set_striped_styles,
+        },
+        widgets::{white_text, UiExt},
+        UiRef,
+    },
+};
 use egui::{DragValue, Grid, RichText, ScrollArea, TextStyle};
 use std::{
     collections::HashSet,
     sync::{Arc, Mutex},
-};
-
-use super::{
-    styles::{
-        set_button_styles, set_button_styles_disabled, set_drag_value_styles, set_striped_styles,
-    },
-    widgets::{white_text, UiExt},
-    UiRef,
 };
 
 fn area(ui: UiRef, add_contents: impl FnOnce(UiRef)) {

@@ -1,17 +1,16 @@
 use crate::{
     save::{AvailablePartyMember, PartyMember, Save},
+    ui::{
+        styles::{
+            set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_striped_styles,
+            BLUE, GREEN,
+        },
+        widgets::{white_text, UiExt},
+        UiRef,
+    },
     util::format_seconds,
 };
 use egui::{Frame, Grid, Image, Margin, RichText, TextureHandle};
-
-use super::{
-    styles::{
-        set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_striped_styles,
-        BLUE, GREEN,
-    },
-    widgets::{white_text, UiExt},
-    UiRef,
-};
 
 fn party_grid(ui: UiRef, id: &str, columns: usize, add_contents: impl FnOnce(UiRef)) {
     Frame::default()
@@ -54,7 +53,7 @@ fn member_row(
     } else {
         white_text(name)
     });
-    ui.s_checkbox_raw(&mut member.available);
+    ui.add_enabled_ui(false, |ui| ui.s_checkbox_raw(&mut member.available));
     ui.s_checkbox_raw(&mut member.selectable);
     ui.horizontal(|ui| {
         set_button_styles(ui);

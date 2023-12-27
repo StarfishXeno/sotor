@@ -1,11 +1,13 @@
-use crate::save::Globals;
+use crate::{
+    save::Globals,
+    ui::{
+        styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles},
+        widgets::{white_text, UiExt},
+        UiRef,
+    },
+};
 use egui::{DragValue, Grid, ScrollArea, TextStyle};
 
-use super::{
-    styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles},
-    widgets::{white_text, UiExt},
-    UiRef,
-};
 fn area(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
     ScrollArea::vertical()
         .id_source(id.to_owned() + "_scroll")
