@@ -26,9 +26,7 @@ cast_lossless = "allow"
 
 [dependencies]
 sotor_macros = { path = "./macros" }
-rfd = { version = "0.12.1", default-features = false, features = [
-    "xdg-portal",
-] }
+rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
 time = { version = "0.3.31", features = ["macros"] }
 futures-lite = "2.1.0"
@@ -36,7 +34,8 @@ serde = { version = "1.0.193", features = ["derive"] }
 log = "0.4"
 egui = "0.24.1"
 eframe = { version = "0.24.1", default-features = false, features = [
-    "glow", # Use the glow rendering backend. Alternative: "wgpu".
+    "persistence",
+    "glow",
 ] }
 emath = "0.24.1"
 

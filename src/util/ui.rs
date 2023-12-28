@@ -4,12 +4,17 @@ use rfd::{AsyncFileDialog, FileHandle};
 use std::{
     any::Any,
     future::Future,
+    path::PathBuf,
     sync::mpsc::{channel, Receiver, Sender},
 };
+
+use crate::save::Game;
 
 pub enum Message {
     ReloadSave,
     LoadFromDirectory(String),
+    OpenSettings,
+    SetGamePath(Game, String),
 }
 pub trait ContextExt {
     fn set_channel(&self) -> Receiver<Message>;
@@ -57,7 +62,7 @@ pub fn format_seconds(secs: u32) -> String {
 }
 
 // something is wrong with either egui or kotor's TGAs as the normal loader fails, so have to do it this way
-pub fn load_tga(path: &str) -> Result<ColorImage, String> {
+pub fn load_tga(path: PathBuf) -> Result<ColorImage, String> {
     let img = ImageReader::open(path)
         .map_err(|err| err.to_string())?
         .decode()
@@ -72,7 +77,7 @@ pub fn load_tga(path: &str) -> Result<ColorImage, String> {
 }
 
 pub fn select_directory(title: String) -> Option<FileHandle> {
-    execute(async { AsyncFileDialog::new().set_title(title).pick_folder().await })
+    execute(async move { AsyncFileDialog::new().set_title(title).pick_folder().await })
 }
 
 #[cfg(not(target_arch = "wasm32"))]

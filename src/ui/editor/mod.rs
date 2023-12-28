@@ -24,11 +24,11 @@ pub fn editor_placeholder(ui: UiRef) {
         if btn.clicked() {
             let dir = select_directory("Select a save directory".to_owned());
             if let Some(handle) = dir {
+                let path = handle.path().to_str().unwrap().to_owned();
+
                 ui.ctx()
                     .get_channel()
-                    .send(Message::LoadFromDirectory(
-                        handle.path().to_str().unwrap().to_owned(),
-                    ))
+                    .send(Message::LoadFromDirectory(path))
                     .unwrap();
             }
         }

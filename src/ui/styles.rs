@@ -15,6 +15,7 @@ pub const RED: Color32 = Color32::from_rgb(183, 26, 0);
 pub const GREY: Color32 = Color32::from_rgb(131, 131, 106);
 pub const GREY_DARK: Color32 = Color32::from_rgb(52, 52, 52);
 pub const BLACK: Color32 = Color32::from_rgb(26, 26, 26);
+pub const BLACK_TRANSPARENT: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 100);
 
 pub fn set_selectable_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
@@ -148,6 +149,7 @@ pub fn set_styles(ctx: &Context) {
         faint_bg_color: WHITE,
         extreme_bg_color: WHITE,
         window_fill: BLACK,
+        window_stroke: (2.0, GREEN).into(),
         panel_fill: BLACK,
 
         selection: Selection {

@@ -1,14 +1,12 @@
-use std::{collections::HashMap, fmt, fs};
-
-use egui::{Context, TextureHandle, TextureOptions};
-
 use crate::{
     formats::{
         erf::{self, Erf},
         gff::{self, Gff},
     },
-    util::{load_tga, read_file, write_file},
+    util::{load_tga, read_dir_filemap, read_file, write_file},
 };
+use egui::{Context, TextureHandle, TextureOptions};
+use std::{fmt, path::PathBuf};
 
 mod read;
 mod update;
@@ -66,13 +64,14 @@ pub struct Nfo {
     pub cheats_used: bool,
     pub time_played: u32,
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
+#[repr(u8)]
 pub enum Game {
-    One,
+    One = 0,
     Two,
 }
 impl Game {
-    pub fn get_party_names(&self) -> &'static [&'static str] {
+    pub fn get_party_names(self) -> &'static [&'static str] {
         static PARTY_1: &[&str] = &[
             "Bastila",
             "Canderous",
@@ -103,6 +102,13 @@ impl Game {
         match self {
             Game::One => PARTY_1,
             Game::Two => PARTY_2,
+        }
+    }
+
+    pub fn get_exe_name(self) -> String {
+        match self {
+            Game::One => "swkotor.exe".to_owned(),
+            Game::Two => "swkotor2.exe".to_owned(),
         }
     }
 }
@@ -149,18 +155,14 @@ macro_rules! sf {
 impl Save {
     pub fn read_from_directory(path: &str, ctx: &Context) -> Result<Self, String> {
         // first let's find the files and map names to lowercase
-        let dir = fs::read_dir(path).map_err(|err| sf!("Couldn't read dir: {err}"))?;
-        let names: Vec<_> = dir
-            .map(|e| e.unwrap().file_name().to_str().unwrap().to_owned())
-            .collect();
-        let file_names: HashMap<String, String> =
-            names.into_iter().map(|s| (s.to_lowercase(), s)).collect();
+        let file_names =
+            read_dir_filemap(path).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
         // ERF
         let erf_name = file_names
             .get(ERF_NAME)
             .ok_or(sf!("Couldn't find ERF file {ERF_NAME}"))?;
-        let erf_bytes = read_file(&[path, erf_name].join("/"))
+        let erf_bytes = read_file(PathBuf::from_iter([path, erf_name]))
             .map_err(|err| sf!("Couldn't read ERF file {erf_name}: {err}"))?;
         let erf = erf::read(&erf_bytes)?;
 
@@ -170,7 +172,7 @@ impl Save {
             let gff_name = file_names
                 .get(*name)
                 .ok_or(sf!("Couldn't find GFF file {name}"))?;
-            let file = read_file(&[path, gff_name].join("/"))
+            let file = read_file(PathBuf::from_iter([path, gff_name]))
                 .map_err(|err| sf!("Couldn't read GFF file {gff_name}: {err}"))?;
             gffs.push(gff::read(&file)?);
         }
@@ -179,7 +181,7 @@ impl Save {
         let image_name = file_names
             .get(IMAGE_NAME)
             .ok_or(sf!("Couldn't find save image {IMAGE_NAME}"))?;
-        let tga = load_tga(&[path, image_name].join("/"))
+        let tga = load_tga(PathBuf::from_iter([path, image_name]))
             .map_err(|err| sf!("Couldn't read image {image_name}: {err}"))?;
         let texture = ctx.load_texture("save_image", tga, TextureOptions::NEAREST);
 

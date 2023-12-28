@@ -1,6 +1,5 @@
 use std::{
     fmt::Debug,
-    fs::File,
     io::{self, prelude::*},
     mem::size_of,
     str::{self, Utf8Error},
@@ -8,23 +7,6 @@ use std::{
 use time::{macros::datetime, OffsetDateTime};
 
 pub const DWORD_SIZE: usize = 4;
-
-// read the whole file into a buffer
-pub fn read_file(path: &str) -> io::Result<Vec<u8>> {
-    let mut file = File::open(path)?;
-    let mut buf = Vec::with_capacity(file.metadata()?.len() as usize);
-    file.read_to_end(&mut buf)?;
-
-    Ok(buf)
-}
-
-// write the whole buffer into a file
-pub fn write_file(path: &str, buf: &[u8]) -> io::Result<()> {
-    let mut file = File::create(path)?;
-    file.write_all(buf)?;
-
-    Ok(())
-}
 
 // turns &[u8] into a u32, f64, etc.
 pub fn cast_bytes<T: ToBytes<SIZE>, const SIZE: usize>(bytes: &[u8]) -> T {

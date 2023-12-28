@@ -1,12 +1,17 @@
 use crate::{
-    save::Save,
-    util::{ContextExt as _, Message},
+    save::{Game, Save},
+    util::{file_exists, read_dir_dirs, ContextExt as _, Directory, Message},
 };
-use egui::{panel::Side, Context, Ui};
+use egui::{
+    ahash::{HashMap, HashMapExt},
+    panel::Side,
+    Context, Ui,
+};
 use log::{error, info};
-use std::sync::mpsc::Receiver;
+use std::{path::PathBuf, sync::mpsc::Receiver};
 
 mod editor;
+mod settings;
 mod side_panel;
 mod styles;
 mod widgets;
@@ -17,6 +22,10 @@ pub struct SotorApp {
     save: Option<Save>,
     save_path: Option<String>,
     channel: Receiver<Message>,
+
+    settings_open: bool,
+    game_paths: [Option<String>; 2],
+    save_list: [HashMap<String, Vec<Directory>>; 2],
 }
 
 impl SotorApp {
@@ -28,6 +37,10 @@ impl SotorApp {
             save: None,
             save_path: None,
             channel: receiver,
+
+            settings_open: false,
+            game_paths: [None, None],
+            save_list: [HashMap::new(), HashMap::new()],
         };
 
         let path = "./assets/k1/saves/000000 - QUICKSAVE".to_owned();
@@ -52,6 +65,26 @@ impl SotorApp {
             }
         }
     }
+
+    fn load_save_list(&mut self, game: Game) {
+        let idx = game as usize;
+        let mut saves = Vec::new();
+        if let Some(path) = &self.game_paths[idx] {
+            let dirs = read_dir_dirs(path).unwrap();
+
+            for dir in dirs {
+                if file_exists(PathBuf::from_iter([&dir.path, "savenfo.res"])) {
+                    saves.push(dir);
+                }
+            }
+        }
+        self.save_list[idx] = HashMap::from_iter([("game_dir".to_owned(), saves)]);
+    }
+
+    fn load_game_data(&mut self, game: Game, path: String) {
+        self.game_paths[game as usize] = Some(path);
+        self.load_save_list(game);
+    }
 }
 
 impl eframe::App for SotorApp {
@@ -60,7 +93,13 @@ impl eframe::App for SotorApp {
             match message {
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx),
                 Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx),
+                Message::OpenSettings => self.settings_open = true,
+                Message::SetGamePath(game, path) => self.load_game_data(game, path),
             }
+        }
+
+        if self.settings_open {
+            settings::Settings::new(&mut self.settings_open, &mut self.game_paths).show(ctx);
         }
 
         egui::SidePanel::new(Side::Left, "save_select")
