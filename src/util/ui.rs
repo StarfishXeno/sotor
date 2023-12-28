@@ -41,6 +41,21 @@ impl ContextExt for Context {
     }
 }
 
+pub fn format_seconds(secs: u32) -> String {
+    let seconds = secs % 60;
+    let minutes = secs / 60 % 60;
+    let hours = secs / 60 / 60 % 24;
+    let days = secs / 60 / 60 / 24;
+
+    if days > 0 {
+        format!("{days}d {hours}h {minutes}m {seconds}s")
+    } else if hours > 0 {
+        format!("{hours}h {minutes}m {seconds}s")
+    } else {
+        format!("{minutes}m {seconds}s")
+    }
+}
+
 // something is wrong with either egui or kotor's TGAs as the normal loader fails, so have to do it this way
 pub fn load_tga(path: &str) -> Result<ColorImage, String> {
     let img = ImageReader::open(path)

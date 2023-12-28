@@ -5,6 +5,7 @@ use std::{
     mem::size_of,
     str::{self, Utf8Error},
 };
+use time::{macros::datetime, OffsetDateTime};
 
 pub const DWORD_SIZE: usize = 4;
 
@@ -165,4 +166,16 @@ pub fn nullpad_string(mut str: String, to_len: usize) -> String {
         str.push_str(&"\0".repeat(to_len - len));
     }
     str
+}
+
+// years since 1900 and days since jan 1
+pub fn get_erf_date() -> (u32, u32) {
+    let now = OffsetDateTime::now_utc();
+    let past = datetime!(1900 - 01 - 01 0:00 UTC);
+    let build_year = now.year() - past.year();
+
+    past.replace_year(now.year()).unwrap();
+    let build_day = (now - past).whole_days();
+
+    (build_year as u32, build_day as u32)
 }
