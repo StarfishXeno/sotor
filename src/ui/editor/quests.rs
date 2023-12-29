@@ -10,7 +10,7 @@ use crate::{
     },
     util::ContextExt as _,
 };
-use egui::{DragValue, Grid, RichText, ScrollArea, TextStyle};
+use egui::{DragValue, Grid, Label, RichText, ScrollArea, TextStyle};
 use std::{
     collections::HashSet,
     sync::{Arc, Mutex},
@@ -22,47 +22,50 @@ pub struct EditorQuestsState {
     state: i32,
 }
 const QUESTS_STATE_ID: &str = "editor_quests_state";
-
+const COLUMN_WIDTH: f32 = 300.;
 pub struct EditorQuests<'a> {
     journal: &'a mut Vec<JournalEntry>,
+    width: f32,
 }
-
 impl<'a> EditorQuests<'a> {
     pub fn new(journal: &'a mut Vec<JournalEntry>) -> Self {
-        Self { journal }
+        Self { journal, width: 0. }
     }
 
     pub fn show(&mut self, ui: UiRef) {
+        self.width = ui.available_width();
+
         Self::area(ui, |ui| {
             self.table(ui);
         });
-
         ui.separator();
         ui.horizontal(|ui| self.addition(ui));
     }
 
     fn table(&mut self, ui: UiRef) {
-        ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("State").underline());
-        ui.label("");
-        ui.label("");
-        ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("State").underline());
-        ui.label("");
-        ui.label("");
+        let columns = (self.width / COLUMN_WIDTH) as u32;
+        let mut count = 0;
+
+        for _ in 0..columns {
+            ui.label(RichText::new("Name").underline());
+            ui.label(RichText::new("State").underline());
+            ui.label("");
+            ui.s_offset([5.0, 0.]);
+        }
+
         ui.end_row();
         set_drag_value_styles(ui);
 
         let mut removed = None;
-        for (chunk_idx, entries) in self.journal.chunks_mut(2).enumerate() {
-            let idx = chunk_idx * 2;
-            Self::row(ui, &mut entries[0], &mut removed, idx);
-            if entries.len() > 1 {
-                ui.label("");
-                Self::row(ui, &mut entries[1], &mut removed, idx + 1);
+        for (idx, entry) in self.journal.iter_mut().enumerate() {
+            Self::column(ui, entry, &mut removed, idx);
+
+            if count == columns - 1 {
+                ui.end_row();
+                count = 0;
+            } else {
+                count += 1;
             }
-            ui.label("");
-            ui.end_row();
         }
 
         if let Some(idx) = removed {
@@ -90,7 +93,7 @@ impl<'a> EditorQuests<'a> {
 
         let set: HashSet<_> = self.journal.iter().map(|e| &e.id).collect();
         let already_there = set.contains(&state.id);
-        let disabled = state.id.is_empty() || already_there;
+        let disabled = state.id.trim().is_empty() || already_there;
         set_button_styles(ui);
         if disabled {
             set_button_styles_disabled(ui);
@@ -102,7 +105,7 @@ impl<'a> EditorQuests<'a> {
         if !disabled && btn.clicked() {
             let last = self.journal.last();
             self.journal.push(JournalEntry {
-                id: state.id.clone(),
+                id: state.id.trim().to_owned(),
                 state: state.state,
                 date: last.map_or(0, |e| e.date),
                 time: last.map_or(0, |e| e.time + 1),
@@ -121,15 +124,16 @@ impl<'a> EditorQuests<'a> {
                 set_striped_styles(ui);
 
                 Grid::new("editor_quests_grid")
-                    .num_columns(8)
                     .spacing([5.0, 5.0])
                     .striped(true)
+                    .max_col_width(COLUMN_WIDTH - 110.)
+                    .min_col_width(0.)
                     .show(ui, add_contents);
             });
     }
 
-    fn row(ui: UiRef, entry: &mut JournalEntry, removed: &mut Option<usize>, idx: usize) {
-        ui.label(white_text(&entry.id).text_style(TextStyle::Small));
+    fn column(ui: UiRef, entry: &mut JournalEntry, removed: &mut Option<usize>, idx: usize) {
+        ui.add(Label::new(white_text(&entry.id).text_style(TextStyle::Small)).wrap(true));
         set_drag_value_styles(ui);
         ui.add(DragValue::new(&mut entry.state));
         set_button_styles(ui);
@@ -137,5 +141,6 @@ impl<'a> EditorQuests<'a> {
         if btn.clicked() {
             *removed = Some(idx);
         }
+        ui.s_offset([0.0, 0.]);
     }
 }

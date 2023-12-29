@@ -1,10 +1,7 @@
 use crate::formats::gff::{Field, Struct};
 
-use super::{Global, Save, GLOBALS_TYPES, Game};
+use super::{Game, GlobalValue, Save, GLOBALS_TYPES};
 
-fn global_names<T>(globals: &[Global<T>]) -> Vec<String> {
-    globals.iter().map(|g| g.name.clone()).collect()
-}
 pub struct Updater<'a> {
     save: &'a mut Save,
 }
@@ -34,6 +31,15 @@ impl<'a> Updater<'a> {
     fn write_globals(&mut self) {
         let globals = &self.save.globals;
         let fields = &mut self.save.inner.globals.content.fields;
+        let mut numbers = vec![];
+        let mut booleans = vec![];
+        for global in globals {
+            let name = &global.name;
+            match global.value {
+                GlobalValue::Number(value) => numbers.push((name, value)),
+                GlobalValue::Boolean(value) => booleans.push((name, value)),
+            }
+        }
 
         // remove the old data first
         for tp in GLOBALS_TYPES {
@@ -45,11 +51,11 @@ impl<'a> Updater<'a> {
         let pairs: Vec<_> = GLOBALS_TYPES
             .iter()
             .zip([
-                global_names(&globals.numbers),
-                global_names(&globals.booleans),
-                global_names(&globals.strings),
+                numbers.iter().map(|g| g.0.clone()).collect::<Vec<_>>(),
+                booleans.iter().map(|g| g.0.clone()).collect(),
             ])
             .collect();
+
         for (name, list) in pairs {
             let structs = list
                 .into_iter()
@@ -59,12 +65,12 @@ impl<'a> Updater<'a> {
         }
 
         // NUMBERS
-        let number_values = globals.numbers.iter().map(|g| g.value).collect();
+        let number_values = numbers.iter().map(|g| g.1).collect();
         fields.insert("ValNumber".to_owned(), Field::Void(number_values));
 
         // BOOLEANS
-        let mut boolean_values = Vec::with_capacity(globals.booleans.len() / 8 + 1);
-        for (idx, field) in globals.booleans.iter().enumerate() {
+        let mut boolean_values = Vec::with_capacity(booleans.len() / 8 + 1);
+        for (idx, field) in booleans.iter().enumerate() {
             let byte_idx = idx / 8;
             let bit_idx = 7 - (idx % 8);
 
@@ -72,17 +78,9 @@ impl<'a> Updater<'a> {
                 boolean_values.push(0);
             }
 
-            boolean_values[byte_idx] |= (field.value as u8) << bit_idx;
+            boolean_values[byte_idx] |= (field.1 as u8) << bit_idx;
         }
         fields.insert("ValBoolean".to_owned(), Field::Void(boolean_values));
-
-        // STRINGS
-        let string_values = globals
-            .strings
-            .iter()
-            .map(|g| Struct::new([("String".to_owned(), Field::String(g.value.clone()))].into()))
-            .collect();
-        fields.insert("ValString".to_owned(), Field::List(string_values));
     }
 
     fn write_party_table(&mut self) {
@@ -146,7 +144,7 @@ impl<'a> Updater<'a> {
         );
         fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
         fields.insert("PT_XP_POOL".to_owned(), Field::Int(pt.party_xp));
-        
+
         if self.save.game == Game::Two {
             fields.insert("PT_ITEM_COMPONEN".to_owned(), Field::Dword(pt.components));
             fields.insert("PT_ITEM_CHEMICAL".to_owned(), Field::Dword(pt.chemicals));

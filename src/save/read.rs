@@ -3,8 +3,8 @@ use egui::TextureHandle;
 use crate::formats::gff::Field;
 
 use super::{
-    AvailablePartyMember, Game, Global, Globals, JournalEntry, Nfo, PartyMember, PartyTable, Save,
-    SaveInternals, GLOBALS_TYPES,
+    AvailablePartyMember, Game, Global, GlobalValue, JournalEntry, Nfo, PartyMember, PartyTable,
+    Save, SaveInternals, GLOBALS_TYPES,
 };
 
 macro_rules! rf {
@@ -74,13 +74,12 @@ impl Reader {
         })
     }
 
-    fn read_globals(&self) -> Result<Globals, String> {
+    fn read_globals(&self) -> Result<Vec<Global>, String> {
         let fields = &self.inner.globals.content.fields;
 
         let mut names: Vec<Vec<_>> = Vec::with_capacity(GLOBALS_TYPES.len());
         // Strings are stored as a struct list and go into a separate vector
         let mut values = Vec::with_capacity(GLOBALS_TYPES.len() - 1);
-        let mut string_values = &vec![];
 
         for tp in GLOBALS_TYPES {
             let Some(Field::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
@@ -90,8 +89,6 @@ impl Reader {
             let val = fields.get(&("Val".to_owned() + tp));
             if let Some(Field::Void(bytes)) = val {
                 values.push(bytes);
-            } else if let Some(Field::List(list)) = val {
-                string_values = list;
             } else {
                 return Err(rf!("Globals: missing or invalid Val{tp}"));
             };
@@ -104,15 +101,18 @@ impl Reader {
             );
         }
 
-        let mut numbers: Vec<_> = names
+        let numbers: Vec<_> = names
             .remove(0)
             .into_iter()
             .zip(values[0].iter().copied())
-            .map(|(name, value)| Global { name, value })
+            .map(|(name, value)| Global {
+                name,
+                value: GlobalValue::Number(value),
+            })
             .collect();
 
         let boolean_bytes = values[1];
-        let mut booleans: Vec<_> = names
+        let booleans: Vec<_> = names
             .remove(0)
             .into_iter()
             .enumerate()
@@ -124,31 +124,16 @@ impl Reader {
 
                 Global {
                     name,
-                    value: bit != 0,
+                    value: GlobalValue::Boolean(bit != 0),
                 }
             })
             .collect();
 
-        let mut strings: Vec<_> = names
-            .remove(0)
-            .into_iter()
-            .zip(
-                string_values
-                    .iter()
-                    .map(|v| get_field!(v.fields, "String").unwrap()),
-            )
-            .map(|(name, value)| Global { name, value })
-            .collect();
+        let mut globals: Vec<_> = [numbers, booleans].into_iter().flatten().collect();
 
-        booleans.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-        numbers.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-        strings.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+        globals.sort_unstable_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
-        Ok(Globals {
-            booleans,
-            numbers,
-            strings,
-        })
+        Ok(globals)
     }
     fn read_party_table(&self) -> Result<PartyTable, String> {
         let fields = &self.inner.party_table.content.fields;

@@ -1,5 +1,5 @@
 use crate::{
-    save::Globals,
+    save::{Global, GlobalValue},
     ui::{
         styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles},
         widgets::{white_text, UiExt},
@@ -9,64 +9,63 @@ use crate::{
 use egui::{DragValue, Grid, ScrollArea, TextStyle};
 
 pub struct EditorGlobals<'a> {
-    globals: &'a mut Globals,
+    globals: &'a mut Vec<Global>,
+    width: f32,
 }
 
 impl<'a> EditorGlobals<'a> {
-    pub fn new(globals: &'a mut Globals) -> Self {
-        Self { globals }
+    pub fn new(globals: &'a mut Vec<Global>) -> Self {
+        Self { globals, width: 0. }
     }
 
     pub fn show(&mut self, ui: UiRef) {
-        ui.horizontal_top(|ui| {
-            Self::area("globals_numbers", ui, |ui| self.numbers(ui));
-            Self::area("globals_booleans", ui, |ui| self.booleans(ui));
-            Self::area("globals_strings", ui, |ui| self.strings(ui));
-        });
-    }
+        self.width = ui.available_width();
 
-    fn numbers(&mut self, ui: UiRef) {
-        set_drag_value_styles(ui);
-
-        for global in &mut self.globals.numbers {
-            ui.label(white_text(&global.name).text_style(TextStyle::Small));
-            ui.horizontal(|ui| {
-                ui.add(DragValue::new(&mut global.value));
-                // ghetto padding
-                ui.label(" ");
-            });
-            ui.end_row();
-        }
-    }
-
-    fn booleans(&mut self, ui: UiRef) {
-        set_checkbox_styles(ui);
-        for global in &mut self.globals.booleans {
-            ui.label(white_text(&global.name).text_style(TextStyle::Small));
-            ui.s_checkbox_raw(&mut global.value);
-            ui.end_row();
-        }
-    }
-
-    fn strings(&mut self, ui: UiRef) {
-        for global in &mut self.globals.strings {
-            ui.label(white_text(&global.name).text_style(TextStyle::Small));
-            ui.s_text_edit(&mut global.value, 100.0);
-            ui.end_row();
-        }
-    }
-
-    fn area(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
         ScrollArea::vertical()
-            .id_source(id.to_owned() + "_scroll")
+            .id_source("editor_globals_scroll")
             .show(ui, |ui| {
                 set_striped_styles(ui);
 
-                Grid::new(id)
-                    .num_columns(2)
+                Grid::new("editor_globals_grid")
                     .spacing([5.0, 5.0])
                     .striped(true)
-                    .show(ui, add_contents);
+                    .show(ui, |ui| self.globals(ui));
             });
+    }
+
+    fn globals(&mut self, ui: UiRef) {
+        const COLUMN_WIDTH: f32 = 220.;
+        let columns = (self.width / COLUMN_WIDTH) as u32;
+        let mut count = 0;
+
+        for global in &mut *self.globals {
+            match &mut global.value {
+                GlobalValue::Number(value) => Self::number(ui, &global.name, value),
+                GlobalValue::Boolean(value) => Self::boolean(ui, &global.name, value),
+            }
+            if count == columns - 1 {
+                ui.end_row();
+                count = 0;
+            } else {
+                count += 1;
+            }
+        }
+    }
+
+    fn number(ui: UiRef, name: &str, value: &mut u8) {
+        set_drag_value_styles(ui);
+
+        ui.label(white_text(name).text_style(TextStyle::Small));
+        ui.horizontal(|ui| {
+            ui.add(DragValue::new(value));
+            // ghetto padding
+            ui.label(" ");
+        });
+    }
+
+    fn boolean(ui: UiRef, name: &str, value: &mut bool) {
+        set_checkbox_styles(ui);
+        ui.label(white_text(name).text_style(TextStyle::Small));
+        ui.s_checkbox_raw(value);
     }
 }

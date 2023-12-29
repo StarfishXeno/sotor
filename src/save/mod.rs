@@ -12,7 +12,7 @@ use std::{fmt, fs, path::PathBuf};
 mod read;
 mod update;
 
-const GLOBALS_TYPES: &[&str] = &["Number", "Boolean", "String"];
+const GLOBALS_TYPES: &[&str] = &["Number", "Boolean"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyMember {
@@ -46,17 +46,17 @@ pub struct PartyTable {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Global<T> {
-    pub name: String,
-    pub value: T,
+pub enum GlobalValue {
+    Boolean(bool),
+    Number(u8),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Globals {
-    pub booleans: Vec<Global<bool>>,
-    pub numbers: Vec<Global<u8>>,
-    pub strings: Vec<Global<String>>,
+pub struct Global {
+    pub name: String,
+    pub value: GlobalValue,
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nfo {
     pub save_name: String,
@@ -161,7 +161,7 @@ struct SaveInternals {
 #[derive(Clone, PartialEq)]
 pub struct Save {
     pub game: Game,
-    pub globals: Globals,
+    pub globals: Vec<Global>,
     pub nfo: Nfo,
     pub party_table: PartyTable,
     pub image: TextureHandle,

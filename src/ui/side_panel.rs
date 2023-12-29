@@ -37,7 +37,7 @@ impl<'a> SidePanel<'a> {
         let (color, tooltip) = if self.game_data[0].is_some() {
             (BLUE, "Game data loaded")
         } else {
-            (RED, "Game data missing")
+            (RED, "Game data missing, select valid game path in the settins")
         };
         ui.label(RichText::new(format!("K{}", game.to_idx() + 1)).color(color))
             .on_hover_text(tooltip);
