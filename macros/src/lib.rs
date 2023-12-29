@@ -138,22 +138,50 @@ pub fn derive_enum_from_int(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(EnumToString)]
-pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(EnumList)]
+pub fn derive_enum_list(input: TokenStream) -> TokenStream {
     let (name, input, data) = parse_enum!(input);
 
-    let mut match_arms = TokenStream2::new();
     let mut list = TokenStream2::new();
     let count = data.variants.len();
 
     for variant in &data.variants {
         let v_name = &variant.ident;
+        let is_unit = matches!(&variant.fields, Fields::Unit);
+
+        if !is_unit {
+            return derive_error!("EnumList only works with unit enums");
+        }
+        list.extend(quote_spanned! {variant.span()=>
+            #name::#v_name,
+        });
+    }
+
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    let expanded = quote! {
+        impl #impl_generics #name #ty_generics #where_clause {
+            pub const LIST: [#name; #count] = [#list];
+            pub const COUNT: usize = #count;
+        }
+
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(EnumToString)]
+pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
+    let (name, input, data) = parse_enum!(input);
+
+    let mut match_arms = TokenStream2::new();
+
+    for variant in &data.variants {
+        let v_name = &variant.ident;
         let str_name = v_name.to_string();
-        let mut is_unit = false;
         let fields_in_variant = match &variant.fields {
             Fields::Unnamed(_) => quote_spanned! {variant.span()=> (..) },
             Fields::Unit => {
-                is_unit = true;
                 quote_spanned! { variant.span()=> }
             }
             Fields::Named(_) => quote_spanned! {variant.span()=> {..} },
@@ -162,19 +190,11 @@ pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
         match_arms.extend(quote_spanned! {variant.span()=>
             #name::#v_name #fields_in_variant => #str_name,
         });
-        if is_unit {
-            list.extend(quote_spanned! {variant.span()=>
-                #name::#v_name,
-            });
-        }
     }
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = quote! {
-        impl #impl_generics #name #ty_generics #where_clause {
-            const UNIT_VALUES: [#name; #count] = [#list];
-        }
         impl #impl_generics std::fmt::Display for #name #ty_generics #where_clause {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{}", match self {

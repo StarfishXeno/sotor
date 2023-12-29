@@ -4,9 +4,13 @@ use crate::{
 };
 use egui::Layout;
 use emath::Align;
-use sotor_macros::EnumToString;
+use sotor_macros::{EnumList, EnumToString};
 
-use super::{styles::set_button_styles, widgets::UiExt as _, UiRef};
+use super::{
+    styles::set_button_styles,
+    widgets::{Icon, UiExt as _},
+    UiRef,
+};
 
 mod general;
 mod globals;
@@ -26,10 +30,7 @@ pub fn editor_placeholder(ui: UiRef) {
             if let Some(handle) = dir {
                 let path = handle.path().to_str().unwrap().to_owned();
 
-                ui.ctx()
-                    .get_channel()
-                    .send(Message::LoadFromDirectory(path))
-                    .unwrap();
+                ui.ctx().send_message(Message::LoadFromDirectory(path));
             }
         }
 
@@ -37,7 +38,7 @@ pub fn editor_placeholder(ui: UiRef) {
     });
 }
 
-#[derive(EnumToString, PartialEq, Clone, Copy, Default)]
+#[derive(EnumToString, EnumList, PartialEq, Clone, Copy, Default)]
 pub enum Tab {
     #[default]
     General,
@@ -62,10 +63,9 @@ impl<'a> Editor<'a> {
         let current_tab = ui.ctx().get_data(TAB_ID).unwrap_or_default();
 
         ui.horizontal(|ui| {
-            let channel = ui.ctx().get_channel();
             set_button_styles(ui);
 
-            for tab in Tab::UNIT_VALUES {
+            for tab in Tab::LIST {
                 let btn = ui.s_button(&tab.to_string(), current_tab == tab, false);
                 if btn.clicked() {
                     ui.ctx().set_data(TAB_ID, tab);
@@ -73,14 +73,14 @@ impl<'a> Editor<'a> {
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                let btn = ui.s_button_basic("Save");
+                let btn = ui.s_icon_button(Icon::Save, "Save");
                 if btn.clicked() {
                     Save::save_to_directory("./save", self.save).unwrap();
                 }
 
-                let btn = ui.s_button_basic("Reload");
+                let btn = ui.s_icon_button(Icon::Refresh, "Reload save");
                 if btn.clicked() {
-                    channel.send(Message::ReloadSave).unwrap();
+                    ui.ctx().send_message(Message::ReloadSave);
                 }
             })
         });

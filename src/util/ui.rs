@@ -13,10 +13,12 @@ pub enum Message {
     LoadFromDirectory(String),
     OpenSettings,
     SetGamePath(Game, String),
+    ReloadSaveList,
+    ReloadGameData,
 }
 pub trait ContextExt {
     fn set_channel(&self) -> (Sender<Message>, Receiver<Message>);
-    fn get_channel(&self) -> Sender<Message>;
+    fn send_message(&self, message: Message);
     fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: &'static str, value: T);
 }
@@ -30,8 +32,9 @@ impl ContextExt for Context {
         (sender, receiver)
     }
 
-    fn get_channel(&self) -> Sender<Message> {
-        self.get_data(CHANNEL_ID).unwrap()
+    fn send_message(&self, message: Message) {
+        let channel: Sender<_> = self.get_data(CHANNEL_ID).unwrap();
+        channel.send(message).unwrap();
     }
 
     fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T> {

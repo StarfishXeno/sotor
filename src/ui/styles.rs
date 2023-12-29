@@ -1,7 +1,7 @@
 use egui::{
     style::{Selection, Spacing, WidgetVisuals, Widgets},
     Color32, Context, FontData, FontDefinitions,
-    FontFamily::{self, Proportional},
+    FontFamily::{Name, Proportional},
     FontId, TextStyle, Visuals,
 };
 
@@ -93,29 +93,26 @@ pub fn set_button_styles_disabled(ui: UiRef) {
 
 pub fn make_fonts() -> FontDefinitions {
     const FONT_NAME: &str = "Roboto-Medium";
-
+    const FONT_FA_NAME: &str = "fa-solid-900";
     let mut fonts = FontDefinitions::default();
 
     fonts.font_data.insert(
         FONT_NAME.to_owned(),
         FontData::from_static(include_bytes!("../../assets/Roboto-Medium.ttf")),
     );
-
     fonts
         .families
-        .insert(FontFamily::Name(FONT_NAME.into()), vec![FONT_NAME.into()]);
-
-    fonts
-        .families
-        .get_mut(&FontFamily::Proportional)
-        .unwrap() //it works
-        .insert(0, FONT_NAME.into());
-
-    fonts
-        .families
-        .get_mut(&FontFamily::Monospace)
+        .get_mut(&Proportional)
         .unwrap()
         .insert(0, FONT_NAME.into());
+    // ICONS
+    fonts.font_data.insert(
+        FONT_FA_NAME.to_owned(),
+        FontData::from_static(include_bytes!("../../assets/fa-solid-900.ttf")),
+    );
+    fonts
+        .families
+        .insert(Name("Icons".into()), vec![FONT_FA_NAME.into()]);
 
     fonts
 }
@@ -124,9 +121,13 @@ pub fn set_styles(ctx: &Context) {
     let mut style = (*ctx.style()).clone();
     ctx.set_fonts(make_fonts());
     style.text_styles = [
+        (
+            TextStyle::Name("icon".into()),
+            FontId::new(22.0, Name("Icons".into())),
+        ),
         (TextStyle::Heading, FontId::new(22.0, Proportional)),
         (
-            TextStyle::Name("Large".into()),
+            TextStyle::Name("large".into()),
             FontId::new(16.0, Proportional),
         ),
         (TextStyle::Body, FontId::new(14.0, Proportional)),
@@ -149,7 +150,7 @@ pub fn set_styles(ctx: &Context) {
         faint_bg_color: WHITE,
         extreme_bg_color: WHITE,
         window_fill: BLACK,
-        window_stroke: (2.0, GREEN).into(),
+        window_stroke: (1.0, GREEN_DARK).into(),
         panel_fill: BLACK,
 
         selection: Selection {

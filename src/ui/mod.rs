@@ -22,7 +22,7 @@ type UiRef<'a> = &'a mut Ui;
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 struct PersistentState {
-    game_paths: [Option<String>; Game::GAME_COUNT],
+    game_paths: [Option<String>; Game::COUNT],
 }
 
 #[derive(Debug)]
@@ -31,10 +31,10 @@ pub struct SotorApp {
     save_path: Option<String>,
     channel: (Sender<Message>, Receiver<Message>),
     settings_open: bool,
-    save_list: [HashMap<String, Vec<Directory>>; Game::GAME_COUNT],
+    save_list: [HashMap<String, Vec<Directory>>; Game::COUNT],
     latest_save: Option<Directory>,
 
-    per: PersistentState,
+    prs: PersistentState,
 }
 
 impl SotorApp {
@@ -50,12 +50,12 @@ impl SotorApp {
             save_list: [HashMap::new(), HashMap::new()],
             latest_save: None,
 
-            per: cc
+            prs: cc
                 .storage
                 .and_then(|s| eframe::get_value(s, APP_KEY))
                 .unwrap_or_default(),
         };
-        app.reload_save_lists();
+        app.reload_save_list();
         app.load_latest_save(&cc.egui_ctx);
 
         app
@@ -94,7 +94,7 @@ impl SotorApp {
             .map(|d| ("home", d))
             .collect();
 
-        let game_directory = self.per.game_paths[game.to_idx()]
+        let game_directory = self.prs.game_paths[game.to_idx()]
             .as_ref()
             .map(|path| vec![("game", PathBuf::from(path))])
             .unwrap_or_default();
@@ -140,13 +140,18 @@ impl SotorApp {
         self.latest_save = latest;
     }
 
-    fn reload_save_lists(&mut self) {
-        self.load_save_list(Game::One);
-        self.load_save_list(Game::Two);
+    fn reload_save_list(&mut self) {
+        Game::LIST.map(|game| self.load_save_list(game));
+    }
+
+    fn load_game_data(&mut self, game: Game) {}
+
+    fn reload_game_data(&mut self) {
+        Game::LIST.map(|game| self.load_game_data(game));
     }
 
     fn set_game_path(&mut self, game: Game, path: String, ctx: &Context) {
-        self.per.game_paths[game.to_idx()] = Some(path);
+        self.prs.game_paths[game.to_idx()] = Some(path);
         self.load_save_list(game);
         if self.save.is_none() {
             self.load_latest_save(ctx);
@@ -156,7 +161,7 @@ impl SotorApp {
 
 impl eframe::App for SotorApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, &self.per);
+        eframe::set_value(storage, eframe::APP_KEY, &self.prs);
     }
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
@@ -166,18 +171,21 @@ impl eframe::App for SotorApp {
                 Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx, false),
                 Message::OpenSettings => self.settings_open = true,
                 Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
+                Message::ReloadSaveList => self.reload_save_list(),
+                Message::ReloadGameData => self.reload_game_data(),
             }
         }
 
         if self.settings_open {
-            settings::Settings::new(&mut self.settings_open, &mut self.per.game_paths).show(ctx);
+            settings::Settings::new(&mut self.settings_open, &mut self.prs.game_paths).show(ctx);
         }
 
         egui::SidePanel::new(Side::Left, "save_select")
             .resizable(true)
-            .max_width(ctx.screen_rect().width() - 700.0)
+            .min_width(125.)
+            .max_width(ctx.screen_rect().width() - 700.)
             .show(ctx, |ui| {
-                side_panel::SidePanel::new(&self.save_list).show(ui);
+                side_panel::SidePanel::new(&self.prs.game_paths, &self.save_list).show(ui);
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {

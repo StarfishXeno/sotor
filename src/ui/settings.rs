@@ -1,4 +1,4 @@
-use egui::{Area, Context, Grid, Label, Layout, RichText, Rounding, Sense, Window};
+use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, Window};
 use emath::{Align2, Pos2, Vec2};
 
 use crate::{
@@ -7,8 +7,8 @@ use crate::{
 };
 
 use super::{
-    styles::{set_button_styles, set_striped_styles, BLACK_TRANSPARENT, RED},
-    widgets::{white_text, UiExt},
+    styles::{set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN},
+    widgets::{white_text, Icon, UiExt},
     UiRef,
 };
 
@@ -48,14 +48,28 @@ impl<'a> Settings<'a> {
             .collapsible(false)
             .interactable(true)
             .title_bar(false)
+            .frame(
+                Frame::default()
+                    .inner_margin(Margin::ZERO)
+                    .outer_margin(Margin::ZERO)
+                    .shadow(ctx.style().visuals.window_shadow),
+            )
             .show(ctx, |ui| {
-                // fixed size is broken, this fixes it
-                ui.set_width(ui.available_width());
-                ui.set_height(ui.available_height());
                 // this layer shit is a mess, but at least it works
                 ui.with_layer_id(res.response.layer_id, |ui| {
-                    Self::title_bar(ui, self.open);
-                    Self::game_paths(ui, self.paths);
+                    Frame::default()
+                        .stroke((2., GREEN))
+                        .inner_margin(6.)
+                        .fill(BLACK)
+                        .rounding(5.)
+                        .show(ui, |ui| {
+                            // fixed size is broken, this fixes it
+                            ui.set_width(ui.available_width());
+                            ui.set_height(ui.available_height());
+
+                            Self::title_bar(ui, self.open);
+                            Self::game_paths(ui, self.paths);
+                        });
                 });
             });
     }
@@ -64,11 +78,7 @@ impl<'a> Settings<'a> {
         ui.horizontal(|ui| {
             ui.heading("Settings");
             ui.with_layout(Layout::right_to_left(emath::Align::Center), |ui| {
-                let btn = ui
-                    .add(
-                        Label::new(RichText::new("❌").size(22.0).color(RED)).sense(Sense::click()),
-                    )
-                    .on_hover_cursor(egui::CursorIcon::PointingHand);
+                let btn = ui.s_icon_button_raw(Icon::Close, None, 28.);
                 if btn.clicked() {
                     *open = false;
                 }
@@ -90,10 +100,9 @@ impl<'a> Settings<'a> {
                 ));
 
                 if let Some(handle) = dir {
-                    let channel = ui.ctx().get_channel();
                     let path = handle.path().to_str().unwrap().to_owned();
 
-                    channel.send(Message::SetGamePath(game, path)).unwrap();
+                    ui.ctx().send_message(Message::SetGamePath(game, path));
                 }
             }
         });
@@ -112,8 +121,7 @@ impl<'a> Settings<'a> {
             .num_columns(1)
             .striped(true)
             .show(ui, |ui| {
-                Self::game_path(ui, paths, Game::One);
-                Self::game_path(ui, paths, Game::Two);
+                Game::LIST.map(|game| Self::game_path(ui, paths, game));
             });
     }
 }

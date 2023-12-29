@@ -6,6 +6,7 @@ use crate::{
     util::{load_tga, read_dir_filemap},
 };
 use egui::{Context, TextureHandle, TextureOptions};
+use sotor_macros::EnumList;
 use std::{fmt, fs, path::PathBuf};
 
 mod read;
@@ -64,15 +65,13 @@ pub struct Nfo {
     pub cheats_used: bool,
     pub time_played: u32,
 }
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, EnumList, Clone, PartialEq, Copy)]
 #[repr(u8)]
 pub enum Game {
     One = 0,
     Two,
 }
 impl Game {
-    pub const GAME_COUNT: usize = 2;
-
     pub fn get_party_names(self) -> &'static [&'static str] {
         static PARTY_1: &[&str] = &[
             "Bastila",

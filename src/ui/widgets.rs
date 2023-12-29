@@ -1,9 +1,10 @@
-use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, WHITE};
+use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, GREEN, WHITE};
 use egui::{
-    style::HandleShape, Button, CursorIcon, Response, RichText, Sense, Slider, TextBuffer,
-    TextEdit, Ui, Widget as _,
+    epaint::TextShape, style::HandleShape, Button, Color32, CursorIcon, FontSelection, Response,
+    RichText, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle, Ui, Widget, WidgetInfo,
+    WidgetText, WidgetType,
 };
-use emath::{Numeric, Rect};
+use emath::{Align, Numeric, Rect};
 use std::ops::RangeInclusive;
 
 pub fn white_text(text: &str) -> RichText {
@@ -26,6 +27,8 @@ pub trait UiExt {
     fn s_text(&mut self, text: &str) -> Response;
     fn s_scroll_to_end(&mut self);
     fn s_offset(&mut self, offset: [f32; 2]);
+    fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response;
+    fn s_icon_button_raw(&mut self, icon: Icon, hint: Option<&str>, size: f32) -> Response;
 }
 
 impl UiExt for Ui {
@@ -106,5 +109,97 @@ impl UiExt for Ui {
 
     fn s_offset(&mut self, offset: [f32; 2]) {
         self.allocate_exact_size(offset.into(), Sense::hover());
+    }
+
+    fn s_icon_button_raw(&mut self, icon: Icon, hint: Option<&str>, size: f32) -> Response {
+        let btn = IconButton {
+            icon,
+            hint,
+            color: GREEN,
+            color_hovered: WHITE,
+            size,
+        };
+
+        self.add(btn)
+    }
+
+    fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response {
+        self.s_icon_button_raw(icon, Some(hint), 18.0)
+    }
+}
+
+pub enum Icon {
+    Gear,
+    Reload,
+    Refresh,
+    Save,
+    Close,
+}
+
+impl Icon {
+    fn get(self) -> &'static str {
+        match self {
+            Self::Gear => "\u{f013}",
+            Self::Reload => "\u{f079}",
+            Self::Refresh => "\u{f021}",
+            Self::Save => "\u{f0c7}",
+            Self::Close => "\u{f00d}",
+        }
+    }
+}
+
+struct IconButton<'a> {
+    icon: Icon,
+    hint: Option<&'a str>,
+    color: Color32,
+    color_hovered: Color32,
+    size: f32,
+}
+
+impl<'a> Widget for IconButton<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let valign = ui.layout().vertical_align();
+        let text: WidgetText = RichText::new(self.icon.get())
+            .text_style(TextStyle::Name("icon".into()))
+            .size(self.size)
+            .into();
+        let mut text_job = text.into_text_job(ui.style(), FontSelection::Default, valign);
+
+        text_job.job.wrap.max_width = f32::INFINITY;
+        text_job.job.halign = ui.layout().horizontal_placement();
+        text_job.job.justify = ui.layout().horizontal_justify();
+
+        let text_galley = ui.fonts(|f| text_job.into_galley(f));
+        let (rect, mut response) = ui.allocate_exact_size(text_galley.size(), Sense::click());
+        let pos = match text_galley.galley.job.halign {
+            Align::LEFT => rect.left_top(),
+            Align::Center => rect.center_top(),
+            Align::RIGHT => rect.right_top(),
+        };
+
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, text_galley.text()));
+
+        if ui.is_rect_visible(response.rect) {
+            let override_text_color = if response.hovered() {
+                Some(self.color_hovered)
+            } else {
+                Some(self.color)
+            };
+
+            ui.painter().add(TextShape {
+                pos,
+                galley: text_galley.galley,
+                override_text_color,
+                underline: Stroke::NONE,
+                angle: 0.0,
+            });
+        }
+
+        if let Some(hint) = self.hint {
+            response = response.on_hover_text(hint);
+        }
+        response = response.on_hover_cursor(CursorIcon::PointingHand);
+
+        response
     }
 }
