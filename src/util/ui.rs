@@ -22,7 +22,7 @@ pub trait ContextExt {
     fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: &'static str, value: T);
 }
-const CHANNEL_ID: &str = "sotor-channel";
+const CHANNEL_ID: &str = "sotor_channel";
 
 impl ContextExt for Context {
     fn set_channel(&self) -> (Sender<Message>, Receiver<Message>) {

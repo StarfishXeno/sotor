@@ -193,6 +193,7 @@ impl<'a> EditorGeneral<'a> {
         });
         ui.add_enabled_ui(false, |ui| ui.s_checkbox_raw(&mut member.available));
         ui.s_checkbox_raw(&mut member.selectable);
+
         ui.horizontal(|ui| {
             set_button_styles(ui);
             if let Some((idx, _)) = in_party_idx {
