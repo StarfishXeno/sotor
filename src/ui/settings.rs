@@ -1,13 +1,15 @@
-use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, Window};
+use std::path::PathBuf;
+
+use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, RichText, Rounding, Sense, Window};
 use emath::{Align2, Pos2, Vec2};
 
 use crate::{
     save::Game,
-    util::{select_directory, ContextExt, Message},
+    util::{file_exists, select_directory, ContextExt, Message},
 };
 
 use super::{
-    styles::{set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN},
+    styles::{set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN, RED},
     widgets::{white_text, Icon, UiExt},
     UiRef,
 };
@@ -88,16 +90,14 @@ impl<'a> Settings<'a> {
     }
 
     fn game_path(ui: UiRef, paths: &mut [Option<String>; 2], game: Game) {
+        let exe_name = game.get_exe_name();
         ui.horizontal(|ui| {
             set_button_styles(ui);
             let btn = ui.s_button_basic("Select");
             ui.label(format!("KOTOR {} path:", game.to_idx() + 1));
 
             if btn.clicked() {
-                let dir = select_directory(format!(
-                    "Select the directory containing {}",
-                    game.get_exe_name()
-                ));
+                let dir = select_directory(format!("Select the directory containing {exe_name}",));
 
                 if let Some(handle) = dir {
                     let path = handle.path().to_str().unwrap().to_owned();
@@ -110,6 +110,16 @@ impl<'a> Settings<'a> {
 
         let path = paths[game.to_idx()].as_deref().unwrap_or("None selected");
         ui.add(Label::new(white_text(path)).wrap(true));
+        ui.end_row();
+
+        if !file_exists(PathBuf::from_iter([path, &exe_name])) {
+            ui.label(
+                RichText::new(format!(
+                    "{exe_name} isn't present in the selected directory"
+                ))
+                .color(RED),
+            );
+        }
         ui.end_row();
     }
 
