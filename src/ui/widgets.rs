@@ -1,4 +1,4 @@
-use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, GREEN, WHITE};
+use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, GREEN, GREY, WHITE};
 use egui::{
     epaint::TextShape, style::HandleShape, Button, Color32, CursorIcon, FontSelection, Response,
     RichText, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle, Ui, Widget, WidgetInfo,
@@ -7,8 +7,8 @@ use egui::{
 use emath::{Align, Numeric, Rect};
 use std::ops::RangeInclusive;
 
-pub fn white_text(text: &str) -> RichText {
-    RichText::new(text).color(WHITE)
+pub fn color_text(text: &str, color: Color32) -> RichText {
+    RichText::new(text).color(color)
 }
 
 pub trait UiExt {
@@ -27,8 +27,8 @@ pub trait UiExt {
     fn s_text(&mut self, text: &str) -> Response;
     fn s_scroll_to_end(&mut self);
     fn s_offset(&mut self, offset: [f32; 2]);
+    fn s_empty(&mut self);
     fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response;
-    fn s_icon_button_raw(&mut self, icon: Icon, hint: Option<&str>, size: f32) -> Response;
 }
 
 impl UiExt for Ui {
@@ -97,7 +97,7 @@ impl UiExt for Ui {
     }
 
     fn s_text(&mut self, text: &str) -> Response {
-        self.label(white_text(text))
+        self.label(color_text(text, WHITE))
     }
 
     fn s_scroll_to_end(&mut self) {
@@ -111,49 +111,76 @@ impl UiExt for Ui {
         self.allocate_exact_size(offset.into(), Sense::hover());
     }
 
-    fn s_icon_button_raw(&mut self, icon: Icon, hint: Option<&str>, size: f32) -> Response {
-        let btn = IconButton {
-            icon,
-            hint,
-            color: GREEN,
-            color_hovered: WHITE,
-            size,
-        };
-
-        self.add(btn)
+    fn s_empty(&mut self) {
+        self.s_offset([0., 0.]);
     }
 
     fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response {
-        self.s_icon_button_raw(icon, Some(hint), 18.0)
+        self.add(IconButton::new(icon).hint(hint))
     }
 }
 
 pub enum Icon {
-    Gear,
-    Reload,
-    Refresh,
-    Save,
     Close,
+    Gear,
+    Plus,
+    Refresh,
+    Reload,
+    Remove,
+    Save,
 }
 
 impl Icon {
     fn get(self) -> &'static str {
         match self {
-            Self::Gear => "\u{f013}",
-            Self::Reload => "\u{f079}",
-            Self::Refresh => "\u{f021}",
-            Self::Save => "\u{f0c7}",
             Self::Close => "\u{f00d}",
+            Self::Gear => "\u{f013}",
+            Self::Plus => "\u{002b}",
+            Self::Refresh => "\u{f021}",
+            Self::Reload => "\u{f079}",
+            Self::Remove => "\u{f2ed}",
+            Self::Save => "\u{f0c7}",
         }
     }
 }
 
-struct IconButton<'a> {
+pub struct IconButton<'a> {
     icon: Icon,
     hint: Option<&'a str>,
     color: Color32,
     color_hovered: Color32,
     size: f32,
+}
+
+impl<'a> Default for IconButton<'a> {
+    fn default() -> Self {
+        Self {
+            icon: Icon::Close,
+            hint: None,
+            color: GREEN,
+            color_hovered: WHITE,
+            size: 18.,
+        }
+    }
+}
+
+impl<'a> IconButton<'a> {
+    pub fn new(icon: Icon) -> Self {
+        Self {
+            icon,
+            ..Default::default()
+        }
+    }
+
+    pub fn hint(mut self, hint: &'a str) -> Self {
+        self.hint = Some(hint);
+        self
+    }
+
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
+    }
 }
 
 impl<'a> Widget for IconButton<'a> {
@@ -180,7 +207,9 @@ impl<'a> Widget for IconButton<'a> {
         response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, text_galley.text()));
 
         if ui.is_rect_visible(response.rect) {
-            let override_text_color = if response.hovered() {
+            let override_text_color = if !ui.is_enabled() {
+                Some(GREY)
+            } else if response.hovered() {
                 Some(self.color_hovered)
             } else {
                 Some(self.color)

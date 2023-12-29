@@ -8,8 +8,10 @@ use crate::{
     },
     util::{ContextExt, Directory, Message},
 };
-use egui::{Layout, RichText};
+use egui::Layout;
 use std::collections::HashMap;
+
+use super::widgets::color_text;
 
 pub struct SidePanel<'a> {
     game_data: &'a [Option<String>; Game::COUNT],
@@ -37,9 +39,12 @@ impl<'a> SidePanel<'a> {
         let (color, tooltip) = if self.game_data[0].is_some() {
             (BLUE, "Game data loaded")
         } else {
-            (RED, "Game data missing, select valid game path in the settins")
+            (
+                RED,
+                "Game data missing, select valid game path in the settins",
+            )
         };
-        ui.label(RichText::new(format!("K{}", game.to_idx() + 1)).color(color))
+        ui.label(color_text(&format!("K{}", game.to_idx() + 1), color))
             .on_hover_text(tooltip);
     }
 

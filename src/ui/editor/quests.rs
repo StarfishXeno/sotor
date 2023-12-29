@@ -1,11 +1,8 @@
 use crate::{
     save::JournalEntry,
     ui::{
-        styles::{
-            set_button_styles, set_button_styles_disabled, set_drag_value_styles,
-            set_striped_styles, RED,
-        },
-        widgets::{white_text, UiExt},
+        styles::{set_drag_value_styles, set_striped_styles, RED, WHITE},
+        widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
     util::{ColumnCounter, ContextExt as _},
@@ -45,7 +42,7 @@ impl<'a> EditorQuests<'a> {
                 Grid::new("editor_quests_grid")
                     .spacing([5.0, 5.0])
                     .striped(true)
-                    .max_col_width(COLUMN_WIDTH - 110.)
+                    .max_col_width(COLUMN_WIDTH - 95.)
                     .min_col_width(0.)
                     .show(ui, |ui| {
                         self.table(ui);
@@ -59,10 +56,10 @@ impl<'a> EditorQuests<'a> {
         let columns = (self.width / COLUMN_WIDTH) as u32;
 
         for _ in 0..columns {
+            ui.s_empty();
             ui.label(RichText::new("Name").underline());
             ui.label(RichText::new("State").underline());
-            ui.label("");
-            ui.s_offset([5.0, 0.]);
+            ui.s_empty();
         }
 
         ui.end_row();
@@ -93,7 +90,6 @@ impl<'a> EditorQuests<'a> {
                 state
             });
             let mut state = state.lock().unwrap();
-
             ui.label("Quest name: ");
             ui.s_text_edit(&mut state.id, 150.0);
             ui.label("State: ");
@@ -102,13 +98,10 @@ impl<'a> EditorQuests<'a> {
 
             let set: HashSet<_> = self.journal.iter().map(|e| &e.id).collect();
             already_there = set.contains(&state.id);
-            let disabled = state.id.trim().is_empty() || already_there;
-            set_button_styles(ui);
-            if disabled {
-                set_button_styles_disabled(ui);
-            }
-            let btn = ui.s_button("Add", false, disabled);
-            if !disabled && btn.clicked() {
+            let enabled = !state.id.trim().is_empty() && !already_there;
+            let btn = ui.add_enabled(enabled, IconButton::new(Icon::Plus));
+
+            if btn.clicked() {
                 let last = self.journal.last();
                 self.journal.push(JournalEntry {
                     id: state.id.trim().to_owned(),
@@ -127,14 +120,13 @@ impl<'a> EditorQuests<'a> {
     }
 
     fn column(ui: UiRef, entry: &mut JournalEntry, removed: &mut Option<usize>, idx: usize) {
-        ui.add(Label::new(white_text(&entry.id).text_style(TextStyle::Small)).wrap(true));
-        set_drag_value_styles(ui);
-        ui.add(DragValue::new(&mut entry.state));
-        set_button_styles(ui);
-        let btn = ui.s_button_basic("Remove");
+        let btn = ui.s_icon_button(Icon::Remove, "Remove from current party");
         if btn.clicked() {
             *removed = Some(idx);
         }
-        ui.s_offset([0.0, 0.]);
+        ui.add(Label::new(color_text(&entry.id, WHITE).text_style(TextStyle::Small)).wrap(true));
+        set_drag_value_styles(ui);
+        ui.add(DragValue::new(&mut entry.state));
+        ui.s_empty();
     }
 }

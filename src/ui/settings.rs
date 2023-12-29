@@ -1,16 +1,16 @@
 use std::path::PathBuf;
 
-use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, RichText, Rounding, Sense, Window};
+use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, Window};
 use emath::{Align2, Pos2, Vec2};
 
 use crate::{
     save::Game,
-    util::{file_exists, select_directory, ContextExt, Message},
+    util::{select_directory, ContextExt, Message},
 };
 
 use super::{
-    styles::{set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN, RED},
-    widgets::{white_text, Icon, UiExt},
+    styles::{set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN, RED, WHITE},
+    widgets::{color_text, Icon, IconButton, UiExt},
     UiRef,
 };
 
@@ -80,7 +80,8 @@ impl<'a> Settings<'a> {
         ui.horizontal(|ui| {
             ui.heading("Settings");
             ui.with_layout(Layout::right_to_left(emath::Align::Center), |ui| {
-                let btn = ui.s_icon_button_raw(Icon::Close, None, 28.);
+                let btn = ui.add(IconButton::new(Icon::Close).size(28.));
+
                 if btn.clicked() {
                     *open = false;
                 }
@@ -112,16 +113,14 @@ impl<'a> Settings<'a> {
         ui.end_row();
 
         let path = paths[game.to_idx()].as_deref().unwrap_or("None selected");
-        ui.add(Label::new(white_text(path)).wrap(true));
+        ui.add(Label::new(color_text(path, WHITE)).wrap(true));
         ui.end_row();
 
-        if !file_exists(PathBuf::from_iter([path, &exe_name])) {
-            ui.label(
-                RichText::new(format!(
-                    "{exe_name} isn't present in the selected directory"
-                ))
-                .color(RED),
-            );
+        if !PathBuf::from_iter([path, &exe_name]).exists() {
+            ui.label(color_text(
+                &format!("{exe_name} isn't present in the selected directory"),
+                RED,
+            ));
         }
         ui.end_row();
     }

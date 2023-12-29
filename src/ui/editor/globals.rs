@@ -1,8 +1,8 @@
 use crate::{
     save::{Global, GlobalValue},
     ui::{
-        styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles},
-        widgets::{white_text, UiExt},
+        styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles, WHITE},
+        widgets::{color_text, UiExt},
         UiRef,
     },
     util::ColumnCounter,
@@ -50,17 +50,13 @@ impl<'a> EditorGlobals<'a> {
     fn number(ui: UiRef, name: &str, value: &mut u8) {
         set_drag_value_styles(ui);
 
-        ui.label(white_text(name).text_style(TextStyle::Small));
-        ui.horizontal(|ui| {
-            ui.add(DragValue::new(value));
-            // ghetto padding
-            ui.label(" ");
-        });
+        ui.label(color_text(name, WHITE).text_style(TextStyle::Small));
+        ui.add(DragValue::new(value));
     }
 
     fn boolean(ui: UiRef, name: &str, value: &mut bool) {
         set_checkbox_styles(ui);
-        ui.label(white_text(name).text_style(TextStyle::Small));
+        ui.label(color_text(name, WHITE).text_style(TextStyle::Small));
         ui.s_checkbox_raw(value);
     }
 }

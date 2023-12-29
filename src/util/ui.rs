@@ -1,10 +1,6 @@
 use egui::{ColorImage, Context, Ui};
 use image::io::Reader as ImageReader;
-use std::{
-    any::Any,
-    path::PathBuf,
-    sync::mpsc::{channel, Receiver, Sender},
-};
+use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
 
 use crate::save::Game;
 
@@ -17,21 +13,13 @@ pub enum Message {
     ReloadGameData,
 }
 pub trait ContextExt {
-    fn set_channel(&self) -> (Sender<Message>, Receiver<Message>);
     fn send_message(&self, message: Message);
     fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: &'static str, value: T);
 }
-const CHANNEL_ID: &str = "sotor_channel";
+pub const CHANNEL_ID: &str = "sotor_channel";
 
 impl ContextExt for Context {
-    fn set_channel(&self) -> (Sender<Message>, Receiver<Message>) {
-        let (sender, receiver) = channel();
-        self.set_data(CHANNEL_ID, sender.clone());
-
-        (sender, receiver)
-    }
-
     fn send_message(&self, message: Message) {
         let channel: Sender<_> = self.get_data(CHANNEL_ID).unwrap();
         channel.send(message).unwrap();

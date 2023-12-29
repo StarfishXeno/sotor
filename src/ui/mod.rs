@@ -1,7 +1,7 @@
 use crate::{
     save::{Game, Save},
     util::{
-        file_exists, get_extra_save_directories, read_dir_dirs, ContextExt as _, Directory, Message,
+        get_extra_save_directories, read_dir_dirs, ContextExt as _, Directory, Message, CHANNEL_ID,
     },
 };
 use eframe::APP_KEY;
@@ -10,7 +10,7 @@ use log::error;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::mpsc::{Receiver, Sender},
+    sync::mpsc::{channel, Receiver, Sender},
 };
 
 mod editor;
@@ -42,7 +42,8 @@ pub struct SotorApp {
 impl SotorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         styles::set_styles(&cc.egui_ctx);
-        let (sender, receiver) = cc.egui_ctx.set_channel();
+        let (sender, receiver) = channel();
+        cc.egui_ctx.set_data(CHANNEL_ID, sender.clone());
 
         let mut app = Self {
             save: None,
@@ -124,7 +125,7 @@ impl SotorApp {
             };
 
             for dir in dirs {
-                if file_exists(PathBuf::from_iter([&dir.path, "savenfo.res"])) {
+                if PathBuf::from_iter([&dir.path, "savenfo.res"]).exists() {
                     if latest.is_none() || latest.as_ref().unwrap().date < dir.date {
                         latest = Some(dir.clone());
                     }

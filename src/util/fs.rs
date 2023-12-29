@@ -3,10 +3,6 @@ use std::{collections::HashMap, fs, future::Future, io, path::PathBuf, time::Sys
 
 use crate::save::Game;
 
-pub fn file_exists(path: PathBuf) -> bool {
-    fs::File::open(path).is_ok()
-}
-
 // map of lowercase -> real filenames in a dir
 pub fn read_dir_filemap(path: PathBuf) -> io::Result<HashMap<String, String>> {
     let dir = fs::read_dir(path)?;

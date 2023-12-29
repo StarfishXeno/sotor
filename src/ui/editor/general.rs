@@ -1,11 +1,8 @@
 use crate::{
     save::{AvailablePartyMember, Game, PartyMember, Save},
     ui::{
-        styles::{
-            set_button_styles, set_button_styles_disabled, set_checkbox_styles, set_striped_styles,
-            BLUE, GREEN,
-        },
-        widgets::{white_text, UiExt},
+        styles::{set_checkbox_styles, set_striped_styles, BLUE, GREEN, WHITE},
+        widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
     util::{format_seconds, ColumnCounter},
@@ -79,14 +76,12 @@ impl<'a> EditorGeneral<'a> {
 
         Grid::new("save_general_party")
             .num_columns(9)
-            .spacing([10.0, 6.0])
+            .min_col_width(0.)
+            .spacing([10., 6.])
             .striped(true)
             .show(ui, |ui| {
                 self.party_table(ui);
             });
-
-        ui.s_offset([0.0, 2.0]);
-        ui.label(RichText::new("*currently in your party").color(BLUE));
     }
 
     fn image(&mut self, ui: UiRef) {
@@ -146,15 +141,12 @@ impl<'a> EditorGeneral<'a> {
         let members = &mut self.save.party_table.members;
         let available_members = &mut self.save.party_table.available_members;
 
-        ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("Available").underline());
-        ui.label(RichText::new("Selectable").underline());
-        ui.label("");
-        ui.label("");
-        ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("Available").underline());
-        ui.label(RichText::new("Selectable").underline());
-        ui.label("");
+        for _ in 0..2 {
+            ui.s_empty();
+            ui.label(RichText::new("Name").underline());
+            ui.label(RichText::new("Available").underline());
+            ui.label(RichText::new("Selectable").underline());
+        }
         ui.end_row();
 
         set_checkbox_styles(ui);
@@ -184,36 +176,34 @@ impl<'a> EditorGeneral<'a> {
             .copied()
             .enumerate()
             .find(|(_, i)| *i == idx);
-        let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
 
-        ui.label(if in_party_idx.is_some() {
-            RichText::new(*name).color(BLUE)
+        if let Some((idx, _)) = in_party_idx {
+            let btn = ui.s_icon_button(Icon::Remove, "Remove from current party");
+
+            if btn.clicked() {
+                members.remove(idx);
+            }
         } else {
-            white_text(name)
+            let can_add = members.len() < 2 && member.available && member.selectable;
+
+            let btn = ui.add_enabled(
+                can_add,
+                IconButton::new(Icon::Plus).hint("Add to current party"),
+            );
+
+            if btn.clicked() {
+                members.push(PartyMember { idx, leader: false });
+            }
+        }
+
+        let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
+        ui.label(if in_party_idx.is_some() {
+            color_text(name, BLUE)
+        } else {
+            color_text(name, WHITE)
         });
+
         ui.add_enabled_ui(false, |ui| ui.s_checkbox_raw(&mut member.available));
         ui.s_checkbox_raw(&mut member.selectable);
-
-        ui.horizontal(|ui| {
-            set_button_styles(ui);
-            if let Some((idx, _)) = in_party_idx {
-                let btn = ui.s_button_basic("Remove");
-
-                if btn.clicked() {
-                    members.remove(idx);
-                }
-            } else {
-                ui.style_mut().spacing.button_padding = [17.2, 1.0].into();
-                let cant_add = members.len() >= 2 || !member.available || !member.selectable;
-                if cant_add {
-                    set_button_styles_disabled(ui);
-                }
-                let btn = ui.s_button("Add", false, cant_add);
-
-                if !cant_add && btn.clicked() {
-                    members.push(PartyMember { idx, leader: false });
-                }
-            }
-        });
     }
 }
