@@ -72,82 +72,8 @@ pub enum Game {
     Two,
 }
 impl Game {
-    pub fn get_party_names(self) -> &'static [&'static str] {
-        static PARTY_1: &[&str] = &[
-            "Bastila",
-            "Canderous",
-            "Carth",
-            "HK-47",
-            "Jolee",
-            "Juhani",
-            "Mission",
-            "T3-M4",
-            "Zaalbar",
-        ];
-
-        static PARTY_2: &[&str] = &[
-            "Atton",
-            "Bao-Dur",
-            "Mandalore",
-            "G0-T0",
-            "Handmaiden",
-            "HK-47",
-            "Kreia",
-            "Mira",
-            "T3-M4",
-            "Visas",
-            "Hanharr",
-            "Disciple",
-        ];
-
-        match self {
-            Self::One => PARTY_1,
-            Self::Two => PARTY_2,
-        }
-    }
-
-    pub fn get_exe_name(self) -> String {
-        match self {
-            Self::One => "swkotor.exe".to_owned(),
-            Self::Two => "swkotor2.exe".to_owned(),
-        }
-    }
-
     pub fn to_idx(self) -> usize {
         self as usize
-    }
-
-    pub fn get_save_directories(self) -> Vec<PathBuf> {
-        let mut paths = vec![];
-
-        if self == Self::One {
-            return paths;
-        }
-        if cfg!(target_os = "windows") {
-            let Ok(app_data) = std::env::var("LocalAppData") else {
-                return paths;
-            };
-
-            let path_end = PathBuf::from_iter(["LucasArts", "SWKotORII"]);
-            let mut path = PathBuf::from(app_data);
-            let mut path_x86 = path.clone();
-            path.push("Program Files");
-            path_x86.push("Program Files (x86)");
-            path.push(path_end.clone());
-            path_x86.push(path_end);
-
-            paths.push(path);
-            paths.push(path_x86);
-        } else if cfg!(target_os = "linux") {
-            let Ok(home) = std::env::var("HOME") else {
-                return paths;
-            };
-            let path = PathBuf::from_iter([&home, ".local", "share", "aspyr-media", "kotor2"]);
-
-            paths.push(path);
-        }
-
-        paths
     }
 }
 

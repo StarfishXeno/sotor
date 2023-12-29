@@ -90,7 +90,10 @@ impl<'a> Settings<'a> {
     }
 
     fn game_path(ui: UiRef, paths: &mut [Option<String>; 2], game: Game) {
-        let exe_name = game.get_exe_name();
+        let exe_name = match game {
+            Game::One => "swkotor.exe".to_owned(),
+            Game::Two => "swkotor2.exe".to_owned(),
+        };
         ui.horizontal(|ui| {
             set_button_styles(ui);
             let btn = ui.s_button_basic("Select");

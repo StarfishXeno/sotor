@@ -17,12 +17,41 @@ pub struct EditorGeneral<'a> {
     party_names: &'static [&'static str],
 }
 
+const PARTY_1: &[&str] = &[
+    "Bastila",
+    "Canderous",
+    "Carth",
+    "HK-47",
+    "Jolee",
+    "Juhani",
+    "Mission",
+    "T3-M4",
+    "Zaalbar",
+];
+
+const PARTY_2: &[&str] = &[
+    "Atton",
+    "Bao-Dur",
+    "Mandalore",
+    "G0-T0",
+    "Handmaiden",
+    "HK-47",
+    "Kreia",
+    "Mira",
+    "T3-M4",
+    "Visas",
+    "Hanharr",
+    "Disciple",
+];
+
 impl<'a> EditorGeneral<'a> {
     pub fn new(save: &'a mut Save) -> Self {
-        Self {
-            party_names: save.game.get_party_names(),
-            save,
-        }
+        let party_names = match save.game {
+            Game::One => PARTY_1,
+            Game::Two => PARTY_2,
+        };
+
+        Self { save, party_names }
     }
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal_top(|ui| {

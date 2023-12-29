@@ -84,12 +84,45 @@ impl SotorApp {
         }
     }
 
+    fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
+        let mut paths = vec![];
+
+        if game == Game::One {
+            return paths;
+        }
+
+        if cfg!(target_os = "windows") {
+            let Ok(app_data) = std::env::var("LocalAppData") else {
+                return paths;
+            };
+
+            let path_end = PathBuf::from_iter(["LucasArts", "SWKotORII"]);
+            let mut path = PathBuf::from(app_data);
+            let mut path_x86 = path.clone();
+            path.push("Program Files");
+            path_x86.push("Program Files (x86)");
+            path.push(path_end.clone());
+            path_x86.push(path_end);
+
+            paths.push(path);
+            paths.push(path_x86);
+        } else if cfg!(target_os = "linux") {
+            let Ok(home) = std::env::var("HOME") else {
+                return paths;
+            };
+            let path = PathBuf::from_iter([&home, ".local", "share", "aspyr-media", "kotor2"]);
+
+            paths.push(path);
+        }
+
+        paths
+    }
+
     fn load_save_list(&mut self, game: Game) {
         let mut saves = HashMap::new();
         let mut latest: Option<Directory> = None;
 
-        let extra_directories = game
-            .get_save_directories()
+        let extra_directories = Self::get_extra_save_directories(game)
             .into_iter()
             .map(|d| ("home", d))
             .collect();
