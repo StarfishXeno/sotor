@@ -81,7 +81,7 @@ impl<'a> Settings<'a> {
         ui.horizontal(|ui| {
             set_button_styles(ui);
             let btn = ui.s_button_basic("Select");
-            ui.label(format!("KOTOR {} path:", game as u8 + 1));
+            ui.label(format!("KOTOR {} path:", game.to_idx() + 1));
 
             if btn.clicked() {
                 let dir = select_directory(format!(
@@ -99,7 +99,7 @@ impl<'a> Settings<'a> {
         });
         ui.end_row();
 
-        let path = paths[game as usize].as_deref().unwrap_or("None selected");
+        let path = paths[game.to_idx()].as_deref().unwrap_or("None selected");
         ui.add(Label::new(white_text(path)).wrap(true));
         ui.end_row();
     }

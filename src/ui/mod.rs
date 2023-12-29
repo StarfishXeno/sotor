@@ -2,13 +2,14 @@ use crate::{
     save::{Game, Save},
     util::{file_exists, read_dir_dirs, ContextExt as _, Directory, Message},
 };
-use egui::{
-    ahash::{HashMap, HashMapExt},
-    panel::Side,
-    Context, Ui,
+use eframe::APP_KEY;
+use egui::{panel::Side, Context, Ui};
+use log::error;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::mpsc::{Receiver, Sender},
 };
-use log::{error, info};
-use std::{path::PathBuf, sync::mpsc::Receiver};
 
 mod editor;
 mod settings;
@@ -18,101 +19,173 @@ mod widgets;
 
 type UiRef<'a> = &'a mut Ui;
 
+#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct PersistentState {
+    game_paths: [Option<String>; Game::GAME_COUNT],
+}
+
+#[derive(Debug)]
 pub struct SotorApp {
     save: Option<Save>,
     save_path: Option<String>,
-    channel: Receiver<Message>,
-
+    channel: (Sender<Message>, Receiver<Message>),
     settings_open: bool,
-    game_paths: [Option<String>; 2],
-    save_list: [HashMap<String, Vec<Directory>>; 2],
+    save_list: [HashMap<String, Vec<Directory>>; Game::GAME_COUNT],
+    latest_save: Option<Directory>,
+
+    per: PersistentState,
 }
 
 impl SotorApp {
-    pub fn new(ctx: &eframe::CreationContext<'_>) -> Self {
-        styles::set_styles(&ctx.egui_ctx);
-        let receiver = ctx.egui_ctx.set_channel();
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        styles::set_styles(&cc.egui_ctx);
+        let (sender, receiver) = cc.egui_ctx.set_channel();
 
-        let mut res = Self {
+        let mut app = Self {
             save: None,
             save_path: None,
-            channel: receiver,
-
+            channel: (sender, receiver),
             settings_open: false,
-            game_paths: [None, None],
             save_list: [HashMap::new(), HashMap::new()],
+            latest_save: None,
+
+            per: cc
+                .storage
+                .and_then(|s| eframe::get_value(s, APP_KEY))
+                .unwrap_or_default(),
         };
+        app.reload_save_lists();
+        app.load_latest_save(&cc.egui_ctx);
 
-        let path = "./assets/k1/saves/000000 - QUICKSAVE".to_owned();
-        res.load_save(path, &ctx.egui_ctx);
-
-        res
+        app
     }
 
-    fn load_save(&mut self, path: String, ctx: &Context) {
-        info!("Loading save from: {path}");
-
+    fn load_save(&mut self, path: String, ctx: &Context, silent: bool) {
         match Save::read_from_directory(&path, ctx) {
-            Ok(new_save) => {
-                self.save = Some(new_save);
+            Ok(save) => {
+                self.save = Some(save);
                 self.save_path = Some(path);
             }
             Err(err) => {
                 self.save = None;
                 self.save_path = None;
 
-                error!("{err}");
+                if !silent {
+                    error!("{err}");
+                }
             }
+        }
+    }
+
+    fn load_latest_save(&mut self, ctx: &Context) {
+        if let Some(save) = &self.latest_save {
+            self.load_save(save.path.clone(), ctx, true);
         }
     }
 
     fn load_save_list(&mut self, game: Game) {
-        let idx = game as usize;
-        let mut saves = Vec::new();
-        if let Some(path) = &self.game_paths[idx] {
-            let dirs = read_dir_dirs(path).unwrap();
+        let mut saves = HashMap::new();
+        let mut latest: Option<Directory> = None;
+
+        let extra_directories = game
+            .get_save_directories()
+            .into_iter()
+            .map(|d| ("home", d))
+            .collect();
+
+        let game_directory = self.per.game_paths[game.to_idx()]
+            .as_ref()
+            .map(|path| vec![("game", PathBuf::from(path))])
+            .unwrap_or_default();
+
+        let all_paths: Vec<_> = [game_directory, extra_directories]
+            .into_iter()
+            .flatten()
+            .flat_map(|dir| {
+                let mut path = dir.1.clone();
+                let mut cloud_path = dir.1;
+
+                path.push("saves");
+                cloud_path.push("cloudsaves");
+
+                [
+                    ([dir.0, "saves"].join("_"), path),
+                    ([dir.0, "cloud_saves"].join("_"), cloud_path),
+                ]
+            })
+            .collect();
+
+        for (category, path) in all_paths {
+            let mut save_dirs = vec![];
+            let Ok(dirs) = read_dir_dirs(path) else {
+                continue;
+            };
 
             for dir in dirs {
                 if file_exists(PathBuf::from_iter([&dir.path, "savenfo.res"])) {
-                    saves.push(dir);
+                    if latest.is_none() || latest.as_ref().unwrap().date < dir.date {
+                        latest = Some(dir.clone());
+                    }
+
+                    save_dirs.push(dir);
                 }
             }
+
+            save_dirs.sort_unstable_by_key(|d| d.date);
+            saves.insert(category, save_dirs);
         }
-        self.save_list[idx] = HashMap::from_iter([("game_dir".to_owned(), saves)]);
+
+        self.save_list[game.to_idx()] = saves;
+        self.latest_save = latest;
     }
 
-    fn load_game_data(&mut self, game: Game, path: String) {
-        self.game_paths[game as usize] = Some(path);
+    fn reload_save_lists(&mut self) {
+        self.load_save_list(Game::One);
+        self.load_save_list(Game::Two);
+    }
+
+    fn set_game_path(&mut self, game: Game, path: String, ctx: &Context) {
+        self.per.game_paths[game.to_idx()] = Some(path);
         self.load_save_list(game);
+        if self.save.is_none() {
+            self.load_latest_save(ctx);
+        }
     }
 }
 
 impl eframe::App for SotorApp {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, &self.per);
+    }
+
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        while let Ok(message) = self.channel.try_recv() {
+        while let Ok(message) = self.channel.1.try_recv() {
             match message {
-                Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx),
-                Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx),
+                Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
+                Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx, false),
                 Message::OpenSettings => self.settings_open = true,
-                Message::SetGamePath(game, path) => self.load_game_data(game, path),
+                Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
             }
         }
 
         if self.settings_open {
-            settings::Settings::new(&mut self.settings_open, &mut self.game_paths).show(ctx);
+            settings::Settings::new(&mut self.settings_open, &mut self.per.game_paths).show(ctx);
         }
 
         egui::SidePanel::new(Side::Left, "save_select")
             .resizable(true)
             .max_width(ctx.screen_rect().width() - 700.0)
-            .show(ctx, |ui| side_panel::SidePanel::new().show(ui));
+            .show(ctx, |ui| {
+                side_panel::SidePanel::new(&self.save_list).show(ui);
+            });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(save) = &mut self.save {
                 editor::Editor::new(save).show(ui);
             } else {
                 editor::editor_placeholder(ui);
-            };
+            }
         });
     }
 }

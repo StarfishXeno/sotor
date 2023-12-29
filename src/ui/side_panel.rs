@@ -1,13 +1,18 @@
+use std::collections::HashMap;
+
 use crate::{
+    save::Game,
     ui::{styles::set_button_styles, widgets::UiExt, UiRef},
-    util::{ContextExt, Message},
+    util::{ContextExt, Directory, Message},
 };
 
-pub struct SidePanel {}
+pub struct SidePanel<'a> {
+    save_list: &'a [HashMap<String, Vec<Directory>>; Game::GAME_COUNT],
+}
 
-impl SidePanel {
-    pub fn new() -> Self {
-        Self {}
+impl<'a> SidePanel<'a> {
+    pub fn new(save_list: &'a [HashMap<String, Vec<Directory>>; Game::GAME_COUNT]) -> Self {
+        Self { save_list }
     }
 
     pub fn show(&mut self, ui: UiRef) {

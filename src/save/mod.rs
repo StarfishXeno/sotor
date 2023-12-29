@@ -3,10 +3,10 @@ use crate::{
         erf::{self, Erf},
         gff::{self, Gff},
     },
-    util::{load_tga, read_dir_filemap, read_file, write_file},
+    util::{load_tga, read_dir_filemap},
 };
 use egui::{Context, TextureHandle, TextureOptions};
-use std::{fmt, path::PathBuf};
+use std::{fmt, fs, path::PathBuf};
 
 mod read;
 mod update;
@@ -71,6 +71,8 @@ pub enum Game {
     Two,
 }
 impl Game {
+    pub const GAME_COUNT: usize = 2;
+
     pub fn get_party_names(self) -> &'static [&'static str] {
         static PARTY_1: &[&str] = &[
             "Bastila",
@@ -100,18 +102,56 @@ impl Game {
         ];
 
         match self {
-            Game::One => PARTY_1,
-            Game::Two => PARTY_2,
+            Self::One => PARTY_1,
+            Self::Two => PARTY_2,
         }
     }
 
     pub fn get_exe_name(self) -> String {
         match self {
-            Game::One => "swkotor.exe".to_owned(),
-            Game::Two => "swkotor2.exe".to_owned(),
+            Self::One => "swkotor.exe".to_owned(),
+            Self::Two => "swkotor2.exe".to_owned(),
         }
     }
+
+    pub fn to_idx(self) -> usize {
+        self as usize
+    }
+
+    pub fn get_save_directories(self) -> Vec<PathBuf> {
+        let mut paths = vec![];
+
+        if self == Self::One {
+            return paths;
+        }
+        if cfg!(target_os = "windows") {
+            let Ok(app_data) = std::env::var("LocalAppData") else {
+                return paths;
+            };
+
+            let path_end = PathBuf::from_iter(["LucasArts", "SWKotORII"]);
+            let mut path = PathBuf::from(app_data);
+            let mut path_x86 = path.clone();
+            path.push("Program Files");
+            path_x86.push("Program Files (x86)");
+            path.push(path_end.clone());
+            path_x86.push(path_end);
+
+            paths.push(path);
+            paths.push(path_x86);
+        } else if cfg!(target_os = "linux") {
+            let Ok(home) = std::env::var("HOME") else {
+                return paths;
+            };
+            let path = PathBuf::from_iter([&home, ".local", "share", "aspyr-media", "kotor2"]);
+
+            paths.push(path);
+        }
+
+        paths
+    }
 }
+
 #[derive(Debug, Clone, PartialEq)]
 struct SaveInternals {
     nfo: Gff,
@@ -156,13 +196,13 @@ impl Save {
     pub fn read_from_directory(path: &str, ctx: &Context) -> Result<Self, String> {
         // first let's find the files and map names to lowercase
         let file_names =
-            read_dir_filemap(path).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
+            read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
         // ERF
         let erf_name = file_names
             .get(ERF_NAME)
             .ok_or(sf!("Couldn't find ERF file {ERF_NAME}"))?;
-        let erf_bytes = read_file(PathBuf::from_iter([path, erf_name]))
+        let erf_bytes = fs::read(PathBuf::from_iter([path, erf_name]))
             .map_err(|err| sf!("Couldn't read ERF file {erf_name}: {err}"))?;
         let erf = erf::read(&erf_bytes)?;
 
@@ -172,7 +212,7 @@ impl Save {
             let gff_name = file_names
                 .get(*name)
                 .ok_or(sf!("Couldn't find GFF file {name}"))?;
-            let file = read_file(PathBuf::from_iter([path, gff_name]))
+            let file = fs::read(PathBuf::from_iter([path, gff_name]))
                 .map_err(|err| sf!("Couldn't read GFF file {gff_name}: {err}"))?;
             gffs.push(gff::read(&file)?);
         }
@@ -208,13 +248,13 @@ impl Save {
             &save.inner.party_table,
         ]) {
             let bytes = gff::write(gff.clone());
-            write_file(&(path.to_owned() + name), &bytes)
+            fs::write(PathBuf::from_iter([path, name]), &bytes)
                 .map_err(|err| sf!("Couldn't write GFF file {name}: {}", err.to_string()))?;
         }
 
-        write_file(
-            &(path.to_owned() + ERF_NAME),
-            &erf::write(save.inner.erf.clone()),
+        fs::write(
+            PathBuf::from_iter([path, ERF_NAME]),
+            erf::write(save.inner.erf.clone()),
         )
         .map_err(|err| sf!("Couldn't write ERF file: {}", err.to_string()))?;
 

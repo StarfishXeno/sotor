@@ -1,9 +1,7 @@
 use egui::{ColorImage, Context};
 use image::io::Reader as ImageReader;
-use rfd::{AsyncFileDialog, FileHandle};
 use std::{
     any::Any,
-    future::Future,
     path::PathBuf,
     sync::mpsc::{channel, Receiver, Sender},
 };
@@ -17,7 +15,7 @@ pub enum Message {
     SetGamePath(Game, String),
 }
 pub trait ContextExt {
-    fn set_channel(&self) -> Receiver<Message>;
+    fn set_channel(&self) -> (Sender<Message>, Receiver<Message>);
     fn get_channel(&self) -> Sender<Message>;
     fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: &'static str, value: T);
@@ -25,16 +23,15 @@ pub trait ContextExt {
 const CHANNEL_ID: &str = "sotor-channel";
 
 impl ContextExt for Context {
-    fn set_channel(&self) -> Receiver<Message> {
+    fn set_channel(&self) -> (Sender<Message>, Receiver<Message>) {
         let (sender, receiver) = channel();
-        self.data_mut(|data| {
-            data.insert_temp(CHANNEL_ID.into(), sender);
-        });
-        receiver
+        self.set_data(CHANNEL_ID, sender.clone());
+
+        (sender, receiver)
     }
 
     fn get_channel(&self) -> Sender<Message> {
-        self.data(|data| data.get_temp(CHANNEL_ID.into()).unwrap())
+        self.get_data(CHANNEL_ID).unwrap()
     }
 
     fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T> {
@@ -74,17 +71,4 @@ pub fn load_tga(path: PathBuf) -> Result<ColorImage, String> {
     let flat = rgba.as_flat_samples();
 
     Ok(ColorImage::from_rgba_unmultiplied(size, flat.as_slice()))
-}
-
-pub fn select_directory(title: String) -> Option<FileHandle> {
-    execute(async move { AsyncFileDialog::new().set_title(title).pick_folder().await })
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-fn execute<T: 'static + Send, F: Future<Output = T> + Send + 'static>(f: F) -> T {
-    futures_lite::future::block_on(f)
-}
-#[cfg(target_arch = "wasm32")]
-fn execute<T: 'static + Send, F: Future<Output = T> + Send + 'static>(f: F) -> T {
-    wasm_bindgen_futures::spawn_local(f);
 }
