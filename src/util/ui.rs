@@ -1,4 +1,4 @@
-use egui::{ColorImage, Context};
+use egui::{ColorImage, Context, Ui};
 use image::io::Reader as ImageReader;
 use std::{
     any::Any,
@@ -74,4 +74,23 @@ pub fn load_tga(path: PathBuf) -> Result<ColorImage, String> {
     let flat = rgba.as_flat_samples();
 
     Ok(ColorImage::from_rgba_unmultiplied(size, flat.as_slice()))
+}
+
+pub struct ColumnCounter {
+    max: u32,
+    current: u32,
+}
+
+impl ColumnCounter {
+    pub fn new(max: u32) -> Self {
+        Self { max, current: 0 }
+    }
+    pub fn next(&mut self, ui: &mut Ui) {
+        if self.current == self.max - 1 {
+            self.current = 0;
+            ui.end_row();
+        } else {
+            self.current += 1;
+        }
+    }
 }

@@ -8,7 +8,7 @@ use crate::{
         widgets::{white_text, UiExt},
         UiRef,
     },
-    util::ContextExt as _,
+    util::{ColumnCounter, ContextExt as _},
 };
 use egui::{DragValue, Grid, Label, RichText, ScrollArea, TextStyle};
 use std::{
@@ -44,7 +44,6 @@ impl<'a> EditorQuests<'a> {
 
     fn table(&mut self, ui: UiRef) {
         let columns = (self.width / COLUMN_WIDTH) as u32;
-        let mut count = 0;
 
         for _ in 0..columns {
             ui.label(RichText::new("Name").underline());
@@ -57,15 +56,10 @@ impl<'a> EditorQuests<'a> {
         set_drag_value_styles(ui);
 
         let mut removed = None;
+        let mut counter = ColumnCounter::new(columns);
         for (idx, entry) in self.journal.iter_mut().enumerate() {
             Self::column(ui, entry, &mut removed, idx);
-
-            if count == columns - 1 {
-                ui.end_row();
-                count = 0;
-            } else {
-                count += 1;
-            }
+            counter.next(ui);
         }
 
         if let Some(idx) = removed {

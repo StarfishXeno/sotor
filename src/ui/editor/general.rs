@@ -8,7 +8,7 @@ use crate::{
         widgets::{white_text, UiExt},
         UiRef,
     },
-    util::format_seconds,
+    util::{format_seconds, ColumnCounter},
 };
 use egui::{Frame, Grid, Image, Layout, Margin, RichText};
 
@@ -135,27 +135,10 @@ impl<'a> EditorGeneral<'a> {
 
         let in_party: Vec<_> = members.iter().map(|m| m.idx).collect();
 
-        for (idx, chunk) in available_members.chunks_mut(2).enumerate() {
-            Self::member_row(
-                ui,
-                idx * 2,
-                &in_party,
-                self.party_names,
-                &mut chunk[0],
-                members,
-            );
-            if chunk.len() > 1 {
-                ui.label("");
-                Self::member_row(
-                    ui,
-                    idx * 2 + 1,
-                    &in_party,
-                    self.party_names,
-                    &mut chunk[1],
-                    members,
-                );
-            }
-            ui.end_row();
+        let mut counter = ColumnCounter::new(2);
+        for (idx, member) in available_members.iter_mut().enumerate() {
+            Self::member_row(ui, idx, &in_party, self.party_names, member, members);
+            counter.next(ui);
         }
     }
 

@@ -5,6 +5,7 @@ use crate::{
         widgets::{white_text, UiExt},
         UiRef,
     },
+    util::ColumnCounter,
 };
 use egui::{DragValue, Grid, ScrollArea, TextStyle};
 
@@ -35,20 +36,14 @@ impl<'a> EditorGlobals<'a> {
 
     fn globals(&mut self, ui: UiRef) {
         const COLUMN_WIDTH: f32 = 220.;
-        let columns = (self.width / COLUMN_WIDTH) as u32;
-        let mut count = 0;
+        let mut counter = ColumnCounter::new((self.width / COLUMN_WIDTH) as u32);
 
         for global in &mut *self.globals {
             match &mut global.value {
                 GlobalValue::Number(value) => Self::number(ui, &global.name, value),
                 GlobalValue::Boolean(value) => Self::boolean(ui, &global.name, value),
             }
-            if count == columns - 1 {
-                ui.end_row();
-                count = 0;
-            } else {
-                count += 1;
-            }
+            counter.next(ui);
         }
     }
 
