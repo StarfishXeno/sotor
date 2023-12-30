@@ -7,7 +7,7 @@ use crate::save::Game;
 pub enum Message {
     CloseSave,
     ReloadSave,
-    LoadFromDirectory(String),
+    LoadSaveFromDir(String),
     OpenSettings,
     SetGamePath(Game, String),
     ReloadSaveList,

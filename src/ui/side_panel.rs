@@ -1,13 +1,13 @@
 use crate::{
     save::Game,
     ui::{
-        styles::{BLUE, RED},
+        styles::{BLUE, RED, WHITE},
         widgets::{color_text, Icon, UiExt},
         SaveDirectories, UiRef,
     },
     util::{ContextExt, Message},
 };
-use egui::Layout;
+use egui::{CursorIcon, Layout, ScrollArea};
 
 pub struct SidePanel<'a> {
     game_data: &'a [Option<String>; Game::COUNT],
@@ -29,15 +29,16 @@ impl<'a> SidePanel<'a> {
         ui.s_offset([0., 3.]);
         ui.horizontal(|ui| self.header(ui));
         ui.separator();
+        self.lists(ui);
     }
 
     fn header_game_label(&self, ui: UiRef, game: Game) {
-        let (color, tooltip) = if self.game_data[0].is_some() {
+        let (color, tooltip) = if self.game_data[game.to_idx()].is_some() {
             (BLUE, "Game data loaded")
         } else {
             (
                 RED,
-                "Game data missing, select valid game path in the settins",
+                "Game data missing, select a valid game path in the settings",
             )
         };
         ui.label(color_text(&format!("K{}", game.to_idx() + 1), color))
@@ -63,5 +64,32 @@ impl<'a> SidePanel<'a> {
                 ui.ctx().send_message(Message::ReloadSaveList);
             }
         });
+    }
+
+    fn lists(&self, ui: UiRef) {
+        ui.set_width(ui.available_width());
+        ScrollArea::vertical()
+            .id_source("side_panel_scroll")
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                Game::LIST.map(|game| self.list(ui, game));
+            });
+    }
+
+    fn list(&self, ui: UiRef, game: Game) {
+        let game = game.to_idx();
+        ui.label(format!("KOTOR {}", game + 1));
+
+        for group in &self.save_list[game] {
+            for save in &group.dirs {
+                let mut selected = false;
+                ui.toggle_value(&mut selected, color_text(&save.name, WHITE))
+                    .on_hover_cursor(CursorIcon::PointingHand);
+                if selected {
+                    ui.ctx()
+                        .send_message(Message::LoadSaveFromDir(save.path.clone()));
+                }
+            }
+        }
     }
 }

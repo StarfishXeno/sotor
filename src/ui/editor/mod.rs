@@ -30,7 +30,7 @@ pub fn editor_placeholder(ui: UiRef) {
             if let Some(handle) = dir {
                 let path = handle.path().to_str().unwrap().to_owned();
 
-                ui.ctx().send_message(Message::LoadFromDirectory(path));
+                ui.ctx().send_message(Message::LoadSaveFromDir(path));
             }
         }
 
@@ -73,7 +73,7 @@ impl<'a> Editor<'a> {
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                let btn = ui.s_icon_button(Icon::Remove, "Discard");
+                let btn = ui.s_icon_button(Icon::Leave, "Close");
                 if btn.clicked() {
                     ui.ctx().send_message(Message::CloseSave);
                 }

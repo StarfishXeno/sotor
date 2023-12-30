@@ -124,6 +124,7 @@ impl UiExt for Ui {
 pub enum Icon {
     Close,
     Gear,
+    Leave,
     Plus,
     Refresh,
     Reload,
@@ -136,6 +137,7 @@ impl Icon {
         match self {
             Self::Close => "\u{f00d}",
             Self::Gear => "\u{f013}",
+            Self::Leave => "\u{f2f5}",
             Self::Plus => "\u{002b}",
             Self::Refresh => "\u{f021}",
             Self::Reload => "\u{f079}",

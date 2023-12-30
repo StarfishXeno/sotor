@@ -167,6 +167,8 @@ impl SotorApp {
     fn set_game_path(&mut self, game: Game, path: String, ctx: &Context) {
         self.prs.game_paths[game.to_idx()] = Some(path);
         self.load_save_list(game);
+        self.load_game_data(game);
+
         if self.save.is_none() {
             self.load_latest_save(ctx);
         }
@@ -183,7 +185,7 @@ impl eframe::App for SotorApp {
             match message {
                 Message::CloseSave => self.close_save(),
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
-                Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx, false),
+                Message::LoadSaveFromDir(path) => self.load_save(path.to_string(), ctx, false),
                 Message::OpenSettings => self.settings_open = true,
                 Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
                 Message::ReloadSaveList => self.reload_save_list(),

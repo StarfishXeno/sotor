@@ -98,7 +98,7 @@ pub struct Save {
 // TextureHandle doesn't implement Debug and there isn't much point to printing internals
 impl fmt::Debug for Save {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Resource")
+        f.debug_struct("Save")
             .field("game", &self.game)
             .field("globals", &self.globals)
             .field("nfo", &self.nfo)
