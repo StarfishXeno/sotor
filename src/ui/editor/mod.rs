@@ -73,12 +73,17 @@ impl<'a> Editor<'a> {
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                let btn = ui.s_icon_button(Icon::Remove, "Discard");
+                if btn.clicked() {
+                    ui.ctx().send_message(Message::CloseSave);
+                }
+
                 let btn = ui.s_icon_button(Icon::Save, "Save");
                 if btn.clicked() {
                     Save::save_to_directory("./save", self.save).unwrap();
                 }
 
-                let btn = ui.s_icon_button(Icon::Refresh, "Reload save");
+                let btn = ui.s_icon_button(Icon::Refresh, "Reload");
                 if btn.clicked() {
                     ui.ctx().send_message(Message::ReloadSave);
                 }

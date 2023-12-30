@@ -2,26 +2,22 @@ use crate::{
     save::Game,
     ui::{
         styles::{BLUE, RED},
-        widgets::Icon,
-        widgets::UiExt,
-        UiRef,
+        widgets::{color_text, Icon, UiExt},
+        SaveDirectories, UiRef,
     },
-    util::{ContextExt, Directory, Message},
+    util::{ContextExt, Message},
 };
 use egui::Layout;
-use std::collections::HashMap;
-
-use super::widgets::color_text;
 
 pub struct SidePanel<'a> {
     game_data: &'a [Option<String>; Game::COUNT],
-    save_list: &'a [HashMap<String, Vec<Directory>>; Game::COUNT],
+    save_list: &'a [Vec<SaveDirectories>; Game::COUNT],
 }
 
 impl<'a> SidePanel<'a> {
     pub fn new(
         game_data: &'a [Option<String>; Game::COUNT],
-        save_list: &'a [HashMap<String, Vec<Directory>>; Game::COUNT],
+        save_list: &'a [Vec<SaveDirectories>; Game::COUNT],
     ) -> Self {
         Self {
             game_data,

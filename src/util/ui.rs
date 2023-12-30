@@ -5,6 +5,7 @@ use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
 use crate::save::Game;
 
 pub enum Message {
+    CloseSave,
     ReloadSave,
     LoadFromDirectory(String),
     OpenSettings,

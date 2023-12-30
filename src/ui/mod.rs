@@ -8,7 +8,6 @@ use eframe::APP_KEY;
 use egui::{panel::Side, Context, Ui};
 use log::error;
 use std::{
-    collections::HashMap,
     path::PathBuf,
     sync::mpsc::{channel, Receiver, Sender},
 };
@@ -20,6 +19,13 @@ mod styles;
 mod widgets;
 
 type UiRef<'a> = &'a mut Ui;
+
+#[derive(Debug)]
+struct SaveDirectories {
+    cloud: bool,
+    in_game_dir: bool,
+    dirs: Vec<Directory>,
+}
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -33,7 +39,7 @@ pub struct SotorApp {
     save_path: Option<String>,
     channel: (Sender<Message>, Receiver<Message>),
     settings_open: bool,
-    save_list: [HashMap<String, Vec<Directory>>; Game::COUNT],
+    save_list: [Vec<SaveDirectories>; Game::COUNT],
     latest_save: Option<Directory>,
 
     prs: PersistentState,
@@ -50,7 +56,7 @@ impl SotorApp {
             save_path: None,
             channel: (sender, receiver),
             settings_open: false,
-            save_list: [HashMap::new(), HashMap::new()],
+            save_list: [vec![], vec![]],
             latest_save: None,
 
             prs: cc
@@ -64,6 +70,11 @@ impl SotorApp {
         app
     }
 
+    fn close_save(&mut self) {
+        self.save = None;
+        self.save_path = None;
+    }
+
     fn load_save(&mut self, path: String, ctx: &Context, silent: bool) {
         match Save::read_from_directory(&path, ctx) {
             Ok(save) => {
@@ -71,9 +82,6 @@ impl SotorApp {
                 self.save_path = Some(path);
             }
             Err(err) => {
-                self.save = None;
-                self.save_path = None;
-
                 if !silent {
                     error!("{err}");
                 }
@@ -88,37 +96,37 @@ impl SotorApp {
     }
 
     fn load_save_list(&mut self, game: Game) {
-        let mut saves = HashMap::new();
+        let mut saves = vec![];
         let mut latest: Option<Directory> = None;
 
         let extra_directories = get_extra_save_directories(game)
             .into_iter()
-            .map(|d| ("home", d))
+            .map(|d| (false, d))
             .collect();
 
         let game_directory = self.prs.game_paths[game.to_idx()]
             .as_ref()
-            .map(|path| vec![("game", PathBuf::from(path))])
+            .map(|path| vec![(true, PathBuf::from(path))])
             .unwrap_or_default();
 
         let all_paths: Vec<_> = [game_directory, extra_directories]
             .into_iter()
             .flatten()
-            .flat_map(|dir| {
-                let mut path = dir.1.clone();
-                let mut cloud_path = dir.1;
+            .flat_map(|(in_game_dir, dir)| {
+                let mut path = dir.clone();
+                let mut cloud_path = dir;
 
                 path.push("saves");
                 cloud_path.push("cloudsaves");
 
                 [
-                    ([dir.0, "saves"].join("_"), path),
-                    ([dir.0, "cloud_saves"].join("_"), cloud_path),
+                    ([in_game_dir, false], path),
+                    ([in_game_dir, true], cloud_path),
                 ]
             })
             .collect();
 
-        for (category, path) in all_paths {
+        for ([in_game_dir, cloud], path) in all_paths {
             let mut save_dirs = vec![];
             let Ok(dirs) = read_dir_dirs(path) else {
                 continue;
@@ -135,7 +143,11 @@ impl SotorApp {
             }
 
             save_dirs.sort_unstable_by_key(|d| d.date);
-            saves.insert(category, save_dirs);
+            saves.push(SaveDirectories {
+                cloud,
+                in_game_dir,
+                dirs: save_dirs,
+            });
         }
 
         self.save_list[game.to_idx()] = saves;
@@ -169,6 +181,7 @@ impl eframe::App for SotorApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.channel.1.try_recv() {
             match message {
+                Message::CloseSave => self.close_save(),
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
                 Message::LoadFromDirectory(path) => self.load_save(path.to_string(), ctx, false),
                 Message::OpenSettings => self.settings_open = true,

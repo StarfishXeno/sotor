@@ -198,6 +198,7 @@ impl<'a> Widget for IconButton<'a> {
         text_job.job.justify = ui.layout().horizontal_justify();
 
         let text_galley = ui.fonts(|f| text_job.into_galley(f));
+
         let (rect, mut response) = ui.allocate_exact_size(text_galley.size(), Sense::click());
         let pos = match text_galley.galley.job.halign {
             Align::LEFT => rect.left_top(),
