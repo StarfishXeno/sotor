@@ -35,12 +35,12 @@ impl<'a> EditorQuests<'a> {
         ScrollArea::vertical()
             .id_source("editor_quests_scroll")
             .stick_to_bottom(true)
-            .max_height(ui.max_rect().height() - 85.0)
+            .max_height(ui.max_rect().height() - 85.)
             .show(ui, |ui| {
                 set_striped_styles(ui);
 
                 Grid::new("editor_quests_grid")
-                    .spacing([5.0, 5.0])
+                    .spacing([5., 5.])
                     .striped(true)
                     .max_col_width(COLUMN_WIDTH - 95.)
                     .min_col_width(0.)
@@ -91,7 +91,7 @@ impl<'a> EditorQuests<'a> {
             });
             let mut state = state.lock().unwrap();
             ui.label("Quest name: ");
-            ui.s_text_edit(&mut state.id, 150.0);
+            ui.s_text_edit(&mut state.id, 150.);
             ui.label("State: ");
             set_drag_value_styles(ui);
             ui.add(DragValue::new(&mut state.state));
@@ -115,12 +115,12 @@ impl<'a> EditorQuests<'a> {
         });
 
         if already_there {
-            ui.label(RichText::new("This quest is already present").color(RED));
+            ui.label(color_text("This quest is already present", RED));
         }
     }
 
     fn column(ui: UiRef, entry: &mut JournalEntry, removed: &mut Option<usize>, idx: usize) {
-        let btn = ui.s_icon_button(Icon::Remove, "Remove from current party");
+        let btn = ui.s_icon_button(Icon::Remove, "Remove");
         if btn.clicked() {
             *removed = Some(idx);
         }

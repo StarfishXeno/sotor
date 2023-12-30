@@ -54,16 +54,16 @@ impl<'a> EditorGeneral<'a> {
         ui.horizontal_top(|ui| {
             egui::Grid::new("save_general")
                 .num_columns(2)
-                .spacing([20.0, 6.0])
+                .spacing([20., 6.])
                 .show(ui, |ui| self.main_table(ui));
 
             ui.with_layout(Layout::right_to_left(emath::Align::Min), |ui| {
                 Frame::default()
-                    .stroke((4.0, GREEN))
-                    .rounding(5.0)
+                    .stroke((4., GREEN))
+                    .rounding(5.)
                     .outer_margin({
-                        let mut margin = Margin::symmetric(0.0, 5.0);
-                        margin.left = 10.0;
+                        let mut margin = Margin::symmetric(0., 5.);
+                        margin.left = 10.;
                         margin
                     })
                     .show(ui, |ui| self.image(ui));
@@ -86,8 +86,8 @@ impl<'a> EditorGeneral<'a> {
 
     fn image(&mut self, ui: UiRef) {
         let scale = 1.3;
-        let image = Image::from((self.save.image.id(), (256.0 * scale, 144.0 * scale).into()))
-            .rounding(5.0);
+        let image =
+            Image::from((self.save.image.id(), (256. * scale, 144. * scale).into())).rounding(5.);
         ui.add(image);
     }
 
@@ -95,7 +95,7 @@ impl<'a> EditorGeneral<'a> {
         let nfo = &mut self.save.nfo;
         let pt = &mut self.save.party_table;
         ui.label("Save name: ");
-        ui.s_text_edit(&mut nfo.save_name, 200.0);
+        ui.s_text_edit(&mut nfo.save_name, 200.);
         ui.end_row();
 
         ui.label("PC name: ");
@@ -151,8 +151,8 @@ impl<'a> EditorGeneral<'a> {
 
         set_checkbox_styles(ui);
         let spacing = ui.spacing_mut();
-        spacing.icon_width = 18.0;
-        spacing.icon_width_inner = 10.0;
+        spacing.icon_width = 18.;
+        spacing.icon_width_inner = 10.;
 
         let in_party: Vec<_> = members.iter().map(|m| m.idx).collect();
 

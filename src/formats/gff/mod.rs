@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn field_value_type() {
         assert_eq!(Field::Word(0).to_int(), 2);
-        assert_eq!(Field::Double(0.0).to_int(), 9);
+        assert_eq!(Field::Double(0.).to_int(), 9);
         assert_eq!(Field::Void(vec![]).to_int(), 13);
     }
 

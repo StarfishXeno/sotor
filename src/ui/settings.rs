@@ -19,7 +19,7 @@ pub struct Settings<'a> {
     paths: &'a mut [Option<String>; 2],
 }
 
-const WINDOW_SIZE: [f32; 2] = [400.0, 200.0];
+const WINDOW_SIZE: [f32; 2] = [400., 200.];
 
 impl<'a> Settings<'a> {
     pub fn new(open: &'a mut bool, paths: &'a mut [Option<String>; 2]) -> Self {

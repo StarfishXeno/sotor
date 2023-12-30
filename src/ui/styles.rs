@@ -38,13 +38,13 @@ pub fn set_drag_value_styles(ui: UiRef) {
     let visuals = &mut styles.visuals;
     let widgets = &mut visuals.widgets;
 
-    styles.spacing.interact_size = [20.0, 20.0].into();
+    styles.spacing.interact_size = [20., 20.].into();
     visuals.override_text_color = Some(BLACK);
 
     widgets.inactive.weak_bg_fill = WHITE;
     widgets.hovered.weak_bg_fill = WHITE;
     widgets.active.weak_bg_fill = WHITE;
-    widgets.active.bg_stroke = (2.0, GREEN).into();
+    widgets.active.bg_stroke = (2., GREEN).into();
 }
 pub fn set_slider_styles(ui: UiRef) {
     let styles = ui.style_mut();
@@ -57,14 +57,14 @@ pub fn set_slider_styles(ui: UiRef) {
 pub fn set_checkbox_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
-    let stroke = (3.0, BLACK).into();
+    let stroke = (3., BLACK).into();
 
     visuals.override_text_color = Some(BLACK);
 
     widgets.hovered.fg_stroke = stroke;
     widgets.active.fg_stroke = stroke;
     widgets.inactive.fg_stroke = stroke;
-    widgets.active.bg_stroke = (2.0, GREEN).into();
+    widgets.active.bg_stroke = (2., GREEN).into();
 }
 
 pub fn set_button_styles(ui: UiRef) {
@@ -76,13 +76,13 @@ pub fn set_button_styles(ui: UiRef) {
     widgets.inactive.weak_bg_fill = BLACK;
     widgets.hovered.weak_bg_fill = BLACK;
     widgets.active.weak_bg_fill = BLACK;
-    widgets.active.bg_stroke = (2.0, WHITE).into();
+    widgets.active.bg_stroke = (2., WHITE).into();
 }
 
 pub fn set_button_styles_disabled(ui: UiRef) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
-    let stroke = (2.0, GREY).into();
+    let stroke = (2., GREY).into();
 
     visuals.override_text_color = Some(GREY);
 
@@ -93,7 +93,7 @@ pub fn set_button_styles_disabled(ui: UiRef) {
 
 pub fn make_fonts() -> FontDefinitions {
     const FONT_NAME: &str = "Roboto-Medium";
-    const FONT_FA_NAME: &str = "fa-solid-900";
+    const FONT_FA_SOLID_NAME: &str = "fa-solid-900";
     let mut fonts = FontDefinitions::default();
 
     fonts.font_data.insert(
@@ -107,12 +107,12 @@ pub fn make_fonts() -> FontDefinitions {
         .insert(0, FONT_NAME.into());
     // ICONS
     fonts.font_data.insert(
-        FONT_FA_NAME.to_owned(),
+        FONT_FA_SOLID_NAME.to_owned(),
         FontData::from_static(include_bytes!("../../assets/fa-solid-900.ttf")),
     );
     fonts
         .families
-        .insert(Name("Icons".into()), vec![FONT_FA_NAME.into()]);
+        .insert(Name("Icons".into()), vec![FONT_FA_SOLID_NAME.into()]);
 
     fonts
 }
@@ -123,22 +123,22 @@ pub fn set_styles(ctx: &Context) {
     style.text_styles = [
         (
             TextStyle::Name("icon".into()),
-            FontId::new(22.0, Name("Icons".into())),
+            FontId::new(22., Name("Icons".into())),
         ),
-        (TextStyle::Heading, FontId::new(22.0, Proportional)),
+        (TextStyle::Heading, FontId::new(22., Proportional)),
         (
             TextStyle::Name("large".into()),
-            FontId::new(16.0, Proportional),
+            FontId::new(16., Proportional),
         ),
-        (TextStyle::Body, FontId::new(14.0, Proportional)),
-        (TextStyle::Monospace, FontId::new(14.0, Proportional)),
-        (TextStyle::Button, FontId::new(14.0, Proportional)),
-        (TextStyle::Small, FontId::new(13.0, Proportional)),
+        (TextStyle::Body, FontId::new(14., Proportional)),
+        (TextStyle::Monospace, FontId::new(14., Proportional)),
+        (TextStyle::Button, FontId::new(14., Proportional)),
+        (TextStyle::Small, FontId::new(13., Proportional)),
     ]
     .into();
     style.spacing = Spacing {
-        icon_width: 20.0,
-        icon_width_inner: 11.0,
+        icon_width: 20.,
+        icon_width_inner: 11.,
         ..style.spacing
     };
     style.drag_value_text_style = TextStyle::Body;
@@ -148,18 +148,18 @@ pub fn set_styles(ctx: &Context) {
     };
 
     style.visuals = Visuals {
-        text_cursor: (2.0, GREY).into(),
+        text_cursor: (2., GREY).into(),
         override_text_color: Some(GREEN),
         hyperlink_color: BLUE,
         faint_bg_color: WHITE,
         extreme_bg_color: WHITE,
         window_fill: BLACK,
-        window_stroke: (1.0, GREEN_DARK).into(),
+        window_stroke: (1., GREEN_DARK).into(),
         panel_fill: BLACK,
 
         selection: Selection {
             bg_fill: BLACK,
-            stroke: (2.0, GREEN).into(),
+            stroke: (2., GREEN).into(),
         },
 
         widgets: Widgets {
@@ -178,9 +178,9 @@ fn make_widget_visuals(stroke_color: Color32) -> WidgetVisuals {
     WidgetVisuals {
         bg_fill: WHITE,
         weak_bg_fill: WHITE,
-        bg_stroke: (2.0, stroke_color).into(),
+        bg_stroke: (2., stroke_color).into(),
         rounding: 2.0.into(),
-        fg_stroke: (1.0, stroke_color).into(),
-        expansion: 0.0,
+        fg_stroke: (1., stroke_color).into(),
+        expansion: 0.,
     }
 }

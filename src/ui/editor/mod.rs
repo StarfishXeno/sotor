@@ -19,7 +19,7 @@ mod quests;
 pub fn editor_placeholder(ui: UiRef) {
     ui.horizontal_centered(|ui| {
         // TODO there should be a better way to center vertically
-        ui.s_offset([ui.max_rect().width() / 2.0 - 100.0, 0.0]);
+        ui.s_offset([ui.max_rect().width() / 2. - 100., 0.]);
 
         ui.label("Please");
 

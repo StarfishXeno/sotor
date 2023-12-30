@@ -9,7 +9,7 @@ fn main() -> eframe::Result<()> {
     env_logger::init();
 
     let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_min_inner_size([900.0, 540.0]),
+        viewport: egui::ViewportBuilder::default().with_min_inner_size([900., 540.]),
         ..Default::default()
     };
 

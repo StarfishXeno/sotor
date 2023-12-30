@@ -28,7 +28,7 @@ impl<'a> EditorGlobals<'a> {
                 set_striped_styles(ui);
 
                 Grid::new("editor_globals_grid")
-                    .spacing([5.0, 5.0])
+                    .spacing([5., 5.])
                     .striped(true)
                     .show(ui, |ui| self.globals(ui));
             });

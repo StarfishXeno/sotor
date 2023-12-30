@@ -35,8 +35,8 @@ impl UiExt for Ui {
     fn s_text_edit(&mut self, text: &mut dyn TextBuffer, width: f32) -> Response {
         TextEdit::singleline(text)
             .vertical_align(egui::Align::Center)
-            .min_size([width, 0.0].into())
-            .margin([4.0, 1.6].into())
+            .min_size([width, 0.].into())
+            .margin([4., 1.].into())
             .desired_width(width)
             .text_color(BLACK)
             .ui(self)
@@ -51,7 +51,7 @@ impl UiExt for Ui {
         self.add(
             Slider::new(value, range)
                 .logarithmic(logarithmic)
-                .handle_shape(HandleShape::Rect { aspect_ratio: 1.0 })
+                .handle_shape(HandleShape::Rect { aspect_ratio: 1. })
                 .clamp_to_range(true),
         )
     }
@@ -69,9 +69,9 @@ impl UiExt for Ui {
         if selected {
             text = text.color(WHITE);
         }
-        let mut btn = Button::new(text).selected(selected).rounding(2.0);
+        let mut btn = Button::new(text).selected(selected).rounding(2.);
         if selected {
-            btn = btn.stroke((2.0, WHITE));
+            btn = btn.stroke((2., WHITE));
         }
         btn.ui(self).on_hover_cursor(if disabled {
             CursorIcon::NotAllowed
@@ -120,6 +120,7 @@ impl UiExt for Ui {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Icon {
     Close,
     Gear,
@@ -220,7 +221,7 @@ impl<'a> Widget for IconButton<'a> {
                 galley: text_galley.galley,
                 override_text_color,
                 underline: Stroke::NONE,
-                angle: 0.0,
+                angle: 0.,
             });
         }
 
