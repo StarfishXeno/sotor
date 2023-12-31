@@ -9,7 +9,7 @@ use crate::{
 };
 use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, ScrollArea};
 
-use super::styles::GREEN_DARK;
+use super::styles::{GREEN_DARK, GREY};
 
 pub struct SidePanel<'a> {
     current_save: &'a Option<String>,
@@ -94,14 +94,18 @@ impl<'a> SidePanel<'a> {
     fn list_inner(&self, ui: UiRef, game: Game) {
         let game = game.idx();
         for group in &self.save_list[game] {
-            Frame::default().fill(GREEN_DARK).show(ui, |ui| {
-                let mut labels = vec![];
+            ui.horizontal(|ui| {
+                ui.s_offset([2., 0.]);
+                ui.label(color_text("~", GREY))
+                    .on_hover_text(&group.base_dir);
                 if group.cloud {
-                    labels.push("Cloud save");
+                    ui.label(
+                        color_text(Icon::Cloud.symbol(), GREY)
+                            .size(14.)
+                            .text_style(egui::TextStyle::Name("icon".into())),
+                    )
+                    .on_hover_text("Cloud saves");
                 }
-
-                ui.set_width(ui.available_width());
-                ui.label(color_text("test", WHITE));
             });
 
             for save in &group.dirs {

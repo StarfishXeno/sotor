@@ -200,9 +200,9 @@ impl eframe::App for SotorApp {
         }
 
         egui::SidePanel::new(Side::Left, "save_select")
-            .resizable(true)
             .frame(Frame::side_top_panel(&ctx.style()).inner_margin(Margin::ZERO))
-            .min_width(125.)
+            .resizable(true)
+            .min_width(150.)
             .max_width(ctx.screen_rect().width() - 700.)
             .show(ctx, |ui| {
                 side_panel::SidePanel::new(&self.save_path, &self.prs.game_paths, &self.save_list)

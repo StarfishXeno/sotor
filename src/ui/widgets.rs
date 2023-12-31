@@ -130,6 +130,7 @@ impl UiExt for Ui {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Icon {
     Close,
+    Cloud,
     Gear,
     Leave,
     Plus,
@@ -140,9 +141,10 @@ pub enum Icon {
 }
 
 impl Icon {
-    fn get(self) -> &'static str {
+    pub fn symbol(self) -> &'static str {
         match self {
             Self::Close => "\u{f00d}",
+            Self::Cloud => "\u{f0c2}",
             Self::Gear => "\u{f013}",
             Self::Leave => "\u{f2f5}",
             Self::Plus => "\u{002b}",
@@ -196,7 +198,7 @@ impl<'a> IconButton<'a> {
 impl<'a> Widget for IconButton<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let valign = ui.layout().vertical_align();
-        let text: WidgetText = RichText::new(self.icon.get())
+        let text: WidgetText = RichText::new(self.icon.symbol())
             .text_style(TextStyle::Name("icon".into()))
             .size(self.size)
             .into();
