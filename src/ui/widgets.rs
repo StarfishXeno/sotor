@@ -1,10 +1,12 @@
-use super::styles::{set_checkbox_styles, set_slider_styles, BLACK, GREEN, GREY, WHITE};
+use super::styles::{
+    set_checkbox_styles, set_slider_styles, BLACK, BLUE, GREEN, GREY, GREY_DARK, WHITE,
+};
 use egui::{
     epaint::TextShape, style::HandleShape, Button, Color32, CursorIcon, FontSelection, Response,
-    RichText, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle, Ui, Widget, WidgetInfo,
-    WidgetText, WidgetType,
+    RichText, Rounding, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle, Ui, Widget,
+    WidgetInfo, WidgetText, WidgetType,
 };
-use emath::{Align, Numeric, Rect};
+use emath::{Align, Numeric, Rect, Vec2};
 use std::ops::RangeInclusive;
 
 pub fn color_text(text: &str, color: Color32) -> RichText {
@@ -29,6 +31,7 @@ pub trait UiExt {
     fn s_offset(&mut self, offset: [f32; 2]);
     fn s_empty(&mut self);
     fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response;
+    fn s_list_item(&mut self, selected: bool, text: impl Into<WidgetText>) -> Response;
 }
 
 impl UiExt for Ui {
@@ -117,6 +120,10 @@ impl UiExt for Ui {
 
     fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response {
         self.add(IconButton::new(icon).hint(hint))
+    }
+
+    fn s_list_item(&mut self, selected: bool, text: impl Into<WidgetText>) -> Response {
+        ListItem::new(selected, text).ui(self)
     }
 }
 
@@ -232,6 +239,62 @@ impl<'a> Widget for IconButton<'a> {
             response = response.on_hover_text(hint);
         }
         response = response.on_hover_cursor(CursorIcon::PointingHand);
+
+        response
+    }
+}
+
+pub struct ListItem {
+    selected: bool,
+    text: WidgetText,
+}
+
+impl ListItem {
+    pub fn new(selected: bool, text: impl Into<WidgetText>) -> Self {
+        Self {
+            selected,
+            text: text.into(),
+        }
+    }
+}
+
+impl Widget for ListItem {
+    fn ui(self, ui: &mut Ui) -> Response {
+        let Self { selected, text } = self;
+
+        let width = ui.available_width();
+        let padding = Vec2::from([8., 2.]);
+
+        let text_galley = text.into_galley(ui, None, width, TextStyle::Button);
+
+        let desired_size = [width, text_galley.size().y + padding.y].into();
+        let (rect, mut response) = ui.allocate_at_least(desired_size, Sense::click());
+
+        response
+            .widget_info(|| WidgetInfo::selected(WidgetType::Other, selected, text_galley.text()));
+        response = response.on_hover_cursor(CursorIcon::PointingHand);
+
+        if ui.is_rect_visible(response.rect) {
+            let pos = ui
+                .layout()
+                .align_size_within_rect(text_galley.size(), rect.shrink2(padding))
+                .min;
+
+            if selected || response.hovered() || response.highlighted() || response.has_focus() {
+                ui.painter()
+                    .rect(rect, Rounding::ZERO, GREY_DARK, Stroke::NONE);
+            }
+
+            let override_text_color = if selected { Some(BLUE) } else { None };
+
+            ui.painter().add(TextShape {
+                pos,
+                galley: text_galley.galley,
+                override_text_color,
+                underline: Stroke::NONE,
+                angle: 0.,
+            });
+        }
 
         response
     }

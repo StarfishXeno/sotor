@@ -28,11 +28,11 @@ macro_rules! get_field {
 pub struct Reader {
     inner: SaveInternals,
     game: Game,
-    image: TextureHandle,
+    image: Option<TextureHandle>,
 }
 
 impl Reader {
-    pub fn new(inner: SaveInternals, image: TextureHandle) -> Self {
+    pub fn new(inner: SaveInternals, image: Option<TextureHandle>) -> Self {
         let game = if inner.erf.resources.get("pc").is_none() {
             Game::One
         } else {
@@ -66,7 +66,10 @@ impl Reader {
         let fields = &self.inner.nfo.content.fields;
 
         Ok(Nfo {
-            save_name: get_field!(fields, "SAVEGAMENAME")?,
+            save_name: fields
+                .get("SAVEGAMENAME")
+                .and_then(|f| f.clone().unwrap_string())
+                .unwrap_or_default(), // autosaves don't have this field
             area_name: get_field!(fields, "AREANAME")?,
             last_module: get_field!(fields, "LASTMODULE")?,
             cheats_used: get_field!(fields, "CHEATUSED", unwrap_byte)? != 0,

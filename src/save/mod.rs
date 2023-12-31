@@ -7,7 +7,11 @@ use crate::{
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use sotor_macros::EnumList;
-use std::{fmt, fs, path::PathBuf};
+use std::{
+    fmt::{self, Display},
+    fs,
+    path::PathBuf,
+};
 
 mod read;
 mod update;
@@ -72,8 +76,13 @@ pub enum Game {
     Two,
 }
 impl Game {
-    pub fn to_idx(self) -> usize {
+    pub fn idx(self) -> usize {
         self as usize
+    }
+}
+impl Display for Game {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&(*self as u8 + 1).to_string())
     }
 }
 
@@ -90,7 +99,7 @@ pub struct Save {
     pub globals: Vec<Global>,
     pub nfo: Nfo,
     pub party_table: PartyTable,
-    pub image: TextureHandle,
+    pub image: Option<TextureHandle>,
 
     inner: SaveInternals,
 }
@@ -142,13 +151,13 @@ impl Save {
             gffs.push(gff::read(&file)?);
         }
 
-        // IMAGE
-        let image_name = file_names
-            .get(IMAGE_NAME)
-            .ok_or(sf!("Couldn't find save image {IMAGE_NAME}"))?;
-        let tga = load_tga(PathBuf::from_iter([path, image_name]))
-            .map_err(|err| sf!("Couldn't read image {image_name}: {err}"))?;
-        let texture = ctx.load_texture("save_image", tga, TextureOptions::NEAREST);
+        // autosaves don't have screenshots
+        let texture = {
+            file_names
+                .get(IMAGE_NAME)
+                .and_then(|image_name| load_tga(PathBuf::from_iter([path, image_name])).ok())
+                .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST))
+        };
 
         let reader = read::Reader::new(
             SaveInternals {

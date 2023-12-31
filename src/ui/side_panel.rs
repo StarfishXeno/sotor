@@ -7,33 +7,40 @@ use crate::{
     },
     util::{ContextExt, Message},
 };
-use egui::{CursorIcon, Layout, ScrollArea};
+use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, ScrollArea};
+
+use super::styles::GREEN_DARK;
 
 pub struct SidePanel<'a> {
+    current_save: &'a Option<String>,
     game_data: &'a [Option<String>; Game::COUNT],
     save_list: &'a [Vec<SaveDirectories>; Game::COUNT],
 }
 
 impl<'a> SidePanel<'a> {
     pub fn new(
+        current_save: &'a Option<String>,
         game_data: &'a [Option<String>; Game::COUNT],
         save_list: &'a [Vec<SaveDirectories>; Game::COUNT],
     ) -> Self {
         Self {
+            current_save,
             game_data,
             save_list,
         }
     }
 
     pub fn show(&self, ui: UiRef) {
-        ui.s_offset([0., 3.]);
-        ui.horizontal(|ui| self.header(ui));
-        ui.separator();
+        Self::padding_frame(ui, |ui| {
+            ui.horizontal(|ui| self.header(ui));
+            ui.separator();
+        });
+
         self.lists(ui);
     }
 
     fn header_game_label(&self, ui: UiRef, game: Game) {
-        let (color, tooltip) = if self.game_data[game.to_idx()].is_some() {
+        let (color, tooltip) = if self.game_data[game.idx()].is_some() {
             (BLUE, "Game data loaded")
         } else {
             (
@@ -41,7 +48,7 @@ impl<'a> SidePanel<'a> {
                 "Game data missing, select a valid game path in the settings",
             )
         };
-        ui.label(color_text(&format!("K{}", game.to_idx() + 1), color))
+        ui.label(color_text(&format!("K{game}"), color))
             .on_hover_text(tooltip);
     }
 
@@ -77,19 +84,51 @@ impl<'a> SidePanel<'a> {
     }
 
     fn list(&self, ui: UiRef, game: Game) {
-        let game = game.to_idx();
-        ui.label(format!("KOTOR {}", game + 1));
+        CollapsingState::load_with_default_open(ui.ctx(), format!("save_list_{game}").into(), true)
+            .show_header(ui, |ui| {
+                ui.label(format!("KOTOR {game}"));
+            })
+            .body_unindented(|ui| self.list_inner(ui, game));
+    }
 
+    fn list_inner(&self, ui: UiRef, game: Game) {
+        let game = game.idx();
         for group in &self.save_list[game] {
+            Frame::default().fill(GREEN_DARK).show(ui, |ui| {
+                let mut labels = vec![];
+                if group.cloud {
+                    labels.push("Cloud save");
+                }
+
+                ui.set_width(ui.available_width());
+                ui.label(color_text("test", WHITE));
+            });
+
             for save in &group.dirs {
-                let mut selected = false;
-                ui.toggle_value(&mut selected, color_text(&save.name, WHITE))
-                    .on_hover_cursor(CursorIcon::PointingHand);
-                if selected {
+                let selected = self.current_save.is_some()
+                    && self.current_save.as_ref().unwrap() == &save.path;
+                let label = ui.s_list_item(selected, color_text(&save.name, WHITE));
+                if label.clicked() {
                     ui.ctx()
                         .send_message(Message::LoadSaveFromDir(save.path.clone()));
                 }
             }
+            if game != Game::COUNT - 1 {
+                Self::padding_frame(ui, |ui| {
+                    ui.separator();
+                });
+            }
         }
+    }
+
+    fn padding_frame(ui: UiRef, add_contents: impl FnOnce(UiRef)) {
+        Frame::default()
+            .inner_margin({
+                let mut m = Margin::symmetric(8., 2.);
+                m.top += 6.;
+                m.right += 2.;
+                m
+            })
+            .show(ui, add_contents);
     }
 }

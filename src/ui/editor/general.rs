@@ -57,17 +57,19 @@ impl<'a> EditorGeneral<'a> {
                 .spacing([20., 6.])
                 .show(ui, |ui| self.main_table(ui));
 
-            ui.with_layout(Layout::right_to_left(emath::Align::Min), |ui| {
-                Frame::default()
-                    .stroke((4., GREEN))
-                    .rounding(5.)
-                    .outer_margin({
-                        let mut margin = Margin::symmetric(0., 5.);
-                        margin.left = 10.;
-                        margin
-                    })
-                    .show(ui, |ui| self.image(ui));
-            })
+            if self.save.image.is_some() {
+                ui.with_layout(Layout::right_to_left(emath::Align::Min), |ui| {
+                    Frame::default()
+                        .stroke((4., GREEN))
+                        .rounding(5.)
+                        .outer_margin({
+                            let mut margin = Margin::symmetric(0., 5.);
+                            margin.left = 10.;
+                            margin
+                        })
+                        .show(ui, |ui| self.image(ui));
+                });
+            }
         });
 
         ui.separator();
@@ -86,8 +88,11 @@ impl<'a> EditorGeneral<'a> {
 
     fn image(&mut self, ui: UiRef) {
         let scale = 1.3;
-        let image =
-            Image::from((self.save.image.id(), (256. * scale, 144. * scale).into())).rounding(5.);
+        let image = Image::from((
+            self.save.image.as_ref().unwrap().id(),
+            (256. * scale, 144. * scale).into(),
+        ))
+        .rounding(5.);
         ui.add(image);
     }
 

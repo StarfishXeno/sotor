@@ -5,7 +5,7 @@ use crate::{
     },
 };
 use eframe::APP_KEY;
-use egui::{panel::Side, Context, Ui};
+use egui::{panel::Side, Context, Frame, Margin, Ui};
 use log::error;
 use std::{
     path::PathBuf,
@@ -23,7 +23,7 @@ type UiRef<'a> = &'a mut Ui;
 #[derive(Debug)]
 struct SaveDirectories {
     cloud: bool,
-    in_game_dir: bool,
+    base_dir: String,
     dirs: Vec<Directory>,
 }
 
@@ -99,34 +99,34 @@ impl SotorApp {
         let mut saves = vec![];
         let mut latest: Option<Directory> = None;
 
-        let extra_directories = get_extra_save_directories(game)
-            .into_iter()
-            .map(|d| (false, d))
-            .collect();
+        let extra_directories = get_extra_save_directories(game);
 
-        let game_directory = self.prs.game_paths[game.to_idx()]
+        let game_directory = self.prs.game_paths[game.idx()]
             .as_ref()
-            .map(|path| vec![(true, PathBuf::from(path))])
+            .map(|path| vec![PathBuf::from(path)])
             .unwrap_or_default();
 
         let all_paths: Vec<_> = [game_directory, extra_directories]
             .into_iter()
             .flatten()
-            .flat_map(|(in_game_dir, dir)| {
+            .flat_map(|dir| {
+                let base_dir: String = dir.to_string_lossy().into();
                 let mut path = dir.clone();
-                let mut cloud_path = dir;
-
                 path.push("saves");
-                cloud_path.push("cloudsaves");
 
-                [
-                    ([in_game_dir, false], path),
-                    ([in_game_dir, true], cloud_path),
-                ]
+                let mut cloud_path = dir;
+                cloud_path.push("cloudsaves");
+                let cloud_dirs = read_dir_dirs(cloud_path)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|d| (true, base_dir.clone(), d.path.into()))
+                    .collect();
+
+                [vec![(false, base_dir.clone(), path)], cloud_dirs].concat()
             })
             .collect();
 
-        for ([in_game_dir, cloud], path) in all_paths {
+        for (cloud, base_dir, path) in all_paths {
             let mut save_dirs = vec![];
             let Ok(dirs) = read_dir_dirs(path) else {
                 continue;
@@ -142,15 +142,17 @@ impl SotorApp {
                 }
             }
 
-            save_dirs.sort_unstable_by_key(|d| d.date);
-            saves.push(SaveDirectories {
-                cloud,
-                in_game_dir,
-                dirs: save_dirs,
-            });
+            if !save_dirs.is_empty() {
+                save_dirs.sort_unstable_by(|a, b| b.date.cmp(&a.date));
+                saves.push(SaveDirectories {
+                    cloud,
+                    base_dir,
+                    dirs: save_dirs,
+                });
+            }
         }
-
-        self.save_list[game.to_idx()] = saves;
+        saves.sort_unstable_by(|a, b| b.dirs[0].date.cmp(&a.dirs[0].date));
+        self.save_list[game.idx()] = saves;
         self.latest_save = latest;
     }
 
@@ -165,7 +167,7 @@ impl SotorApp {
     }
 
     fn set_game_path(&mut self, game: Game, path: String, ctx: &Context) {
-        self.prs.game_paths[game.to_idx()] = Some(path);
+        self.prs.game_paths[game.idx()] = Some(path);
         self.load_save_list(game);
         self.load_game_data(game);
 
@@ -199,10 +201,12 @@ impl eframe::App for SotorApp {
 
         egui::SidePanel::new(Side::Left, "save_select")
             .resizable(true)
+            .frame(Frame::side_top_panel(&ctx.style()).inner_margin(Margin::ZERO))
             .min_width(125.)
             .max_width(ctx.screen_rect().width() - 700.)
             .show(ctx, |ui| {
-                side_panel::SidePanel::new(&self.prs.game_paths, &self.save_list).show(ui);
+                side_panel::SidePanel::new(&self.save_path, &self.prs.game_paths, &self.save_list)
+                    .show(ui);
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
