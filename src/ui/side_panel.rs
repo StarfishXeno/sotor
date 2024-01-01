@@ -9,7 +9,7 @@ use crate::{
 };
 use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, ScrollArea};
 
-use super::styles::{GREEN_DARK, GREY};
+use super::styles::GREY;
 
 pub struct SidePanel<'a> {
     current_save: &'a Option<String>,
@@ -96,7 +96,7 @@ impl<'a> SidePanel<'a> {
         for group in &self.save_list[game] {
             ui.horizontal(|ui| {
                 ui.s_offset([2., 0.]);
-                ui.label(color_text("~", GREY))
+                ui.label(color_text("://", GREY))
                     .on_hover_text(&group.base_dir);
                 if group.cloud {
                     ui.label(

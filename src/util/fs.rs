@@ -40,7 +40,7 @@ pub fn read_dir_dirs(path: PathBuf) -> io::Result<Vec<Directory>> {
                 path: entry.path().to_str()?.to_owned(),
                 name: entry.file_name().to_str()?.to_owned(),
                 date: metadata
-                    .created()
+                    .modified()
                     .ok()?
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .ok()?

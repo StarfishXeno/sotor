@@ -138,6 +138,8 @@ pub enum Icon {
     Reload,
     Remove,
     Save,
+    #[allow(dead_code)]
+    Triangle,
 }
 
 impl Icon {
@@ -152,6 +154,7 @@ impl Icon {
             Self::Reload => "\u{f079}",
             Self::Remove => "\u{f2ed}",
             Self::Save => "\u{f0c7}",
+            Self::Triangle => "\u{f0d7}",
         }
     }
 }

@@ -56,11 +56,11 @@ pub fn load_tga(path: PathBuf) -> Result<ColorImage, String> {
         .map_err(|err| err.to_string())?
         .decode()
         .map_err(|err| err.to_string())?
-        .brighten(10); // they're also too dark for some reason
+        .brighten(20); // they're also too dark for some reason
 
     let size = [img.width() as _, img.height() as _];
-    let rgba = img.to_rgba8();
-    let flat = rgba.as_flat_samples();
+    let rgba = img.into_rgba8();
+    let flat = rgba.into_flat_samples();
 
     Ok(ColorImage::from_rgba_unmultiplied(size, flat.as_slice()))
 }

@@ -64,8 +64,8 @@ impl SotorApp {
                 .and_then(|s| eframe::get_value(s, APP_KEY))
                 .unwrap_or_default(),
         };
-        app.reload_save_list();
-        app.load_latest_save(&cc.egui_ctx);
+        app.reload_save_list(&cc.egui_ctx);
+        app.reload_game_data();
 
         app
     }
@@ -90,6 +90,9 @@ impl SotorApp {
     }
 
     fn load_latest_save(&mut self, ctx: &Context) {
+        if self.save.is_some() {
+            return;
+        }
         if let Some(save) = &self.latest_save {
             self.load_save(save.path.clone(), ctx, true);
         }
@@ -153,13 +156,22 @@ impl SotorApp {
         }
         saves.sort_unstable_by(|a, b| b.dirs[0].date.cmp(&a.dirs[0].date));
         self.save_list[game.idx()] = saves;
-        self.latest_save = latest;
+        if let Some(dir) = latest {
+            if self.latest_save.is_none() || self.latest_save.as_ref().unwrap().date < dir.date {
+                self.latest_save = Some(dir);
+            }
+        }
     }
 
-    fn reload_save_list(&mut self) {
+    fn reload_save_list(&mut self, ctx: &Context) {
         Game::LIST.map(|game| self.load_save_list(game));
+
+        if self.save.is_none() {
+            self.load_latest_save(ctx);
+        }
     }
 
+    #[allow(clippy::unused_self, unused_variables)]
     fn load_game_data(&mut self, game: Game) {}
 
     fn reload_game_data(&mut self) {
@@ -170,10 +182,7 @@ impl SotorApp {
         self.prs.game_paths[game.idx()] = Some(path);
         self.load_save_list(game);
         self.load_game_data(game);
-
-        if self.save.is_none() {
-            self.load_latest_save(ctx);
-        }
+        self.load_latest_save(ctx);
     }
 }
 
@@ -190,7 +199,7 @@ impl eframe::App for SotorApp {
                 Message::LoadSaveFromDir(path) => self.load_save(path.to_string(), ctx, false),
                 Message::OpenSettings => self.settings_open = true,
                 Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
-                Message::ReloadSaveList => self.reload_save_list(),
+                Message::ReloadSaveList => self.reload_save_list(ctx),
                 Message::ReloadGameData => self.reload_game_data(),
             }
         }
