@@ -73,7 +73,7 @@ impl<'a> Editor<'a> {
             }
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                let btn = ui.s_icon_button(Icon::Leave, "Close");
+                let btn = ui.s_icon_button(Icon::Leave, "Close save");
                 if btn.clicked() {
                     ui.ctx().send_message(Message::CloseSave);
                 }

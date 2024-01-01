@@ -6,8 +6,9 @@ use crate::{
     util::{load_tga, read_dir_filemap},
 };
 use egui::{Context, TextureHandle, TextureOptions};
-use sotor_macros::EnumList;
+use sotor_macros::{EnumFromInt, EnumList};
 use std::{
+    collections::VecDeque,
     fmt::{self, Display},
     fs,
     path::PathBuf,
@@ -86,12 +87,40 @@ impl Display for Game {
     }
 }
 
+#[derive(EnumFromInt, Debug, Clone, PartialEq)]
+#[repr(u8)]
+enum Gender {
+    Male = 0,
+    Female = 1,
+    Both = 2,
+    Other = 3,
+    None = 4,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Character {
+    name: String,
+    attributes: [u8; 6], // STR, DEX, CON, INT, WIS, CHA
+    hp: i16,
+    hp_max: i16,
+    fp: i16,
+    fp_max: i16,
+    min_1_hp: bool,
+    good_evil: u8,
+    experience: u32,
+    feats: Vec<u16>, // IDs
+    skills: [u8; 8], // ranks in order of skill menu
+
+    gender: Gender,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct SaveInternals {
     nfo: Gff,
     globals: Gff,
     party_table: Gff,
     erf: Erf,
+    pifo: Option<Gff>,
 }
 #[derive(Clone, PartialEq)]
 pub struct Save {
@@ -100,6 +129,7 @@ pub struct Save {
     pub nfo: Nfo,
     pub party_table: PartyTable,
     pub image: Option<TextureHandle>,
+    pub characters: Vec<Option<Character>>,
 
     inner: SaveInternals,
 }
@@ -116,7 +146,12 @@ impl fmt::Debug for Save {
     }
 }
 
-const GFF_NAMES: &[&str] = &["savenfo.res", "globalvars.res", "partytable.res"];
+const GFFS: &[(bool, &str)] = &[
+    (true, "savenfo.res"),
+    (true, "globalvars.res"),
+    (true, "partytable.res"),
+    (false, "pifo.ifo"),
+];
 const ERF_NAME: &str = "savegame.sav";
 const IMAGE_NAME: &str = "screen.tga";
 
@@ -141,29 +176,31 @@ impl Save {
         let erf = erf::read(&erf_bytes)?;
 
         // GFFs
-        let mut gffs = Vec::with_capacity(GFF_NAMES.len());
-        for name in GFF_NAMES {
-            let gff_name = file_names
-                .get(*name)
-                .ok_or(sf!("Couldn't find GFF file {name}"))?;
+        let mut gffs = VecDeque::with_capacity(GFFS.len());
+        for (required, name) in GFFS {
+            let Some(gff_name) = file_names.get(*name) else {
+                if *required {
+                    return Err(sf!("Couldn't find GFF file {name}"));
+                }
+                continue;
+            };
             let file = fs::read(PathBuf::from_iter([path, gff_name]))
                 .map_err(|err| sf!("Couldn't read GFF file {gff_name}: {err}"))?;
-            gffs.push(gff::read(&file)?);
+            gffs.push_back(gff::read(&file)?);
         }
 
         // autosaves don't have screenshots
-        let texture = {
-            file_names
-                .get(IMAGE_NAME)
-                .and_then(|image_name| load_tga(PathBuf::from_iter([path, image_name])).ok())
-                .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST))
-        };
+        let texture = file_names
+            .get(IMAGE_NAME)
+            .and_then(|image_name| load_tga(PathBuf::from_iter([path, image_name])).ok())
+            .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST));
 
         let reader = read::Reader::new(
             SaveInternals {
-                nfo: gffs.remove(0),
-                globals: gffs.remove(0),
-                party_table: gffs.remove(0),
+                nfo: gffs.pop_front().unwrap(),
+                globals: gffs.pop_front().unwrap(),
+                party_table: gffs.pop_front().unwrap(),
+                pifo: gffs.pop_front(),
 
                 erf,
             },
@@ -176,11 +213,15 @@ impl Save {
     pub fn save_to_directory(path: &str, save: &mut Save) -> Result<(), String> {
         update::Updater::new(save).process();
 
-        for (name, gff) in GFF_NAMES.iter().zip([
-            &save.inner.nfo,
-            &save.inner.globals,
-            &save.inner.party_table,
+        for ((_, name), gff) in GFFS.iter().zip([
+            Some(&save.inner.nfo),
+            Some(&save.inner.globals),
+            Some(&save.inner.party_table),
+            save.inner.pifo.as_ref(),
         ]) {
+            let Some(gff) = gff else {
+                continue;
+            };
             let bytes = gff::write(gff.clone());
             fs::write(PathBuf::from_iter([path, name]), &bytes)
                 .map_err(|err| sf!("Couldn't write GFF file {name}: {}", err.to_string()))?;

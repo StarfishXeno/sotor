@@ -1,11 +1,15 @@
-use egui::TextureHandle;
-
-use crate::formats::gff::Field;
-
-use super::{
-    AvailablePartyMember, Game, Global, GlobalValue, JournalEntry, Nfo, PartyMember, PartyTable,
-    Save, SaveInternals, GLOBALS_TYPES,
+use crate::{
+    formats::{
+        erf,
+        gff::{self, Field, Struct},
+    },
+    save::{
+        AvailablePartyMember, Character, Game, Gender, Global, GlobalValue, JournalEntry, Nfo,
+        PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES,
+    },
+    util::string_lowercase_map,
 };
+use egui::TextureHandle;
 
 macro_rules! rf {
     ($($t:tt)*) => {{
@@ -15,13 +19,12 @@ macro_rules! rf {
 
 macro_rules! get_field {
     ($map:expr, $field:literal, $method:tt) => {
-        $map[$field]
-            .clone()
-            .$method()
-            .ok_or(rf!("Invalid field {}", $field))
+        $map.get($field)
+            .ok_or(rf!("Missing field {}", $field))
+            .and_then(|f| f.clone().$method().ok_or(rf!("Invalid field {}", $field)))
     };
     ($map:expr, $field:literal) => {
-        get_field!($map, $field, unwrap_string)
+        get_field!($map, $field, unwrap_byte)
     };
 }
 
@@ -38,7 +41,6 @@ impl Reader {
         } else {
             Game::Two
         };
-
         Self { inner, game, image }
     }
 
@@ -46,6 +48,8 @@ impl Reader {
         let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
+        let characters =
+            self.read_characters(party_table.available_members.len(), &nfo.last_module)?;
 
         // unifying the flag in case it's somehow out of sync
         nfo.cheats_used = nfo.cheats_used || party_table.cheats_used;
@@ -55,6 +59,7 @@ impl Reader {
             globals,
             nfo,
             party_table,
+            characters,
 
             image: self.image,
             game: self.game,
@@ -70,9 +75,9 @@ impl Reader {
                 .get("SAVEGAMENAME")
                 .and_then(|f| f.clone().unwrap_string())
                 .unwrap_or_default(), // autosaves don't have this field
-            area_name: get_field!(fields, "AREANAME")?,
-            last_module: get_field!(fields, "LASTMODULE")?,
-            cheats_used: get_field!(fields, "CHEATUSED", unwrap_byte)? != 0,
+            area_name: get_field!(fields, "AREANAME", unwrap_string)?,
+            last_module: get_field!(fields, "LASTMODULE", unwrap_string)?,
+            cheats_used: get_field!(fields, "CHEATUSED")? != 0,
             time_played: get_field!(fields, "TIMEPLAYED", unwrap_dword)?,
         })
     }
@@ -99,7 +104,7 @@ impl Reader {
             names.push(
                 name_list
                     .iter()
-                    .map(|s| get_field!(s.fields, "Name").unwrap())
+                    .map(|s| get_field!(s.fields, "Name", unwrap_string).unwrap())
                     .collect(),
             );
         }
@@ -138,13 +143,14 @@ impl Reader {
 
         Ok(globals)
     }
+
     fn read_party_table(&self) -> Result<PartyTable, String> {
         let fields = &self.inner.party_table.content.fields;
         let journal_list = get_field!(fields, "JNL_Entries", unwrap_list)?;
         let mut journal = Vec::with_capacity(journal_list.len());
         for entry in journal_list {
             journal.push(JournalEntry {
-                id: get_field!(entry.fields, "JNL_PlotID")?,
+                id: get_field!(entry.fields, "JNL_PlotID", unwrap_string)?,
                 state: get_field!(entry.fields, "JNL_State", unwrap_int)?,
                 time: get_field!(entry.fields, "JNL_Time", unwrap_dword)?,
                 date: get_field!(entry.fields, "JNL_Date", unwrap_dword)?,
@@ -157,7 +163,7 @@ impl Reader {
             .map(|m| {
                 Ok(PartyMember {
                     idx: get_field!(m.fields, "PT_MEMBER_ID", unwrap_int)? as usize,
-                    leader: get_field!(m.fields, "PT_IS_LEADER", unwrap_byte)? != 0,
+                    leader: get_field!(m.fields, "PT_IS_LEADER")? != 0,
                 })
             })
             .collect();
@@ -168,15 +174,15 @@ impl Reader {
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
-                    available: get_field!(m.fields, "PT_NPC_AVAIL", unwrap_byte)? != 0,
-                    selectable: get_field!(m.fields, "PT_NPC_SELECT", unwrap_byte)? != 0,
+                    available: get_field!(m.fields, "PT_NPC_AVAIL")? != 0,
+                    selectable: get_field!(m.fields, "PT_NPC_SELECT")? != 0,
                 })
             })
             .collect();
         let available_members = available_members?;
 
         let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
-        let cheats_used = get_field!(fields, "PT_CHEAT_USED", unwrap_byte)? != 0;
+        let cheats_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
         let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
         let (components, chemicals) = match self.game {
             Game::One => (0, 0),
@@ -195,6 +201,101 @@ impl Reader {
             party_xp,
             components,
             chemicals,
+        })
+    }
+
+    fn read_characters(
+        &self,
+        count: usize,
+        last_module: &str,
+    ) -> Result<Vec<Option<Character>>, String> {
+        const NPC_RESOURCE_PREFIX: &str = "availnpc";
+        let resources = &self.inner.erf.resources;
+        let mut characters = Vec::with_capacity(count + 1);
+        let keys: Vec<_> = resources.keys().cloned().collect();
+        let map = string_lowercase_map(&keys);
+
+        for idx in 0..count {
+            let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
+                characters.push(None);
+                continue;
+            };
+            let gff = gff::read(&resources[name].content)
+                .map_err(|err| rf!("Couldn't read NPC GFF {idx}: {err}"))?;
+
+            characters.push(Some(Self::read_character(&gff.content)?));
+        }
+
+        let module = {
+            if let Some(module) = resources.get(&last_module.to_lowercase()) {
+                let module_erf = erf::read(&module.content)?;
+                let module_inner = module_erf
+                    .resources
+                    .get("Module")
+                    .ok_or(rf!("Couldn't get inner module resource"))?;
+                gff::read(&module_inner.content)?
+            } else if let Some(res) = &self.inner.pifo {
+                res.clone()
+            } else {
+                return Err("Couldn't get last module resource".to_owned());
+            }
+        };
+
+        let player_field = &get_field!(module.content.fields, "Mod_PlayerList", unwrap_list)?;
+        let player = player_field
+            .get(0)
+            .ok_or(rf!("Couldn't get player character struct"))?;
+
+        characters.push(Some(Self::read_character(player)?));
+
+        Ok(characters)
+    }
+
+    fn read_character(s: &Struct) -> Result<Character, String> {
+        let fields = &s.fields;
+
+        let name = get_field!(fields, "FirstName", unwrap_loc_string)?
+            .1
+            .get(0)
+            .map_or("MISSING NAME".to_owned(), |v| v.content.clone());
+
+        let attributes = [
+            get_field!(fields, "Str")?,
+            get_field!(fields, "Dex")?,
+            get_field!(fields, "Con")?,
+            get_field!(fields, "Int")?,
+            get_field!(fields, "Wis")?,
+            get_field!(fields, "Cha")?,
+        ];
+
+        let gender = Gender::try_from(get_field!(fields, "Gender")?)
+            .map_err(|id| rf!("Invalid gender {id}"))?;
+
+        let feats = get_field!(fields, "FeatList", unwrap_list)?
+            .into_iter()
+            .map(|s| get_field!(s.fields, "Feat", unwrap_word))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let skills = get_field!(fields, "SkillList", unwrap_list)?
+            .into_iter()
+            .map(|s| get_field!(s.fields, "Rank"))
+            .collect::<Result<Vec<_>, _>>()?
+            .try_into()
+            .map_err(|_| rf!("Invalid skill list"))?;
+
+        Ok(Character {
+            name,
+            attributes,
+            hp: get_field!(fields, "HitPoints", unwrap_short)?,
+            hp_max: get_field!(fields, "MaxHitPoints", unwrap_short)?,
+            fp: get_field!(fields, "ForcePoints", unwrap_short)?,
+            fp_max: get_field!(fields, "MaxForcePoints", unwrap_short)?,
+            min_1_hp: get_field!(fields, "Min1HP")? != 0,
+            good_evil: get_field!(fields, "GoodEvil")?,
+            experience: get_field!(fields, "Experience", unwrap_dword)?,
+            feats,
+            skills,
+            gender,
         })
     }
 }

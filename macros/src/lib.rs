@@ -124,12 +124,12 @@ pub fn derive_enum_from_int(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #impl_generics TryFrom<#repr> for #name #ty_generics #where_clause {
-            type Error = ();
+            type Error = #repr;
 
             fn try_from(id: #repr) -> Result<Self, Self::Error> {
                 match id {
                     #match_arms
-                    _ => Err(())
+                    _ => Err(id)
                 }
             }
         }

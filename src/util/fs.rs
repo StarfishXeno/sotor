@@ -3,13 +3,15 @@ use std::{collections::HashMap, fs, future::Future, io, path::PathBuf, time::Sys
 
 use crate::save::Game;
 
+use super::string_lowercase_map;
+
 // map of lowercase -> real filenames in a dir
 pub fn read_dir_filemap(path: PathBuf) -> io::Result<HashMap<String, String>> {
     let dir = fs::read_dir(path)?;
     let names: io::Result<Vec<_>> = dir
         .map(|e| Ok(e?.file_name().to_str().unwrap().to_owned()))
         .collect();
-    let map = names?.into_iter().map(|s| (s.to_lowercase(), s)).collect();
+    let map = string_lowercase_map(&names?);
 
     Ok(map)
 }
