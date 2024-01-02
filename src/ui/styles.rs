@@ -1,5 +1,5 @@
 use egui::{
-    style::{DebugOptions, Selection, Spacing, WidgetVisuals, Widgets},
+    style::{Selection, Spacing, WidgetVisuals, Widgets},
     Color32, Context, FontData, FontDefinitions,
     FontFamily::{Name, Proportional},
     FontId, TextStyle, Visuals,
@@ -145,10 +145,6 @@ pub fn set_styles(ctx: &Context) {
         ..style.spacing
     };
     style.drag_value_text_style = TextStyle::Body;
-    style.debug = DebugOptions {
-        debug_on_hover_with_all_modifiers: true,
-        ..Default::default()
-    };
 
     style.visuals = Visuals {
         text_cursor: (2., GREY).into(),
