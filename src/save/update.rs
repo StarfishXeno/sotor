@@ -148,6 +148,12 @@ impl<'a> Updater<'a> {
         if self.save.game == Game::Two {
             fields.insert("PT_ITEM_COMPONEN".to_owned(), Field::Dword(pt.components));
             fields.insert("PT_ITEM_CHEMICAL".to_owned(), Field::Dword(pt.chemicals));
+            let av_members_list = pt
+                .influence
+                .iter()
+                .map(|m| Struct::new([("PT_NPC_INFLUENCE".to_owned(), Field::Int(*m))].into()))
+                .collect();
+            fields.insert("PT_INFLUENCE".to_owned(), Field::List(av_members_list));
         }
     }
 }

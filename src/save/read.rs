@@ -11,17 +11,15 @@ use crate::{
 };
 use egui::TextureHandle;
 
-macro_rules! rf {
-    ($($t:tt)*) => {{
-        format!("Save::read| {}", format!($($t)*))
-    }};
-}
-
 macro_rules! get_field {
     ($map:expr, $field:literal, $method:tt) => {
         $map.get($field)
-            .ok_or(rf!("Missing field {}", $field))
-            .and_then(|f| f.clone().$method().ok_or(rf!("Invalid field {}", $field)))
+            .ok_or(format!("Missing field {}", $field))
+            .and_then(|f| {
+                f.clone()
+                    .$method()
+                    .ok_or(format!("Invalid field {}", $field))
+            })
     };
     ($map:expr, $field:literal) => {
         get_field!($map, $field, unwrap_byte)
@@ -91,14 +89,14 @@ impl Reader {
 
         for tp in GLOBALS_TYPES {
             let Some(Field::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
-                return Err(rf!("Globals: missing or invalid Cat{tp}"));
+                return Err(format!("Globals: missing or invalid Cat{tp}"));
             };
 
             let val = fields.get(&("Val".to_owned() + tp));
             if let Some(Field::Void(bytes)) = val {
                 values.push(bytes);
             } else {
-                return Err(rf!("Globals: missing or invalid Val{tp}"));
+                return Err(format!("Globals: missing or invalid Val{tp}"));
             };
 
             names.push(
@@ -146,19 +144,19 @@ impl Reader {
 
     fn read_party_table(&self) -> Result<PartyTable, String> {
         let fields = &self.inner.party_table.content.fields;
-        let journal_list = get_field!(fields, "JNL_Entries", unwrap_list)?;
-        let mut journal = Vec::with_capacity(journal_list.len());
-        for entry in journal_list {
-            journal.push(JournalEntry {
-                id: get_field!(entry.fields, "JNL_PlotID", unwrap_string)?,
-                state: get_field!(entry.fields, "JNL_State", unwrap_int)?,
-                time: get_field!(entry.fields, "JNL_Time", unwrap_dword)?,
-                date: get_field!(entry.fields, "JNL_Date", unwrap_dword)?,
-            });
-        }
+        let journal = get_field!(fields, "JNL_Entries", unwrap_list)?
+            .into_iter()
+            .map(|e| {
+                Ok(JournalEntry {
+                    id: get_field!(e.fields, "JNL_PlotID", unwrap_string)?,
+                    state: get_field!(e.fields, "JNL_State", unwrap_int)?,
+                    time: get_field!(e.fields, "JNL_Time", unwrap_dword)?,
+                    date: get_field!(e.fields, "JNL_Date", unwrap_dword)?,
+                })
+            })
+            .collect::<Result<_, String>>()?;
 
-        let members_list = get_field!(fields, "PT_MEMBERS", unwrap_list)?;
-        let members: Result<_, String> = members_list
+        let members = get_field!(fields, "PT_MEMBERS", unwrap_list)?
             .into_iter()
             .map(|m| {
                 Ok(PartyMember {
@@ -166,11 +164,9 @@ impl Reader {
                     leader: get_field!(m.fields, "PT_IS_LEADER")? != 0,
                 })
             })
-            .collect();
-        let members = members?;
+            .collect::<Result<_, String>>()?;
 
-        let av_members_list = get_field!(fields, "PT_AVAIL_NPCS", unwrap_list)?;
-        let available_members: Result<_, String> = av_members_list
+        let available_members = get_field!(fields, "PT_AVAIL_NPCS", unwrap_list)?
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
@@ -178,18 +174,25 @@ impl Reader {
                     selectable: get_field!(m.fields, "PT_NPC_SELECT")? != 0,
                 })
             })
-            .collect();
-        let available_members = available_members?;
+            .collect::<Result<_, String>>()?;
 
         let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
         let cheats_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
         let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
-        let (components, chemicals) = match self.game {
-            Game::One => (0, 0),
-            Game::Two => (
-                get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?,
-                get_field!(fields, "PT_ITEM_CHEMICAL", unwrap_dword)?,
-            ),
+        let (components, chemicals, influence) = match self.game {
+            Game::One => (0, 0, vec![]),
+            Game::Two => {
+                let influence = get_field!(fields, "PT_INFLUENCE", unwrap_list)?
+                    .into_iter()
+                    .map(|m| get_field!(m.fields, "PT_NPC_INFLUENCE", unwrap_int))
+                    .collect::<Result<_, String>>()?;
+
+                (
+                    get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?,
+                    get_field!(fields, "PT_ITEM_CHEMICAL", unwrap_dword)?,
+                    influence,
+                )
+            }
         };
 
         Ok(PartyTable {
@@ -198,6 +201,7 @@ impl Reader {
             credits,
             members,
             available_members,
+            influence,
             party_xp,
             components,
             chemicals,
@@ -223,12 +227,12 @@ impl Reader {
                 continue;
             };
             let gff = gff::read(&resources[name].content)
-                .map_err(|err| rf!("Couldn't read NPC GFF {idx}: {err}"))?;
+                .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
 
-            characters.push(Some(
-                Self::read_character(&gff.content, idx)
-                    .map_err(|err| rf!("Error parsing character {idx}: {err}"))?,
-            ));
+            characters
+                .push(Some(Self::read_character(&gff.content, idx).map_err(
+                    |err| format!("Error parsing character {idx}: {err}"),
+                )?));
         }
 
         let module = {
@@ -238,20 +242,20 @@ impl Reader {
                 let module_inner = module_erf
                     .resources
                     .get("Module")
-                    .ok_or(rf!("Couldn't get inner module resource"))?;
+                    .ok_or("Couldn't get inner module resource".to_string())?;
 
                 gff::read(&module_inner.content)?
             } else if let Some(res) = &self.inner.pifo {
                 res.clone()
             } else {
-                return Err("Couldn't get last module resource".to_owned());
+                return Err("Couldn't get last module resource".to_string());
             }
         };
 
         let player_field = get_field!(module.content.fields, "Mod_PlayerList", unwrap_list)?;
         let player = player_field
             .get(0)
-            .ok_or(rf!("Couldn't get player character struct"))?;
+            .ok_or("Couldn't get player character struct".to_string())?;
 
         characters.push(Some(Self::read_character(player, count)?));
 
@@ -276,7 +280,7 @@ impl Reader {
         ];
 
         let gender = Gender::try_from(get_field!(fields, "Gender")?)
-            .map_err(|id| rf!("Invalid gender {id}"))?;
+            .map_err(|id| format!("Invalid gender {id}"))?;
 
         let feats = get_field!(fields, "FeatList", unwrap_list)?
             .into_iter()
@@ -288,7 +292,7 @@ impl Reader {
             .map(|s| get_field!(s.fields, "Rank"))
             .collect::<Result<Vec<_>, _>>()?
             .try_into()
-            .map_err(|_| rf!("Invalid skill list"))?;
+            .map_err(|_| "Invalid skill list".to_string())?;
 
         let classes = get_field!(fields, "ClassList", unwrap_list)?
             .iter()

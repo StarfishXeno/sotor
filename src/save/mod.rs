@@ -45,6 +45,7 @@ pub struct PartyTable {
     pub credits: u32,
     pub members: Vec<PartyMember>,
     pub available_members: Vec<AvailablePartyMember>,
+    pub influence: Vec<i32>,
     pub party_xp: i32,
     pub components: u32,
     pub chemicals: u32,
@@ -117,7 +118,7 @@ pub struct Character {
     good_evil: u8,
     experience: u32,
     feats: Vec<u16>, // IDs
-    skills: [u8; 8], // ranks in order of skill menu
+    skills: [u8; 8], // ranks in order of the skill menu
     classes: Vec<Class>,
 
     gender: Gender,
@@ -216,7 +217,9 @@ impl Save {
             texture,
         );
 
-        reader.into_save()
+        reader
+            .into_save()
+            .map_err(|err| format!("Save::read| {err}"))
     }
 
     pub fn save_to_directory(path: &str, save: &mut Save) -> Result<(), String> {
