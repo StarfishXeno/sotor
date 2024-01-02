@@ -121,6 +121,9 @@ pub struct Character {
     pub feats: Vec<u16>,     // IDs
     pub classes: Vec<Class>,
     pub gender: Gender,
+    pub portrait: u16,
+    pub appearance: u16,
+    pub soundset: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]

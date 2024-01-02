@@ -111,12 +111,12 @@ impl<'a> SidePanel<'a> {
             for save in &group.dirs {
                 let selected = self.current_save.is_some()
                     && self.current_save.as_ref().unwrap() == &save.path;
-                let label = ui.s_list_item(selected, color_text(&save.name, WHITE));
-                if label.clicked() {
+                let item = ui.s_list_item(selected, color_text(&save.name, WHITE));
+                if item.clicked() {
                     ui.ctx()
                         .send_message(Message::LoadSaveFromDir(save.path.clone()));
                 }
-                if label.clicked_by(PointerButton::Secondary) {
+                if item.clicked_by(PointerButton::Secondary) {
                     open_file_manager(&save.path);
                 }
             }

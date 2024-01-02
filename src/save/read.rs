@@ -370,6 +370,9 @@ impl Reader {
             skills,
             classes,
             gender,
+            portrait: get_field!(fields, "PortraitId", unwrap_word)?,
+            appearance: get_field!(fields, "Appearance_Type", unwrap_word)?,
+            soundset: get_field!(fields, "SoundSetFile", unwrap_word)?,
         })
     }
 
