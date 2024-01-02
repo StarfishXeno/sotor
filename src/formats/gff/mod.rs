@@ -64,13 +64,22 @@ pub enum Field {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Struct {
-    // type
     pub tp: u32,
     pub fields: HashMap<String, Field>,
 }
 impl Struct {
-    pub fn new(fields: HashMap<String, Field>) -> Self {
-        Self { tp: 0, fields }
+    pub fn new(fields: Vec<(&str, Field)>) -> Self {
+        Self::with_type(0, fields)
+    }
+
+    pub fn with_type(tp: u32, fields: Vec<(&str, Field)>) -> Self {
+        Self {
+            tp,
+            fields: fields
+                .into_iter()
+                .map(|(name, value)| (name.to_owned(), value))
+                .collect(),
+        }
     }
 }
 
@@ -97,51 +106,45 @@ mod tests {
         let gff = Gff {
             file_type: "TST ".to_owned(),
             file_version: "V0.0".to_owned(),
-            content: Struct::new(
-                [
-                    ("Byte".to_owned(), Field::Byte(u8::MAX)),
-                    ("Char".to_owned(), Field::Char(i8::MIN)),
-                    ("Word".to_owned(), Field::Word(u16::MAX)),
-                    ("Short".to_owned(), Field::Short(i16::MIN)),
-                    ("Dword".to_owned(), Field::Dword(u32::MAX)),
-                    ("Int".to_owned(), Field::Int(i32::MIN)),
-                    ("Dword64".to_owned(), Field::Dword64(u64::MAX)),
-                    ("Int64".to_owned(), Field::Int64(i64::MIN)),
-                    ("Float".to_owned(), Field::Float(f32::MAX)),
-                    ("Double".to_owned(), Field::Double(f64::MIN)),
-                    (
-                        "CExoString".to_owned(),
-                        Field::String("CExoString".to_owned()),
+            content: Struct::new(vec![
+                ("Byte", Field::Byte(u8::MAX)),
+                ("Char", Field::Char(i8::MIN)),
+                ("Word", Field::Word(u16::MAX)),
+                ("Short", Field::Short(i16::MIN)),
+                ("Dword", Field::Dword(u32::MAX)),
+                ("Int", Field::Int(i32::MIN)),
+                ("Dword64", Field::Dword64(u64::MAX)),
+                ("Int64", Field::Int64(i64::MIN)),
+                ("Float", Field::Float(f32::MAX)),
+                ("Double", Field::Double(f64::MIN)),
+                ("CExoString", Field::String("CExoString".to_owned())),
+                ("CResRef", Field::ResRef("CResRef".to_owned())),
+                (
+                    "CExoLocString",
+                    Field::LocString(
+                        u32::MAX,
+                        vec![LocString {
+                            id: 1,
+                            content: "LocString".to_owned(),
+                        }],
                     ),
-                    ("CResRef".to_owned(), Field::ResRef("CResRef".to_owned())),
-                    (
-                        "CExoLocString".to_owned(),
-                        Field::LocString(
-                            u32::MAX,
-                            vec![LocString {
-                                id: 1,
-                                content: "LocString".to_owned(),
-                            }],
-                        ),
-                    ),
-                    ("Void".to_owned(), Field::Void(vec![0, 1, 2, 3])),
-                    (
-                        "Struct".to_owned(),
-                        Field::Struct(Box::new(Struct {
-                            tp: 2,
-                            fields: [("NESTED".to_owned(), Field::Byte(0))].into(),
-                        })),
-                    ),
-                    (
-                        "List".to_owned(),
-                        Field::List(vec![Struct {
-                            tp: 0,
-                            fields: [("LIST_NESTED".to_owned(), Field::Byte(0))].into(),
-                        }]),
-                    ),
-                ]
-                .into(),
-            ),
+                ),
+                ("Void", Field::Void(vec![0, 1, 2, 3])),
+                (
+                    "Struct",
+                    Field::Struct(Box::new(Struct {
+                        tp: 2,
+                        fields: [("NESTED".to_owned(), Field::Byte(0))].into(),
+                    })),
+                ),
+                (
+                    "List",
+                    Field::List(vec![Struct {
+                        tp: 0,
+                        fields: [("LIST_NESTED".to_owned(), Field::Byte(0))].into(),
+                    }]),
+                ),
+            ]),
         };
         let bytes = write(gff.clone());
         let new_gff = read(&bytes).unwrap();

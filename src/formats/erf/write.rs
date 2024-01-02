@@ -48,14 +48,15 @@ impl Writer {
         let mut data = Vec::with_capacity(data_len);
 
         // resort it properly by ids before saving
-        let mut sorted: Vec<(String, Resource)> = erf.resources.into_iter().collect();
+        let mut sorted: Vec<((String, ResourceType), Resource)> =
+            erf.resources.into_iter().collect();
         sorted.sort_by_key(|(_, r)| r.id);
 
-        for (name, r) in sorted {
+        for ((name, tp), r) in sorted {
             keys.push(KeyWrite {
                 name: nullpad_string(name, KEY_NAME_LEN),
                 id: r.id,
-                tp: r.tp,
+                tp,
             });
             let offset = data.len() as u32;
             let size = r.content.len() as u32;

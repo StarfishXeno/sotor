@@ -23,7 +23,6 @@ const RESOURCE_SIZE: usize = 2;
 #[derive(PartialEq, Clone)]
 pub struct Resource {
     pub id: u32,
-    pub tp: ResourceType,
     pub content: Vec<u8>,
 }
 // need to skip content as it's pretty big
@@ -31,7 +30,6 @@ impl fmt::Debug for Resource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Resource")
             .field("id", &self.id)
-            .field("tp", &self.tp)
             .finish_non_exhaustive()
     }
 }
@@ -41,7 +39,7 @@ pub struct Erf {
     pub file_type: String,
     pub file_version: String,
 
-    pub resources: HashMap<String, Resource>,
+    pub resources: HashMap<(String, ResourceType), Resource>,
     pub loc_strings: Vec<LocString>,
     pub description_str_ref: u32,
 }
@@ -61,18 +59,16 @@ mod tests {
 
             resources: [
                 (
-                    "pc".to_owned(),
+                    ("pc".to_owned(), ResourceType::Txt),
                     Resource {
                         id: 0,
-                        tp: ResourceType::Txt,
                         content: (*b"pc").into(),
                     },
                 ),
                 (
-                    "inventory".to_owned(),
+                    ("inventory".to_owned(), ResourceType::Txt),
                     Resource {
                         id: 1,
-                        tp: ResourceType::Txt,
                         content: (*b"inventory").into(),
                     },
                 ),

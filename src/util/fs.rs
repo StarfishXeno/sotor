@@ -1,7 +1,8 @@
 use crate::{save::Game, util::string_lowercase_map};
 use rfd::{AsyncFileDialog, FileHandle};
 use std::{
-    collections::HashMap, fs, future::Future, io, path::PathBuf, process::Command, time::SystemTime,
+    collections::HashMap, fs, future::Future, io, os::unix::process::CommandExt, path::PathBuf,
+    process::Command, time::SystemTime,
 };
 
 pub fn open_file_manager(path: &str) {
@@ -15,7 +16,11 @@ pub fn open_file_manager(path: &str) {
         return;
     };
 
-    Command::new(command).arg(path).spawn().unwrap();
+    Command::new(command)
+        .process_group(0)
+        .arg(path)
+        .spawn()
+        .unwrap();
 }
 
 // map of lowercase -> real filenames in a dir

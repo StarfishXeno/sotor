@@ -5,7 +5,7 @@ pub mod erf;
 pub mod gff;
 
 #[repr(u16)]
-#[derive(Debug, EnumFromInt, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, EnumFromInt, Serialize, Deserialize, PartialEq, Eq, Clone, Hash)]
 pub enum ResourceType {
     Res = 0,
     Txt = 10,

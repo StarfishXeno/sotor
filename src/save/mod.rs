@@ -6,7 +6,7 @@ use crate::{
     util::{load_tga, read_dir_filemap},
 };
 use egui::{Context, TextureHandle, TextureOptions};
-use sotor_macros::{EnumFromInt, EnumList};
+use sotor_macros::{EnumFromInt, EnumList, EnumToInt};
 use std::{
     collections::VecDeque,
     fmt::{self, Display},
@@ -18,6 +18,7 @@ mod read;
 mod update;
 
 const GLOBALS_TYPES: &[&str] = &["Number", "Boolean"];
+const NPC_RESOURCE_PREFIX: &str = "availnpc";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyMember {
@@ -88,7 +89,7 @@ impl Display for Game {
     }
 }
 
-#[derive(EnumFromInt, Debug, Clone, PartialEq)]
+#[derive(EnumFromInt, EnumToInt, Debug, Clone, PartialEq)]
 #[repr(u8)]
 pub enum Gender {
     Male = 0,
@@ -225,7 +226,10 @@ impl Save {
     }
 
     pub fn save_to_directory(path: &str, save: &mut Save) -> Result<(), String> {
-        update::Updater::new(save).process();
+        update::Updater::new(save).update();
+        // first let's find the files and map names to lowercase
+        let file_names =
+            read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
         for ((_, name), gff) in GFFS.iter().zip([
             Some(&save.inner.nfo),
@@ -236,14 +240,16 @@ impl Save {
             let Some(gff) = gff else {
                 continue;
             };
+            let gff_name = file_names.get(*name).map_or(*name, |n| n.as_str());
             let bytes = gff::write(gff.clone());
 
-            fs::write(PathBuf::from_iter([path, name]), &bytes)
+            fs::write(PathBuf::from_iter([path, gff_name]), &bytes)
                 .map_err(|err| sf!("Couldn't write GFF file {name}: {}", err.to_string()))?;
         }
 
+        let erf_name = file_names.get(ERF_NAME).map_or(ERF_NAME, |n| n.as_str());
         fs::write(
-            PathBuf::from_iter([path, ERF_NAME]),
+            PathBuf::from_iter([path, erf_name]),
             erf::write(save.inner.erf.clone()),
         )
         .map_err(|err| sf!("Couldn't write ERF file: {}", err.to_string()))?;

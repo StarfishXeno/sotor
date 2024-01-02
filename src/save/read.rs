@@ -4,6 +4,7 @@ use crate::{
     formats::{
         erf::{self, Erf},
         gff::{self, Field, Gff, Struct},
+        ResourceType,
     },
     save::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
@@ -12,6 +13,8 @@ use crate::{
     util::{get_party, string_lowercase_map},
 };
 use egui::TextureHandle;
+
+use super::NPC_RESOURCE_PREFIX;
 
 macro_rules! get_field {
     ($map:expr, $field:literal, $method:tt) => {
@@ -47,7 +50,11 @@ impl Reader {
         pifo: Option<Gff>,
         image: Option<TextureHandle>,
     ) -> Self {
-        let game = if erf.resources.get("pc").is_none() {
+        let game = if erf
+            .resources
+            .get(&("pc".to_owned(), ResourceType::Utc))
+            .is_none()
+        {
             Game::One
         } else {
             Game::Two
@@ -244,10 +251,10 @@ impl Reader {
         })
     }
 
-    // goddammit the casing is all over the place even in erf
+    // goddammit the casing is all over the place even in ERFs
     fn read_resource_map(&self) -> HashMap<String, String> {
         let resources = &self.erf.resources;
-        let keys: Vec<_> = resources.keys().cloned().collect();
+        let keys: Vec<_> = resources.keys().map(|k| k.0.clone()).collect();
         string_lowercase_map(&keys)
     }
 
@@ -259,11 +266,11 @@ impl Reader {
         let resources = &self.erf.resources;
 
         if let Some(name) = map.get(&last_module.to_lowercase()) {
-            let module = &resources[name];
+            let module = &resources[&(name.clone(), ResourceType::Sav)];
             let module_erf = erf::read(&module.content)?;
             let module_inner = module_erf
                 .resources
-                .get("Module")
+                .get(&("Module".to_owned(), ResourceType::Ifo))
                 .ok_or("Couldn't get inner module resource".to_string())?;
 
             Ok((false, gff::read(&module_inner.content)?))
@@ -280,7 +287,6 @@ impl Reader {
         last_module: &Gff,
         count: usize,
     ) -> Result<(Vec<Character>, Vec<Struct>), String> {
-        const NPC_RESOURCE_PREFIX: &str = "availnpc";
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
@@ -298,7 +304,7 @@ impl Reader {
             let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
                 continue;
             };
-            let gff = gff::read(&self.erf.resources[name].content)
+            let gff = gff::read(&self.erf.resources[&(name.clone(), ResourceType::Utc)].content)
                 .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
 
             characters.push(
@@ -335,14 +341,6 @@ impl Reader {
             get_field!(fields, "Cha")?,
         ];
 
-        let gender = Gender::try_from(get_field!(fields, "Gender")?)
-            .map_err(|id| format!("Invalid gender {id}"))?;
-
-        let feats = get_field!(fields, "FeatList", unwrap_list)?
-            .into_iter()
-            .map(|s| get_field!(s.fields, "Feat", unwrap_word))
-            .collect::<Result<_, _>>()?;
-
         let skills = get_field!(fields, "SkillList", unwrap_list)?
             .into_iter()
             .map(|s| get_field!(s.fields, "Rank"))
@@ -350,15 +348,22 @@ impl Reader {
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
+        let feats = get_field!(fields, "FeatList", unwrap_list)?
+            .into_iter()
+            .map(|s| get_field!(s.fields, "Feat", unwrap_word))
+            .collect::<Result<_, _>>()?;
+
         let classes = get_field!(fields, "ClassList", unwrap_list)?
             .iter()
             .map(Self::read_class)
             .collect::<Result<Vec<_>, _>>()?;
 
+        let gender = Gender::try_from(get_field!(fields, "Gender")?)
+            .map_err(|id| format!("Invalid gender {id}"))?;
+
         Ok(Character {
             idx,
             name,
-            attributes,
             hp: get_field!(fields, "CurrentHitPoints", unwrap_short)?,
             hp_max: get_field!(fields, "MaxHitPoints", unwrap_short)?,
             fp: get_field!(fields, "ForcePoints", unwrap_short)?,
@@ -366,8 +371,9 @@ impl Reader {
             min_1_hp: get_field!(fields, "Min1HP")? != 0,
             good_evil: get_field!(fields, "GoodEvil")?,
             experience: get_field!(fields, "Experience", unwrap_dword)?,
-            feats,
+            attributes,
             skills,
+            feats,
             classes,
             gender,
             portrait: get_field!(fields, "PortraitId", unwrap_word)?,

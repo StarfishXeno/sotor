@@ -166,14 +166,12 @@ impl<'a> Reader<'a> {
 
         for (idx, key) in self.keys.into_iter().enumerate() {
             let res = &self.resources[idx];
-
             seek_to!(cursor, res.offset, rf)?;
 
             resources.insert(
-                key.name,
+                (key.name, key.res_type),
                 Resource {
                     id: key.id,
-                    tp: key.res_type,
                     content: read_bytes(&mut cursor, res.size).map_err(|_| {
                         rf!("Couldn't read resource content {idx} at {}", res.offset)
                     })?,
