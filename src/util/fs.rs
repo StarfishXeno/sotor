@@ -1,9 +1,22 @@
+use crate::{save::Game, util::string_lowercase_map};
 use rfd::{AsyncFileDialog, FileHandle};
-use std::{collections::HashMap, fs, future::Future, io, path::PathBuf, time::SystemTime};
+use std::{
+    collections::HashMap, fs, future::Future, io, path::PathBuf, process::Command, time::SystemTime,
+};
 
-use crate::save::Game;
+pub fn open_file_manager(path: &str) {
+    let command = if cfg!(target_os = "windows") {
+        "explorer"
+    } else if cfg!(target_os = "linux") {
+        "xdg-open"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        return;
+    };
 
-use super::string_lowercase_map;
+    Command::new(command).arg(path).spawn().unwrap();
+}
 
 // map of lowercase -> real filenames in a dir
 pub fn read_dir_filemap(path: PathBuf) -> io::Result<HashMap<String, String>> {

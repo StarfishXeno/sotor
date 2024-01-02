@@ -5,9 +5,9 @@ use crate::{
         widgets::{color_text, Icon, UiExt},
         SaveDirectories, UiRef,
     },
-    util::{ContextExt, Message},
+    util::{open_file_manager, ContextExt, Message},
 };
-use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, ScrollArea};
+use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, PointerButton, ScrollArea};
 
 use super::styles::GREY;
 
@@ -115,6 +115,9 @@ impl<'a> SidePanel<'a> {
                 if label.clicked() {
                     ui.ctx()
                         .send_message(Message::LoadSaveFromDir(save.path.clone()));
+                }
+                if label.clicked_by(PointerButton::Secondary) {
+                    open_file_manager(&save.path);
                 }
             }
             if game != Game::COUNT - 1 {
