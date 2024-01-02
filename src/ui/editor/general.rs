@@ -1,54 +1,29 @@
 use crate::{
-    save::{AvailablePartyMember, Game, PartyMember, Save},
+    save::{AvailablePartyMember, Character, Nfo, PartyMember, PartyTable, Save},
     ui::{
-        styles::{set_checkbox_styles, set_striped_styles, BLUE, GREEN, WHITE},
+        styles::{set_checkbox_styles, set_slider_styles, set_striped_styles, BLUE, GREEN, WHITE},
         widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
     util::{format_seconds, ColumnCounter},
 };
-use egui::{Frame, Grid, Image, Layout, Margin, RichText};
+use egui::{Frame, Grid, Image, Layout, Margin, RichText, TextureHandle};
 
-pub struct EditorGeneral<'a> {
-    save: &'a mut Save,
-    party_names: &'static [&'static str],
+pub struct Editor<'a> {
+    nfo: &'a mut Nfo,
+    party_table: &'a mut PartyTable,
+    characters: &'a mut [Character],
+    image: &'a Option<TextureHandle>,
 }
 
-const PARTY_1: &[&str] = &[
-    "Bastila",
-    "Canderous",
-    "Carth",
-    "HK-47",
-    "Jolee",
-    "Juhani",
-    "Mission",
-    "T3-M4",
-    "Zaalbar",
-];
-
-const PARTY_2: &[&str] = &[
-    "Atton",
-    "Bao-Dur",
-    "Mandalore",
-    "G0-T0",
-    "Handmaiden",
-    "HK-47",
-    "Kreia",
-    "Mira",
-    "T3-M4",
-    "Visas",
-    "Hanharr",
-    "Disciple",
-];
-
-impl<'a> EditorGeneral<'a> {
+impl<'a> Editor<'a> {
     pub fn new(save: &'a mut Save) -> Self {
-        let party_names = match save.game {
-            Game::One => PARTY_1,
-            Game::Two => PARTY_2,
-        };
-
-        Self { save, party_names }
+        Self {
+            nfo: &mut save.nfo,
+            party_table: &mut save.party_table,
+            characters: &mut save.characters,
+            image: &save.image,
+        }
     }
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal_top(|ui| {
@@ -57,7 +32,7 @@ impl<'a> EditorGeneral<'a> {
                 .spacing([20., 6.])
                 .show(ui, |ui| self.main_table(ui));
 
-            if self.save.image.is_some() {
+            if self.image.is_some() {
                 ui.with_layout(Layout::right_to_left(emath::Align::Min), |ui| {
                     Frame::default()
                         .stroke((4., GREEN))
@@ -89,7 +64,7 @@ impl<'a> EditorGeneral<'a> {
     fn image(&mut self, ui: UiRef) {
         let scale = 1.3;
         let image = Image::from((
-            self.save.image.as_ref().unwrap().id(),
+            self.image.as_ref().unwrap().id(),
             (256. * scale, 144. * scale).into(),
         ))
         .rounding(5.);
@@ -97,58 +72,63 @@ impl<'a> EditorGeneral<'a> {
     }
 
     fn main_table(&mut self, ui: UiRef) {
-        let nfo = &mut self.save.nfo;
-        let pt = &mut self.save.party_table;
         ui.label("Save name: ");
-        ui.s_text_edit(&mut nfo.save_name, 200.);
+        ui.s_text_edit(&mut self.nfo.save_name, 200.);
         ui.end_row();
 
         ui.label("PC name: ");
-        ui.s_text(&self.save.characters.last().unwrap().name);
+        ui.s_text_edit(&mut self.characters.first_mut().unwrap().name, 200.);
         ui.end_row();
 
         ui.label("Area name: ");
-        ui.s_text(&nfo.area_name);
+        ui.s_text(&self.nfo.area_name);
         ui.end_row();
 
         ui.label("Last module: ");
-        ui.s_text(&nfo.last_module);
+        ui.s_text(&self.nfo.last_module);
         ui.end_row();
 
         ui.label("Time played: ");
-        ui.s_text(&format_seconds(nfo.time_played));
+        ui.s_text(&format_seconds(self.nfo.time_played));
         ui.end_row();
 
-        ui.label("Cheats used: ");
-        ui.s_checkbox(&mut nfo.cheats_used);
+        ui.label(color_text("Cheats used: ", GREEN));
+        ui.horizontal(|ui| {
+            set_checkbox_styles(ui);
+            ui.s_checkbox(&mut self.nfo.cheat_used);
+        });
         ui.end_row();
 
-        ui.label("Party XP: ");
-        ui.s_slider(&mut pt.party_xp, 0..=9_999_999);
+        set_slider_styles(ui);
+
+        ui.label(color_text("Party XP: ", GREEN));
+        ui.s_slider(&mut self.party_table.party_xp, 0..=9_999_999, true);
         ui.end_row();
 
-        ui.label("Credits: ");
-        ui.s_slider(&mut pt.credits, 0..=9_999_999);
+        ui.label(color_text("Credits: ", GREEN));
+        ui.s_slider(&mut self.party_table.credits, 0..=9_999_999, true);
         ui.end_row();
 
-        if let Some(v) = &mut pt.components {
-            ui.label("Components: ");
-            ui.s_slider(v, 0..=99_999);
+        if let Some(v) = &mut self.party_table.components {
+            ui.label(color_text("Components: ", GREEN));
+            ui.s_slider(v, 0..=99_999, true);
             ui.end_row();
         }
 
-        if let Some(v) = &mut pt.chemicals {
-            ui.label("Chemicals: ");
-            ui.s_slider(v, 0..=99_999);
+        if let Some(v) = &mut self.party_table.chemicals {
+            ui.label(color_text("Chemicals: ", GREEN));
+            ui.s_slider(v, 0..=99_999, true);
             ui.end_row();
         }
     }
 
     fn party_table(&mut self, ui: UiRef) {
-        let members = &mut self.save.party_table.members;
-        let available_members = &mut self.save.party_table.available_members;
+        let members = &mut self.party_table.members;
+        let available_members = &mut self.party_table.available_members;
 
-        for _ in 0..2 {
+        let columns = if self.characters.len() > 2 { 2 } else { 1 };
+
+        for _ in 0..columns {
             ui.s_empty();
             ui.label(RichText::new("Name").underline());
             ui.label(RichText::new("Available").underline());
@@ -164,8 +144,15 @@ impl<'a> EditorGeneral<'a> {
         let in_party: Vec<_> = members.iter().map(|m| m.idx).collect();
 
         let mut counter = ColumnCounter::new(2);
-        for (idx, member) in available_members.iter_mut().enumerate() {
-            Self::member_row(ui, idx, &in_party, self.party_names, member, members);
+        for char in self.characters.iter().skip(1) {
+            Self::member_row(
+                ui,
+                char.idx,
+                &in_party,
+                char,
+                &mut available_members[char.idx],
+                members,
+            );
             counter.next(ui);
         }
     }
@@ -174,7 +161,7 @@ impl<'a> EditorGeneral<'a> {
         ui: UiRef,
         idx: usize,
         in_party: &[usize],
-        party_names: &[&str],
+        char: &Character,
         member: &mut AvailablePartyMember,
         members: &mut Vec<PartyMember>,
     ) {
@@ -203,14 +190,13 @@ impl<'a> EditorGeneral<'a> {
             }
         }
 
-        let name = party_names.get(idx).unwrap_or(&"UNKNOWN");
         ui.label(if in_party_idx.is_some() {
-            color_text(name, BLUE)
+            color_text(&char.name, BLUE)
         } else {
-            color_text(name, WHITE)
+            color_text(&char.name, WHITE)
         });
 
-        ui.add_enabled_ui(false, |ui| ui.s_checkbox_raw(&mut member.available));
-        ui.s_checkbox_raw(&mut member.selectable);
+        ui.s_checkbox(&mut member.available);
+        ui.s_checkbox(&mut member.selectable);
     }
 }

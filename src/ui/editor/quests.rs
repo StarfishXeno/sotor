@@ -1,5 +1,5 @@
 use crate::{
-    save::JournalEntry,
+    save::{JournalEntry, Save},
     ui::{
         styles::{set_drag_value_styles, set_striped_styles, RED, WHITE},
         widgets::{color_text, Icon, IconButton, UiExt},
@@ -20,13 +20,16 @@ pub struct EditorQuestsState {
 }
 const QUESTS_STATE_ID: &str = "editor_quests_state";
 const COLUMN_WIDTH: f32 = 300.;
-pub struct EditorQuests<'a> {
+pub struct Editor<'a> {
     journal: &'a mut Vec<JournalEntry>,
     width: f32,
 }
-impl<'a> EditorQuests<'a> {
-    pub fn new(journal: &'a mut Vec<JournalEntry>) -> Self {
-        Self { journal, width: 0. }
+impl<'a> Editor<'a> {
+    pub fn new(save: &'a mut Save) -> Self {
+        Self {
+            journal: &mut save.party_table.journal,
+            width: 0.,
+        }
     }
 
     pub fn show(&mut self, ui: UiRef) {
@@ -49,7 +52,7 @@ impl<'a> EditorQuests<'a> {
                     });
             });
         ui.separator();
-        self.addition(ui);
+        ui.horizontal(|ui| self.addition(ui));
     }
 
     fn table(&mut self, ui: UiRef) {
@@ -78,41 +81,38 @@ impl<'a> EditorQuests<'a> {
     }
 
     fn addition(&mut self, ui: UiRef) {
-        let mut already_there = false;
-        ui.horizontal(|ui| {
-            let state = ui.ctx().get_data(QUESTS_STATE_ID).unwrap_or_else(|| {
-                let state = Arc::new(Mutex::new(EditorQuestsState {
-                    id: String::new(),
-                    state: 0,
-                }));
-                ui.ctx().set_data(QUESTS_STATE_ID, state.clone());
+        let state = ui.ctx().get_data(QUESTS_STATE_ID).unwrap_or_else(|| {
+            let state = Arc::new(Mutex::new(EditorQuestsState {
+                id: String::new(),
+                state: 0,
+            }));
+            ui.ctx().set_data(QUESTS_STATE_ID, state.clone());
 
-                state
-            });
-            let mut state = state.lock().unwrap();
-            ui.label("Quest name: ");
-            ui.s_text_edit(&mut state.id, 150.);
-            ui.label("State: ");
-            set_drag_value_styles(ui);
-            ui.add(DragValue::new(&mut state.state));
-
-            let set: HashSet<_> = self.journal.iter().map(|e| &e.id).collect();
-            already_there = set.contains(&state.id);
-            let enabled = !state.id.trim().is_empty() && !already_there;
-            let btn = ui.add_enabled(enabled, IconButton::new(Icon::Plus));
-
-            if btn.clicked() {
-                let last = self.journal.last();
-                self.journal.push(JournalEntry {
-                    id: state.id.trim().to_owned(),
-                    state: state.state,
-                    date: last.map_or(0, |e| e.date),
-                    time: last.map_or(0, |e| e.time + 1),
-                });
-                state.id = String::new();
-                state.state = 0;
-            }
+            state
         });
+        let mut state = state.lock().unwrap();
+        ui.label("Quest name: ");
+        ui.s_text_edit(&mut state.id, 150.);
+        ui.label("State: ");
+        set_drag_value_styles(ui);
+        ui.add(DragValue::new(&mut state.state));
+
+        let set: HashSet<_> = self.journal.iter().map(|e| &e.id).collect();
+        let already_there = set.contains(&state.id);
+        let enabled = !state.id.trim().is_empty() && !already_there;
+        let btn = ui.add_enabled(enabled, IconButton::new(Icon::Plus));
+
+        if btn.clicked() {
+            let last = self.journal.last();
+            self.journal.push(JournalEntry {
+                id: state.id.trim().to_owned(),
+                state: state.state,
+                date: last.map_or(0, |e| e.date),
+                time: last.map_or(0, |e| e.time + 1),
+            });
+            state.id = String::new();
+            state.state = 0;
+        }
 
         if already_there {
             ui.label(color_text("This quest is already present", RED));

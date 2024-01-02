@@ -41,7 +41,7 @@ pub struct JournalEntry {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyTable {
     pub journal: Vec<JournalEntry>,
-    pub cheats_used: bool,
+    pub cheat_used: bool,
     pub credits: u32,
     pub members: Vec<PartyMember>,
     pub available_members: Vec<AvailablePartyMember>,
@@ -68,7 +68,7 @@ pub struct Nfo {
     pub save_name: String,
     pub area_name: String,
     pub last_module: String,
-    pub cheats_used: bool,
+    pub cheat_used: bool,
     pub time_played: u32,
 }
 #[derive(Debug, EnumList, Clone, PartialEq, Copy)]
@@ -109,7 +109,6 @@ pub struct Class {
 pub struct Character {
     pub idx: usize,
     pub name: String,
-    pub attributes: [u8; 6], // STR, DEX, CON, INT, WIS, CHA
     pub hp: i16,
     pub hp_max: i16,
     pub fp: i16,
@@ -117,8 +116,9 @@ pub struct Character {
     pub min_1_hp: bool,
     pub good_evil: u8,
     pub experience: u32,
-    pub feats: Vec<u16>, // IDs
-    pub skills: [u8; 8], // ranks in order of the skill menu
+    pub attributes: [u8; 6], // STR, DEX, CON, INT, WIS, CHA
+    pub skills: [u8; 8],     // ranks in order of the skill menu
+    pub feats: Vec<u16>,     // IDs
     pub classes: Vec<Class>,
     pub gender: Gender,
 }
@@ -135,6 +135,7 @@ struct SaveInternals {
 }
 #[derive(Clone, PartialEq)]
 pub struct Save {
+    pub id: u64,
     pub game: Game,
     pub globals: Vec<Global>,
     pub nfo: Nfo,
@@ -233,6 +234,7 @@ impl Save {
                 continue;
             };
             let bytes = gff::write(gff.clone());
+
             fs::write(PathBuf::from_iter([path, name]), &bytes)
                 .map_err(|err| sf!("Couldn't write GFF file {name}: {}", err.to_string()))?;
         }

@@ -95,7 +95,7 @@ impl<'a> SidePanel<'a> {
         let game = game.idx();
         for group in &self.save_list[game] {
             ui.horizontal(|ui| {
-                ui.s_offset([2., 0.]);
+                ui.s_offset(2., 0.);
                 ui.label(color_text("://", GREY))
                     .on_hover_text(&group.base_dir);
                 if group.cloud {

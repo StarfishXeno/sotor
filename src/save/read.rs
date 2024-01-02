@@ -9,7 +9,7 @@ use crate::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
         Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES,
     },
-    util::string_lowercase_map,
+    util::{get_party, string_lowercase_map},
 };
 use egui::TextureHandle;
 
@@ -76,12 +76,13 @@ impl Reader {
         )?;
 
         // unifying the flag in case it's somehow out of sync
-        nfo.cheats_used = nfo.cheats_used || party_table.cheats_used;
-        party_table.cheats_used = nfo.cheats_used;
+        nfo.cheat_used = nfo.cheat_used || party_table.cheat_used;
+        party_table.cheat_used = nfo.cheat_used;
 
         Ok(Save {
-            globals,
+            id: fastrand::u64(..),
             nfo,
+            globals,
             party_table,
             characters,
             image: self.image,
@@ -110,7 +111,7 @@ impl Reader {
                 .unwrap_or_default(), // autosaves don't have this field
             area_name: get_field!(fields, "AREANAME", unwrap_string)?,
             last_module: get_field!(fields, "LASTMODULE", unwrap_string)?,
-            cheats_used: get_field!(fields, "CHEATUSED")? != 0,
+            cheat_used: get_field!(fields, "CHEATUSED")? != 0,
             time_played: get_field!(fields, "TIMEPLAYED", unwrap_dword)?,
         })
     }
@@ -212,7 +213,7 @@ impl Reader {
             .collect::<Result<_, String>>()?;
 
         let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
-        let cheats_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
+        let cheat_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
         let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
         let (components, chemicals, influence) = match self.game {
             Game::One => (None, None, None),
@@ -232,7 +233,7 @@ impl Reader {
 
         Ok(PartyTable {
             journal,
-            cheats_used,
+            cheat_used,
             credits,
             members,
             available_members,
@@ -280,23 +281,8 @@ impl Reader {
         count: usize,
     ) -> Result<(Vec<Character>, Vec<Struct>), String> {
         const NPC_RESOURCE_PREFIX: &str = "availnpc";
-        let resources = &self.erf.resources;
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
-
-        for idx in 0..count {
-            let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
-                continue;
-            };
-            let gff = gff::read(&resources[name].content)
-                .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
-
-            characters.push(
-                Self::read_character(&gff.content, idx)
-                    .map_err(|err| format!("Error parsing character {idx}: {err}"))?,
-            );
-            structs.push(gff.content);
-        }
 
         let mut player_field =
             get_field!(last_module.content.fields, "Mod_PlayerList", unwrap_list)?;
@@ -305,19 +291,40 @@ impl Reader {
         }
         let player = player_field.remove(0);
 
-        characters.push(Self::read_character(&player, count)?);
+        characters.push(self.read_character(&player, count)?);
         structs.push(player);
+
+        for idx in 0..count {
+            let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
+                continue;
+            };
+            let gff = gff::read(&self.erf.resources[name].content)
+                .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
+
+            characters.push(
+                self.read_character(&gff.content, idx)
+                    .map_err(|err| format!("Error parsing character {idx}: {err}"))?,
+            );
+            structs.push(gff.content);
+        }
 
         Ok((characters, structs))
     }
 
-    fn read_character(s: &Struct, idx: usize) -> Result<Character, String> {
+    fn read_character(&self, s: &Struct, idx: usize) -> Result<Character, String> {
         let fields = &s.fields;
 
         let name = get_field!(fields, "FirstName", unwrap_loc_string)?
             .1
             .get(0)
-            .map_or("MISSING NAME".to_owned(), |v| v.content.clone());
+            .map_or_else(
+                || {
+                    get_party(self.game)
+                        .get(idx)
+                        .map_or("REALLY missing name".to_owned(), ToString::to_string)
+                },
+                |v| v.content.clone(),
+            );
 
         let attributes = [
             get_field!(fields, "Str")?,
@@ -352,7 +359,7 @@ impl Reader {
             idx,
             name,
             attributes,
-            hp: get_field!(fields, "HitPoints", unwrap_short)?,
+            hp: get_field!(fields, "CurrentHitPoints", unwrap_short)?,
             hp_max: get_field!(fields, "MaxHitPoints", unwrap_short)?,
             fp: get_field!(fields, "ForcePoints", unwrap_short)?,
             fp_max: get_field!(fields, "MaxForcePoints", unwrap_short)?,

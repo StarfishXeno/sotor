@@ -4,6 +4,7 @@ use crate::{
 };
 use egui::Layout;
 use emath::Align;
+use serde::{Deserialize, Serialize};
 use sotor_macros::{EnumList, EnumToString};
 
 use super::{
@@ -12,6 +13,7 @@ use super::{
     UiRef,
 };
 
+mod characters;
 mod general;
 mod globals;
 mod quests;
@@ -19,7 +21,7 @@ mod quests;
 pub fn editor_placeholder(ui: UiRef) {
     ui.horizontal_centered(|ui| {
         // TODO there should be a better way to center vertically
-        ui.s_offset([ui.max_rect().width() / 2. - 100., 0.]);
+        ui.s_offset(ui.max_rect().width() / 2. - 100., 0.);
 
         ui.label("Please");
 
@@ -38,7 +40,7 @@ pub fn editor_placeholder(ui: UiRef) {
     });
 }
 
-#[derive(EnumToString, EnumList, PartialEq, Clone, Copy, Default)]
+#[derive(EnumToString, EnumList, Serialize, Deserialize, PartialEq, Clone, Copy, Default)]
 pub enum Tab {
     #[default]
     General,
@@ -60,7 +62,7 @@ impl<'a> Editor<'a> {
     }
 
     pub fn show(&mut self, ui: UiRef) {
-        let current_tab = ui.ctx().get_data(TAB_ID).unwrap_or_default();
+        let current_tab = ui.ctx().get_data_per(TAB_ID).unwrap_or_default();
 
         ui.horizontal(|ui| {
             set_button_styles(ui);
@@ -68,7 +70,7 @@ impl<'a> Editor<'a> {
             for tab in Tab::LIST {
                 let btn = ui.s_button(&tab.to_string(), current_tab == tab, false);
                 if btn.clicked() {
-                    ui.ctx().set_data(TAB_ID, tab);
+                    ui.ctx().set_data_per(TAB_ID, tab);
                 }
             }
 
@@ -80,7 +82,7 @@ impl<'a> Editor<'a> {
 
                 let btn = ui.s_icon_button(Icon::Save, "Save");
                 if btn.clicked() {
-                    Save::save_to_directory("./save", self.save).unwrap();
+                    ui.ctx().send_message(Message::Save);
                 }
 
                 let btn = ui.s_icon_button(Icon::Refresh, "Reload");
@@ -93,11 +95,11 @@ impl<'a> Editor<'a> {
         ui.separator();
 
         match current_tab {
-            Tab::General => general::EditorGeneral::new(self.save).show(ui),
-            Tab::Globals => globals::EditorGlobals::new(&mut self.save.globals).show(ui),
-            Tab::Quests => quests::EditorQuests::new(&mut self.save.party_table.journal).show(ui),
-
-            _ => {}
+            Tab::General => general::Editor::new(self.save).show(ui),
+            Tab::Globals => globals::Editor::new(self.save).show(ui),
+            Tab::Characters => characters::Editor::new(self.save).show(ui),
+            Tab::Quests => quests::Editor::new(self.save).show(ui),
+            Tab::Inventory => {}
         }
     }
 }

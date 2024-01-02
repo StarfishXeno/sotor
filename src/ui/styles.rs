@@ -49,12 +49,7 @@ pub fn set_drag_value_styles(ui: UiRef) {
     widgets.active.bg_stroke = (2., GREEN).into();
 }
 pub fn set_slider_styles(ui: UiRef) {
-    let styles = ui.style_mut();
-    let visuals = &mut styles.visuals;
-
-    styles.drag_value_text_style = TextStyle::Body;
-
-    visuals.override_text_color = Some(BLACK);
+    set_drag_value_styles(ui);
 }
 pub fn set_checkbox_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();

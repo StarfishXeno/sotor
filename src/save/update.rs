@@ -25,7 +25,7 @@ impl<'a> Updater<'a> {
             "SAVEGAMENAME".to_owned(),
             Field::String(nfo.save_name.clone()),
         );
-        fields.insert("CHEATUSED".to_owned(), Field::Byte(nfo.cheats_used as u8));
+        fields.insert("CHEATUSED".to_owned(), Field::Byte(nfo.cheat_used as u8));
     }
 
     fn write_globals(&mut self) {
@@ -140,7 +140,7 @@ impl<'a> Updater<'a> {
 
         fields.insert(
             "PT_CHEAT_USED".to_owned(),
-            Field::Byte(self.save.nfo.cheats_used as u8),
+            Field::Byte(self.save.nfo.cheat_used as u8),
         );
         fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
         fields.insert("PT_XP_POOL".to_owned(), Field::Int(pt.party_xp));

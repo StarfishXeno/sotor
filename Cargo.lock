@@ -1689,6 +1689,7 @@ dependencies = [
  "egui",
  "emath",
  "env_logger",
+ "fastrand",
  "futures-lite",
  "image",
  "log",

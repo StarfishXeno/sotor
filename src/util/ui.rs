@@ -1,10 +1,11 @@
-use egui::{ColorImage, Context, Ui};
+use egui::{util::id_type_map::SerializableAny, ColorImage, Context, Id, Ui};
 use image::io::Reader as ImageReader;
 use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
 
 use crate::save::Game;
 
 pub enum Message {
+    Save,
     CloseSave,
     ReloadSave,
     LoadSaveFromDir(String),
@@ -13,11 +14,19 @@ pub enum Message {
     ReloadSaveList,
     ReloadGameData,
 }
+
 pub trait ContextExt {
     fn send_message(&self, message: Message);
-    fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T>;
-    fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: &'static str, value: T);
+    fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T>;
+    fn get_data_per<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T>;
+    fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T);
+    fn set_data_per<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
+        &self,
+        id: impl Into<Id>,
+        value: T,
+    );
 }
+
 pub const CHANNEL_ID: &str = "sotor_channel";
 
 impl ContextExt for Context {
@@ -26,12 +35,24 @@ impl ContextExt for Context {
         channel.send(message).unwrap();
     }
 
-    fn get_data<T: 'static + Clone>(&self, id: &'static str) -> Option<T> {
+    fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T> {
         self.data(|data| data.get_temp(id.into()))
     }
 
-    fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: &'static str, value: T) {
+    fn get_data_per<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T> {
+        self.data_mut(|data| data.get_persisted(id.into()))
+    }
+
+    fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T) {
         self.data_mut(|data| data.insert_temp(id.into(), value));
+    }
+
+    fn set_data_per<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
+        &self,
+        id: impl Into<Id>,
+        value: T,
+    ) {
+        self.data_mut(|data| data.insert_persisted(id.into(), value));
     }
 }
 

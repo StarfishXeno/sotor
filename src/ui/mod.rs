@@ -70,6 +70,15 @@ impl SotorApp {
         app
     }
 
+    fn save(&mut self) {
+        if let Err(err) = Save::save_to_directory(
+            self.save_path.as_ref().unwrap(),
+            self.save.as_mut().unwrap(),
+        ) {
+            error!("{err}");
+        }
+    }
+
     fn close_save(&mut self) {
         self.save = None;
         self.save_path = None;
@@ -194,6 +203,7 @@ impl eframe::App for SotorApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.channel.1.try_recv() {
             match message {
+                Message::Save => self.save(),
                 Message::CloseSave => self.close_save(),
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
                 Message::LoadSaveFromDir(path) => self.load_save(path.to_string(), ctx, false),

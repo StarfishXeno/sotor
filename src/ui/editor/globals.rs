@@ -1,5 +1,5 @@
 use crate::{
-    save::{Global, GlobalValue},
+    save::{Global, GlobalValue, Save},
     ui::{
         styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles, WHITE},
         widgets::{color_text, UiExt},
@@ -9,14 +9,17 @@ use crate::{
 };
 use egui::{DragValue, Grid, ScrollArea, TextStyle};
 
-pub struct EditorGlobals<'a> {
+pub struct Editor<'a> {
     globals: &'a mut Vec<Global>,
     width: f32,
 }
 
-impl<'a> EditorGlobals<'a> {
-    pub fn new(globals: &'a mut Vec<Global>) -> Self {
-        Self { globals, width: 0. }
+impl<'a> Editor<'a> {
+    pub fn new(save: &'a mut Save) -> Self {
+        Self {
+            globals: &mut save.globals,
+            width: 0.,
+        }
     }
 
     pub fn show(&mut self, ui: UiRef) {
@@ -57,6 +60,6 @@ impl<'a> EditorGlobals<'a> {
     fn boolean(ui: UiRef, name: &str, value: &mut bool) {
         set_checkbox_styles(ui);
         ui.label(color_text(name, WHITE).text_style(TextStyle::Small));
-        ui.s_checkbox_raw(value);
+        ui.s_checkbox(value);
     }
 }

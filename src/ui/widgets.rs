@@ -1,6 +1,4 @@
-use super::styles::{
-    set_checkbox_styles, set_slider_styles, BLACK, BLUE, GREEN, GREY, GREY_DARK, WHITE,
-};
+use super::styles::{BLACK, BLUE, GREEN, GREY, GREY_DARK, WHITE};
 use egui::{
     epaint::TextShape, style::HandleShape, Button, Color32, CursorIcon, FontSelection, Response,
     RichText, Rounding, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle, Ui, Widget,
@@ -15,20 +13,18 @@ pub fn color_text(text: &str, color: Color32) -> RichText {
 
 pub trait UiExt {
     fn s_text_edit(&mut self, text: &mut dyn TextBuffer, width: f32) -> Response;
-    fn s_slider_raw<T: Numeric>(
+    fn s_slider<T: Numeric>(
         &mut self,
         value: &mut T,
         range: RangeInclusive<T>,
         logarithmic: bool,
     ) -> Response;
-    fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>);
     fn s_button(&mut self, text: &str, selected: bool, disabled: bool) -> Response;
     fn s_button_basic(&mut self, text: &str) -> Response;
-    fn s_checkbox_raw(&mut self, value: &mut bool) -> Response;
-    fn s_checkbox(&mut self, value: &mut bool);
+    fn s_checkbox(&mut self, value: &mut bool) -> Response;
     fn s_text(&mut self, text: &str) -> Response;
     fn s_scroll_to_end(&mut self);
-    fn s_offset(&mut self, offset: [f32; 2]);
+    fn s_offset(&mut self, x: f32, y: f32);
     fn s_empty(&mut self);
     fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response;
     fn s_list_item(&mut self, selected: bool, text: impl Into<WidgetText>) -> Response;
@@ -45,7 +41,7 @@ impl UiExt for Ui {
             .ui(self)
     }
 
-    fn s_slider_raw<T: Numeric>(
+    fn s_slider<T: Numeric>(
         &mut self,
         value: &mut T,
         range: RangeInclusive<T>,
@@ -57,14 +53,6 @@ impl UiExt for Ui {
                 .handle_shape(HandleShape::Rect { aspect_ratio: 1. })
                 .clamp_to_range(true),
         )
-    }
-
-    fn s_slider<T: Numeric>(&mut self, value: &mut T, range: RangeInclusive<T>) {
-        self.horizontal(|ui| {
-            set_slider_styles(ui);
-
-            ui.s_slider_raw(value, range, true);
-        });
     }
 
     fn s_button(&mut self, text: &str, selected: bool, disabled: bool) -> Response {
@@ -87,16 +75,9 @@ impl UiExt for Ui {
         self.s_button(text, false, false)
     }
 
-    fn s_checkbox_raw(&mut self, value: &mut bool) -> Response {
+    fn s_checkbox(&mut self, value: &mut bool) -> Response {
         self.checkbox(value, "")
             .on_hover_cursor(CursorIcon::PointingHand)
-    }
-
-    fn s_checkbox(&mut self, value: &mut bool) {
-        self.horizontal(|ui| {
-            set_checkbox_styles(ui);
-            ui.s_checkbox_raw(value);
-        });
     }
 
     fn s_text(&mut self, text: &str) -> Response {
@@ -110,12 +91,12 @@ impl UiExt for Ui {
         );
     }
 
-    fn s_offset(&mut self, offset: [f32; 2]) {
-        self.allocate_exact_size(offset.into(), Sense::hover());
+    fn s_offset(&mut self, x: f32, y: f32) {
+        self.allocate_exact_size([x, y].into(), Sense::hover());
     }
 
     fn s_empty(&mut self) {
-        self.s_offset([0., 0.]);
+        self.s_offset(0., 0.);
     }
 
     fn s_icon_button(&mut self, icon: Icon, hint: &str) -> Response {
