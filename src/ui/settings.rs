@@ -98,7 +98,7 @@ impl<'a> Settings<'a> {
         ui.horizontal(|ui| {
             set_button_styles(ui);
             let btn = ui.s_button_basic("Select");
-            ui.label(format!("KOTOR {game} path:"));
+            ui.label(format!("KotOR {game} path:"));
 
             if btn.clicked() {
                 let dir = select_directory(format!("Select the directory containing {exe_name}",));

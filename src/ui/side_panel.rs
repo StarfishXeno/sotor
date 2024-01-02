@@ -86,7 +86,7 @@ impl<'a> SidePanel<'a> {
     fn list(&self, ui: UiRef, game: Game) {
         CollapsingState::load_with_default_open(ui.ctx(), format!("save_list_{game}").into(), true)
             .show_header(ui, |ui| {
-                ui.label(format!("KOTOR {game}"));
+                ui.label(format!("KotOR {game}"));
             })
             .body_unindented(|ui| self.list_inner(ui, game));
     }

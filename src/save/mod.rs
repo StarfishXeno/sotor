@@ -90,7 +90,7 @@ impl Display for Game {
 
 #[derive(EnumFromInt, Debug, Clone, PartialEq)]
 #[repr(u8)]
-enum Gender {
+pub enum Gender {
     Male = 0,
     Female = 1,
     Both = 2,
@@ -100,28 +100,27 @@ enum Gender {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Class {
-    id: i32,
-    level: i16,
-    powers: Vec<u16>, // IDs
+    pub id: i32,
+    pub level: i16,
+    pub powers: Vec<u16>, // IDs
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Character {
-    idx: usize,
-    name: String,
-    attributes: [u8; 6], // STR, DEX, CON, INT, WIS, CHA
-    hp: i16,
-    hp_max: i16,
-    fp: i16,
-    fp_max: i16,
-    min_1_hp: bool,
-    good_evil: u8,
-    experience: u32,
-    feats: Vec<u16>, // IDs
-    skills: [u8; 8], // ranks in order of the skill menu
-    classes: Vec<Class>,
-
-    gender: Gender,
+    pub idx: usize,
+    pub name: String,
+    pub attributes: [u8; 6], // STR, DEX, CON, INT, WIS, CHA
+    pub hp: i16,
+    pub hp_max: i16,
+    pub fp: i16,
+    pub fp_max: i16,
+    pub min_1_hp: bool,
+    pub good_evil: u8,
+    pub experience: u32,
+    pub feats: Vec<u16>, // IDs
+    pub skills: [u8; 8], // ranks in order of the skill menu
+    pub classes: Vec<Class>,
+    pub gender: Gender,
 }
 
 #[derive(Debug, Clone, PartialEq)]

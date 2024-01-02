@@ -14,7 +14,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Saves of The Old Republic",
+        "Saves of the Old Republic",
         native_options,
         Box::new(|cc| Box::new(SotorApp::new(cc))),
     )

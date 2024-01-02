@@ -104,7 +104,7 @@ impl<'a> EditorGeneral<'a> {
         ui.end_row();
 
         ui.label("PC name: ");
-        ui.s_text("TMP");
+        ui.s_text(&self.save.characters.last().unwrap().as_ref().unwrap().name);
         ui.end_row();
 
         ui.label("Area name: ");
