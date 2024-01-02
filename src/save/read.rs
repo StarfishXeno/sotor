@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::{
     formats::{
-        erf,
-        gff::{self, Field, Struct},
+        erf::{self, Erf},
+        gff::{self, Field, Gff, Struct},
     },
     save::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
@@ -27,27 +29,51 @@ macro_rules! get_field {
 }
 
 pub struct Reader {
-    inner: SaveInternals,
+    nfo: Gff,
+    globals: Gff,
+    party_table: Gff,
+    erf: Erf,
+    pifo: Option<Gff>,
     game: Game,
     image: Option<TextureHandle>,
 }
 
 impl Reader {
-    pub fn new(inner: SaveInternals, image: Option<TextureHandle>) -> Self {
-        let game = if inner.erf.resources.get("pc").is_none() {
+    pub fn new(
+        nfo: Gff,
+        globals: Gff,
+        party_table: Gff,
+        erf: Erf,
+        pifo: Option<Gff>,
+        image: Option<TextureHandle>,
+    ) -> Self {
+        let game = if erf.resources.get("pc").is_none() {
             Game::One
         } else {
             Game::Two
         };
-        Self { inner, game, image }
+        Self {
+            nfo,
+            globals,
+            party_table,
+            erf,
+            pifo,
+            game,
+            image,
+        }
     }
 
     pub fn into_save(self) -> Result<Save, String> {
         let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
-        let characters =
-            self.read_characters(party_table.available_members.len(), &nfo.last_module)?;
+        let resource_map = self.read_resource_map();
+        let (use_pifo, last_module) = self.read_last_module(&resource_map, &nfo.last_module)?;
+        let (characters, character_structs) = self.read_characters(
+            &resource_map,
+            &last_module,
+            party_table.available_members.len(),
+        )?;
 
         // unifying the flag in case it's somehow out of sync
         nfo.cheats_used = nfo.cheats_used || party_table.cheats_used;
@@ -58,15 +84,24 @@ impl Reader {
             nfo,
             party_table,
             characters,
-
             image: self.image,
             game: self.game,
-            inner: self.inner,
+
+            inner: SaveInternals {
+                nfo: self.nfo,
+                globals: self.globals,
+                party_table: self.party_table,
+                erf: self.erf,
+                pifo: self.pifo,
+
+                use_pifo,
+                characters: character_structs,
+            },
         })
     }
 
     fn read_nfo(&self) -> Result<Nfo, String> {
-        let fields = &self.inner.nfo.content.fields;
+        let fields = &self.nfo.content.fields;
 
         Ok(Nfo {
             save_name: fields
@@ -81,7 +116,7 @@ impl Reader {
     }
 
     fn read_globals(&self) -> Result<Vec<Global>, String> {
-        let fields = &self.inner.globals.content.fields;
+        let fields = &self.globals.content.fields;
 
         let mut names: Vec<Vec<_>> = Vec::with_capacity(GLOBALS_TYPES.len());
         // Strings are stored as a struct list and go into a separate vector
@@ -143,7 +178,7 @@ impl Reader {
     }
 
     fn read_party_table(&self) -> Result<PartyTable, String> {
-        let fields = &self.inner.party_table.content.fields;
+        let fields = &self.party_table.content.fields;
         let journal = get_field!(fields, "JNL_Entries", unwrap_list)?
             .into_iter()
             .map(|e| {
@@ -180,7 +215,7 @@ impl Reader {
         let cheats_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
         let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
         let (components, chemicals, influence) = match self.game {
-            Game::One => (0, 0, vec![]),
+            Game::One => (None, None, None),
             Game::Two => {
                 let influence = get_field!(fields, "PT_INFLUENCE", unwrap_list)?
                     .into_iter()
@@ -188,9 +223,9 @@ impl Reader {
                     .collect::<Result<_, String>>()?;
 
                 (
-                    get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?,
-                    get_field!(fields, "PT_ITEM_CHEMICAL", unwrap_dword)?,
-                    influence,
+                    Some(get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?),
+                    Some(get_field!(fields, "PT_ITEM_CHEMICAL", unwrap_dword)?),
+                    Some(influence),
                 )
             }
         };
@@ -208,58 +243,72 @@ impl Reader {
         })
     }
 
+    // goddammit the casing is all over the place even in erf
+    fn read_resource_map(&self) -> HashMap<String, String> {
+        let resources = &self.erf.resources;
+        let keys: Vec<_> = resources.keys().cloned().collect();
+        string_lowercase_map(&keys)
+    }
+
+    fn read_last_module(
+        &self,
+        map: &HashMap<String, String>,
+        last_module: &str,
+    ) -> Result<(bool, Gff), String> {
+        let resources = &self.erf.resources;
+
+        if let Some(name) = map.get(&last_module.to_lowercase()) {
+            let module = &resources[name];
+            let module_erf = erf::read(&module.content)?;
+            let module_inner = module_erf
+                .resources
+                .get("Module")
+                .ok_or("Couldn't get inner module resource".to_string())?;
+
+            Ok((false, gff::read(&module_inner.content)?))
+        } else if let Some(res) = &self.pifo {
+            Ok((true, res.clone()))
+        } else {
+            return Err("Couldn't get last module resource".to_string());
+        }
+    }
+
     fn read_characters(
         &self,
+        map: &HashMap<String, String>,
+        last_module: &Gff,
         count: usize,
-        last_module: &str,
-    ) -> Result<Vec<Option<Character>>, String> {
+    ) -> Result<(Vec<Character>, Vec<Struct>), String> {
         const NPC_RESOURCE_PREFIX: &str = "availnpc";
-
-        let resources = &self.inner.erf.resources;
+        let resources = &self.erf.resources;
         let mut characters = Vec::with_capacity(count + 1);
-        let keys: Vec<_> = resources.keys().cloned().collect();
-        // goddammit the casing is all over the place even in erf
-        let map = string_lowercase_map(&keys);
+        let mut structs = Vec::with_capacity(count + 1);
 
         for idx in 0..count {
             let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
-                characters.push(None);
                 continue;
             };
             let gff = gff::read(&resources[name].content)
                 .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
 
-            characters
-                .push(Some(Self::read_character(&gff.content, idx).map_err(
-                    |err| format!("Error parsing character {idx}: {err}"),
-                )?));
+            characters.push(
+                Self::read_character(&gff.content, idx)
+                    .map_err(|err| format!("Error parsing character {idx}: {err}"))?,
+            );
+            structs.push(gff.content);
         }
 
-        let module = {
-            if let Some(name) = map.get(&last_module.to_lowercase()) {
-                let module = &resources[name];
-                let module_erf = erf::read(&module.content)?;
-                let module_inner = module_erf
-                    .resources
-                    .get("Module")
-                    .ok_or("Couldn't get inner module resource".to_string())?;
+        let mut player_field =
+            get_field!(last_module.content.fields, "Mod_PlayerList", unwrap_list)?;
+        if player_field.is_empty() {
+            return Err("Couldn't get player character struct".to_string());
+        }
+        let player = player_field.remove(0);
 
-                gff::read(&module_inner.content)?
-            } else if let Some(res) = &self.inner.pifo {
-                res.clone()
-            } else {
-                return Err("Couldn't get last module resource".to_string());
-            }
-        };
+        characters.push(Self::read_character(&player, count)?);
+        structs.push(player);
 
-        let player_field = get_field!(module.content.fields, "Mod_PlayerList", unwrap_list)?;
-        let player = player_field
-            .get(0)
-            .ok_or("Couldn't get player character struct".to_string())?;
-
-        characters.push(Some(Self::read_character(player, count)?));
-
-        Ok(characters)
+        Ok((characters, structs))
     }
 
     fn read_character(s: &Struct, idx: usize) -> Result<Character, String> {

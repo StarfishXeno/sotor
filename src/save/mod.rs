@@ -1,7 +1,7 @@
 use crate::{
     formats::{
         erf::{self, Erf},
-        gff::{self, Gff},
+        gff::{self, Gff, Struct},
     },
     util::{load_tga, read_dir_filemap},
 };
@@ -45,10 +45,10 @@ pub struct PartyTable {
     pub credits: u32,
     pub members: Vec<PartyMember>,
     pub available_members: Vec<AvailablePartyMember>,
-    pub influence: Vec<i32>,
+    pub influence: Option<Vec<i32>>,
     pub party_xp: i32,
-    pub components: u32,
-    pub chemicals: u32,
+    pub components: Option<u32>,
+    pub chemicals: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -130,6 +130,8 @@ struct SaveInternals {
     party_table: Gff,
     erf: Erf,
     pifo: Option<Gff>,
+    use_pifo: bool,
+    characters: Vec<Struct>,
 }
 #[derive(Clone, PartialEq)]
 pub struct Save {
@@ -138,7 +140,7 @@ pub struct Save {
     pub nfo: Nfo,
     pub party_table: PartyTable,
     pub image: Option<TextureHandle>,
-    pub characters: Vec<Option<Character>>,
+    pub characters: Vec<Character>,
 
     inner: SaveInternals,
 }
@@ -205,14 +207,11 @@ impl Save {
             .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST));
 
         let reader = read::Reader::new(
-            SaveInternals {
-                nfo: gffs.pop_front().unwrap(),
-                globals: gffs.pop_front().unwrap(),
-                party_table: gffs.pop_front().unwrap(),
-                pifo: gffs.pop_front(),
-
-                erf,
-            },
+            gffs.pop_front().unwrap(),
+            gffs.pop_front().unwrap(),
+            gffs.pop_front().unwrap(),
+            erf,
+            gffs.pop_front(),
             texture,
         );
 

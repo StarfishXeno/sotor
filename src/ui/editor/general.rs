@@ -104,7 +104,7 @@ impl<'a> EditorGeneral<'a> {
         ui.end_row();
 
         ui.label("PC name: ");
-        ui.s_text(&self.save.characters.last().unwrap().as_ref().unwrap().name);
+        ui.s_text(&self.save.characters.last().unwrap().name);
         ui.end_row();
 
         ui.label("Area name: ");
@@ -131,13 +131,15 @@ impl<'a> EditorGeneral<'a> {
         ui.s_slider(&mut pt.credits, 0..=9_999_999);
         ui.end_row();
 
-        if self.save.game == Game::Two {
+        if let Some(v) = &mut pt.components {
             ui.label("Components: ");
-            ui.s_slider(&mut pt.components, 0..=99_999);
+            ui.s_slider(v, 0..=99_999);
             ui.end_row();
+        }
 
+        if let Some(v) = &mut pt.chemicals {
             ui.label("Chemicals: ");
-            ui.s_slider(&mut pt.chemicals, 0..=99_999);
+            ui.s_slider(v, 0..=99_999);
             ui.end_row();
         }
     }

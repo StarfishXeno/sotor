@@ -1,6 +1,6 @@
 use crate::formats::gff::{Field, Struct};
 
-use super::{Game, GlobalValue, Save, GLOBALS_TYPES};
+use super::{GlobalValue, Save, GLOBALS_TYPES};
 
 pub struct Updater<'a> {
     save: &'a mut Save,
@@ -145,15 +145,20 @@ impl<'a> Updater<'a> {
         fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
         fields.insert("PT_XP_POOL".to_owned(), Field::Int(pt.party_xp));
 
-        if self.save.game == Game::Two {
-            fields.insert("PT_ITEM_COMPONEN".to_owned(), Field::Dword(pt.components));
-            fields.insert("PT_ITEM_CHEMICAL".to_owned(), Field::Dword(pt.chemicals));
-            let av_members_list = pt
-                .influence
+        if let Some(v) = pt.components {
+            fields.insert("PT_ITEM_COMPONEN".to_owned(), Field::Dword(v));
+        }
+
+        if let Some(v) = pt.chemicals {
+            fields.insert("PT_ITEM_CHEMICAL".to_owned(), Field::Dword(v));
+        }
+
+        if let Some(v) = &pt.influence {
+            let influence_list = v
                 .iter()
                 .map(|m| Struct::new([("PT_NPC_INFLUENCE".to_owned(), Field::Int(*m))].into()))
                 .collect();
-            fields.insert("PT_INFLUENCE".to_owned(), Field::List(av_members_list));
+            fields.insert("PT_INFLUENCE".to_owned(), Field::List(influence_list));
         }
     }
 }
