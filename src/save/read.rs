@@ -4,8 +4,8 @@ use crate::{
         gff::{self, Field, Struct},
     },
     save::{
-        AvailablePartyMember, Character, Game, Gender, Global, GlobalValue, JournalEntry, Nfo,
-        PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES,
+        AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
+        Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES,
     },
     util::string_lowercase_map,
 };
@@ -210,9 +210,11 @@ impl Reader {
         last_module: &str,
     ) -> Result<Vec<Option<Character>>, String> {
         const NPC_RESOURCE_PREFIX: &str = "availnpc";
+
         let resources = &self.inner.erf.resources;
         let mut characters = Vec::with_capacity(count + 1);
         let keys: Vec<_> = resources.keys().cloned().collect();
+        // goddammit the casing is all over the place even in erf
         let map = string_lowercase_map(&keys);
 
         for idx in 0..count {
@@ -223,16 +225,21 @@ impl Reader {
             let gff = gff::read(&resources[name].content)
                 .map_err(|err| rf!("Couldn't read NPC GFF {idx}: {err}"))?;
 
-            characters.push(Some(Self::read_character(&gff.content)?));
+            characters.push(Some(
+                Self::read_character(&gff.content, idx)
+                    .map_err(|err| rf!("Error parsing character {idx}: {err}"))?,
+            ));
         }
 
         let module = {
-            if let Some(module) = resources.get(&last_module.to_lowercase()) {
+            if let Some(name) = map.get(&last_module.to_lowercase()) {
+                let module = &resources[name];
                 let module_erf = erf::read(&module.content)?;
                 let module_inner = module_erf
                     .resources
                     .get("Module")
                     .ok_or(rf!("Couldn't get inner module resource"))?;
+
                 gff::read(&module_inner.content)?
             } else if let Some(res) = &self.inner.pifo {
                 res.clone()
@@ -241,17 +248,17 @@ impl Reader {
             }
         };
 
-        let player_field = &get_field!(module.content.fields, "Mod_PlayerList", unwrap_list)?;
+        let player_field = get_field!(module.content.fields, "Mod_PlayerList", unwrap_list)?;
         let player = player_field
             .get(0)
             .ok_or(rf!("Couldn't get player character struct"))?;
 
-        characters.push(Some(Self::read_character(player)?));
+        characters.push(Some(Self::read_character(player, count)?));
 
         Ok(characters)
     }
 
-    fn read_character(s: &Struct) -> Result<Character, String> {
+    fn read_character(s: &Struct, idx: usize) -> Result<Character, String> {
         let fields = &s.fields;
 
         let name = get_field!(fields, "FirstName", unwrap_loc_string)?
@@ -274,7 +281,7 @@ impl Reader {
         let feats = get_field!(fields, "FeatList", unwrap_list)?
             .into_iter()
             .map(|s| get_field!(s.fields, "Feat", unwrap_word))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<_, _>>()?;
 
         let skills = get_field!(fields, "SkillList", unwrap_list)?
             .into_iter()
@@ -283,7 +290,13 @@ impl Reader {
             .try_into()
             .map_err(|_| rf!("Invalid skill list"))?;
 
+        let classes = get_field!(fields, "ClassList", unwrap_list)?
+            .iter()
+            .map(Self::read_class)
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(Character {
+            idx,
             name,
             attributes,
             hp: get_field!(fields, "HitPoints", unwrap_short)?,
@@ -295,7 +308,26 @@ impl Reader {
             experience: get_field!(fields, "Experience", unwrap_dword)?,
             feats,
             skills,
+            classes,
             gender,
+        })
+    }
+
+    fn read_class(class: &Struct) -> Result<Class, String> {
+        let powers = get_field!(class.fields, "KnownList0", unwrap_list)
+            .ok()
+            .map(|list| {
+                list.into_iter()
+                    .map(|s| get_field!(s.fields, "Spell", unwrap_word))
+                    .collect::<Result<_, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+
+        Ok(Class {
+            id: get_field!(class.fields, "Class", unwrap_int)?,
+            level: get_field!(class.fields, "ClassLevel", unwrap_short)?,
+            powers,
         })
     }
 }

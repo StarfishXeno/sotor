@@ -98,7 +98,15 @@ enum Gender {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Class {
+    id: i32,
+    level: i16,
+    powers: Vec<u16>, // IDs
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Character {
+    idx: usize,
     name: String,
     attributes: [u8; 6], // STR, DEX, CON, INT, WIS, CHA
     hp: i16,
@@ -110,6 +118,7 @@ pub struct Character {
     experience: u32,
     feats: Vec<u16>, // IDs
     skills: [u8; 8], // ranks in order of skill menu
+    classes: Vec<Class>,
 
     gender: Gender,
 }
