@@ -44,6 +44,16 @@ pub struct Erf {
     pub description_str_ref: u32,
 }
 
+impl Erf {
+    pub fn get(&self, name: &str, tp: ResourceType) -> Option<&Resource> {
+        self.resources.get(&(name.to_string(), tp))
+    }
+
+    pub fn get_mut(&mut self, name: &str, tp: ResourceType) -> Option<&mut Resource> {
+        self.resources.get_mut(&(name.to_string(), tp))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::formats::{

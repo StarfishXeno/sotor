@@ -260,19 +260,16 @@ impl<'a> Updater<'a> {
     }
 
     fn update_erf(&mut self) {
-        let resources = &mut self.save.inner.erf.resources;
-        let keys: Vec<_> = resources.keys().map(|k| k.0.clone()).collect();
+        let erf = &mut self.save.inner.erf;
+        let keys: Vec<_> = erf.resources.keys().map(|k| k.0.clone()).collect();
         let map = string_lowercase_map(&keys);
 
         // pain
         if !self.save.inner.use_pifo {
-            let key = map[&self.save.nfo.last_module.to_lowercase()].clone();
-            let module = resources.get_mut(&(key, ResourceType::Sav)).unwrap();
+            let key = &map[&self.save.nfo.last_module.to_lowercase()];
+            let module = erf.get_mut(key, ResourceType::Sav).unwrap();
             let mut module_erf = erf::read(&module.content).unwrap();
-            let module_inner = module_erf
-                .resources
-                .get_mut(&("Module".to_owned(), ResourceType::Ifo))
-                .unwrap();
+            let module_inner = module_erf.get_mut("Module", ResourceType::Ifo).unwrap();
             let mut module_inner_gff = gff::read(&module_inner.content).unwrap();
             let Field::List(list) = module_inner_gff
                 .content
@@ -290,8 +287,8 @@ impl<'a> Updater<'a> {
 
         for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {
             let inner_idx = &self.save.characters[idx].idx.to_string();
-            let key = map[&(NPC_RESOURCE_PREFIX.to_owned() + inner_idx)].clone();
-            let Some(res) = resources.get_mut(&(key, ResourceType::Utc)) else {
+            let key = &map[&(NPC_RESOURCE_PREFIX.to_owned() + inner_idx)];
+            let Some(res) = erf.get_mut(key, ResourceType::Utc) else {
                 unreachable!()
             };
             res.content = gff::write(Gff {

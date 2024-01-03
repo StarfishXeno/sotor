@@ -50,11 +50,7 @@ impl Reader {
         pifo: Option<Gff>,
         image: Option<TextureHandle>,
     ) -> Self {
-        let game = if erf
-            .resources
-            .get(&("pc".to_owned(), ResourceType::Utc))
-            .is_none()
-        {
+        let game = if erf.get("pc", ResourceType::Utc).is_none() {
             Game::One
         } else {
             Game::Two
@@ -263,14 +259,11 @@ impl Reader {
         map: &HashMap<String, String>,
         last_module: &str,
     ) -> Result<(bool, Gff), String> {
-        let resources = &self.erf.resources;
-
         if let Some(name) = map.get(&last_module.to_lowercase()) {
-            let module = &resources[&(name.clone(), ResourceType::Sav)];
+            let module = self.erf.get(name, ResourceType::Sav).unwrap();
             let module_erf = erf::read(&module.content)?;
             let module_inner = module_erf
-                .resources
-                .get(&("Module".to_owned(), ResourceType::Ifo))
+                .get("Module", ResourceType::Ifo)
                 .ok_or("Couldn't get inner module resource".to_string())?;
 
             Ok((false, gff::read(&module_inner.content)?))
@@ -304,7 +297,7 @@ impl Reader {
             let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
                 continue;
             };
-            let gff = gff::read(&self.erf.resources[&(name.clone(), ResourceType::Utc)].content)
+            let gff = gff::read(&self.erf.get(name, ResourceType::Utc).unwrap().content)
                 .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
 
             characters.push(
