@@ -2,7 +2,6 @@ use std::{
     fmt::Debug,
     io::{self, prelude::*},
     mem::size_of,
-    str::{self, Utf8Error},
 };
 use time::{macros::datetime, OffsetDateTime};
 
@@ -68,8 +67,8 @@ pub fn read_dwords<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<V
         .collect())
 }
 
-pub fn bytes_to_string(value: &[u8]) -> Result<String, Utf8Error> {
-    str::from_utf8(value).map(str::to_owned)
+pub fn bytes_to_string(value: &[u8]) -> String {
+    String::from_utf8_lossy(value).to_string()
 }
 
 // turns numerics (u16, f32, etc) into a u32, T can't be more than 4 bytes

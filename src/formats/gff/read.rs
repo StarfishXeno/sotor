@@ -9,12 +9,10 @@ use crate::{
         sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE,
     },
 };
-
 use std::{
     collections::HashMap,
     io::{prelude::*, Cursor, SeekFrom},
     mem::size_of,
-    str,
 };
 
 #[derive(Debug)]
@@ -76,10 +74,8 @@ impl<'a> Reader<'a> {
         cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
 
         let dwords = read_dwords(cursor, HEADER_SIZE).map_err(|_| rf!("Couldn't read header"))?;
-        let file_type = bytes_to_string(&dwords[0].to_ne_bytes())
-            .map_err(|_| rf!("Couldn't parse file_type"))?;
-        let file_version = bytes_to_string(&dwords[1].to_ne_bytes())
-            .map_err(|_| rf!("Couldn't parse file_version"))?;
+        let file_type = bytes_to_string(&dwords[0].to_ne_bytes());
+        let file_version = bytes_to_string(&dwords[1].to_ne_bytes());
         let mut dwords = dwords[2..].to_usize_vec().into_iter();
 
         Ok(Header {
@@ -169,11 +165,8 @@ impl<'a> Reader<'a> {
                 self.h.field_indices_offset
             )
         })?;
-        for (idx, c) in chunks.into_iter().enumerate() {
-            let label = str::from_utf8(&c)
-                .map_err(|_| rf!("Couldn't parse label {idx} {c:?}"))?
-                .trim_matches('\0')
-                .to_owned();
+        for c in chunks {
+            let label = String::from_utf8_lossy(&c).trim_matches('\0').to_owned();
             self.labels.push(label);
         }
 
@@ -211,27 +204,26 @@ impl<'a> Reader<'a> {
                 7 => Simple(Field::Int64(cast_bytes(&field_data[inner..]))),
                 8 => Simple(Field::Float(cast_bytes(&inner.to_ne_bytes()))),
                 9 => Simple(Field::Double(cast_bytes(&field_data[inner..]))),
-                10 => Simple(Field::String(
-                    bytes_to_exo_string!(&field_data[inner..], u32)
-                        .map_err(|_| rf!("Invalid CExoString data in field {i}: {label}"))?,
-                )),
-                11 => Simple(Field::ResRef(
-                    bytes_to_exo_string!(&field_data[inner..], u8)
-                        .map_err(|_| rf!("Invalid CResRef data in field {i}: {label}"))?,
-                )),
+                10 => Simple(Field::String(bytes_to_exo_string!(
+                    &field_data[inner..],
+                    u32
+                ))),
+                11 => Simple(Field::ResRef(bytes_to_exo_string!(
+                    &field_data[inner..],
+                    u8
+                ))),
                 12 => {
                     let str_ref: u32 = cast_bytes(&field_data[inner + DWORD_SIZE..]);
                     let count: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 2..]);
                     let mut offset = inner + DWORD_SIZE * 3;
                     let mut strings = Vec::with_capacity(count as usize);
-                    for j in 0..count {
+                    for _ in 0..count {
                         let id = cast_bytes(&field_data[offset..]);
                         offset += DWORD_SIZE;
                         let length: u32 = cast_bytes(&field_data[offset..]);
                         let length = length as usize;
                         offset += DWORD_SIZE;
-                        let content = bytes_to_string(&field_data[offset..offset + length])
-                            .map_err(|_| rf!("Invalid CExoLocString {j} in field {i}: {label}"))?;
+                        let content = bytes_to_string(&field_data[offset..offset + length]);
                         strings.push(LocString { id, content });
                         offset += length;
                     }

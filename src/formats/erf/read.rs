@@ -57,10 +57,8 @@ impl<'a> Reader<'a> {
         cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
 
         let dwords = read_dwords(cursor, HEADER_SIZE).map_err(|_| rf!("Couldn't read header"))?;
-        let file_type = bytes_to_string(&dwords[0].to_ne_bytes())
-            .map_err(|_| rf!("Couldn't parse file_type"))?;
-        let file_version = bytes_to_string(&dwords[1].to_ne_bytes())
-            .map_err(|_| rf!("Couldn't parse file_version"))?;
+        let file_type = bytes_to_string(&dwords[0].to_ne_bytes());
+        let file_version = bytes_to_string(&dwords[1].to_ne_bytes());
         let mut dwords = dwords[2..].iter().copied();
 
         Ok(Header {
@@ -99,8 +97,7 @@ impl<'a> Reader<'a> {
 
             let bytes = read_bytes(&mut self.cursor, size as usize)
                 .map_err(|_| rf!("Couldn't read LocStr {}", count))?;
-            let content =
-                bytes_to_string(&bytes).map_err(|_| rf!("Couldn't parse LocStr {}", count))?;
+            let content = bytes_to_string(&bytes);
 
             count += 1;
             self.loc_strings.push(LocString { id, content });
@@ -120,7 +117,6 @@ impl<'a> Reader<'a> {
                 .map_err(|_| rf!("Couldn't read Key {}", count))?;
 
             let name = bytes_to_string(&bytes[..KEY_NAME_LEN])
-                .map_err(|err| rf!("Couldn't read Key name {}, {}", count, err))?
                 .trim_matches('\0')
                 .to_owned();
             let id = cast_bytes(&bytes[KEY_NAME_LEN..]);
