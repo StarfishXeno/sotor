@@ -18,9 +18,9 @@ pub enum Message {
 pub trait ContextExt {
     fn send_message(&self, message: Message);
     fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T>;
-    fn get_data_per<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T>;
+    fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T);
-    fn set_data_per<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
+    fn set_data_prs<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
         &self,
         id: impl Into<Id>,
         value: T,
@@ -39,7 +39,7 @@ impl ContextExt for Context {
         self.data(|data| data.get_temp(id.into()))
     }
 
-    fn get_data_per<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T> {
+    fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T> {
         self.data_mut(|data| data.get_persisted(id.into()))
     }
 
@@ -47,7 +47,7 @@ impl ContextExt for Context {
         self.data_mut(|data| data.insert_temp(id.into(), value));
     }
 
-    fn set_data_per<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
+    fn set_data_prs<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
         &self,
         id: impl Into<Id>,
         value: T,

@@ -62,7 +62,7 @@ impl<'a> Editor<'a> {
     }
 
     pub fn show(&mut self, ui: UiRef) {
-        let current_tab = ui.ctx().get_data_per(TAB_ID).unwrap_or_default();
+        let current_tab = ui.ctx().get_data_prs(TAB_ID).unwrap_or_default();
 
         ui.horizontal(|ui| {
             set_button_styles(ui);
@@ -70,7 +70,7 @@ impl<'a> Editor<'a> {
             for tab in Tab::LIST {
                 let btn = ui.s_button(&tab.to_string(), current_tab == tab, false);
                 if btn.clicked() {
-                    ui.ctx().set_data_per(TAB_ID, tab);
+                    ui.ctx().set_data_prs(TAB_ID, tab);
                 }
             }
 
