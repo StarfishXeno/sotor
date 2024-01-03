@@ -8,7 +8,7 @@ mod util;
 fn main() -> eframe::Result<()> {
     env_logger::init();
 
-    let rgba = image::load_from_memory(include_bytes!("../assets/hk.png"))
+    let rgba = image::load_from_memory(include_bytes!("../assets/hand.png"))
         .unwrap()
         .to_rgba8();
     let (width, height) = rgba.dimensions();
