@@ -1,12 +1,13 @@
 use crate::{save::Game, util::string_lowercase_map};
 use rfd::{AsyncFileDialog, FileHandle};
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::process::CommandExt;
 use std::{
-    collections::HashMap, fs, future::Future, io, os::unix::process::CommandExt, path::PathBuf,
-    process::Command, time::SystemTime,
+    collections::HashMap, fs, future::Future, io, path::PathBuf, process::Command, time::SystemTime,
 };
 
 pub fn open_file_manager(path: &str) {
-    let command = if cfg!(target_os = "windows") {
+    let program = if cfg!(target_os = "windows") {
         "explorer"
     } else if cfg!(target_os = "linux") {
         "xdg-open"
@@ -16,11 +17,14 @@ pub fn open_file_manager(path: &str) {
         return;
     };
 
-    Command::new(command)
-        .process_group(0)
-        .arg(path)
-        .spawn()
-        .unwrap();
+    let mut command = Command::new(program);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        command.process_group(0);
+    }
+
+    command.arg(path).spawn().unwrap();
 }
 
 pub fn backup_file(path: &PathBuf) -> io::Result<()> {
