@@ -3,7 +3,7 @@ use crate::{
         erf::{self, Erf},
         gff::{self, Gff, Struct},
     },
-    util::{load_tga, read_dir_filemap},
+    util::{backup_file, load_tga, read_dir_filemap},
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use sotor_macros::{EnumFromInt, EnumList, EnumToInt};
@@ -110,6 +110,7 @@ pub struct Class {
 pub struct Character {
     pub idx: usize,
     pub name: String,
+    pub tag: String,
     pub hp: i16,
     pub hp_max: i16,
     pub fp: i16,
@@ -227,7 +228,6 @@ impl Save {
 
     pub fn save_to_directory(path: &str, save: &mut Save) -> Result<(), String> {
         update::Updater::new(save).update();
-        // first let's find the files and map names to lowercase
         let file_names =
             read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
@@ -241,18 +241,21 @@ impl Save {
                 continue;
             };
             let gff_name = file_names.get(*name).map_or(*name, |n| n.as_str());
+            let full_path = PathBuf::from_iter([path, gff_name]);
             let bytes = gff::write(gff.clone());
 
-            fs::write(PathBuf::from_iter([path, gff_name]), &bytes)
+            backup_file(&full_path).map_err(|err| sf!("Couldn't backup file {path:?}: {err}"))?;
+            fs::write(full_path, &bytes)
                 .map_err(|err| sf!("Couldn't write GFF file {name}: {}", err.to_string()))?;
         }
 
         let erf_name = file_names.get(ERF_NAME).map_or(ERF_NAME, |n| n.as_str());
-        fs::write(
-            PathBuf::from_iter([path, erf_name]),
-            erf::write(save.inner.erf.clone()),
-        )
-        .map_err(|err| sf!("Couldn't write ERF file: {}", err.to_string()))?;
+        let full_path = PathBuf::from_iter([path, erf_name]);
+        let bytes = erf::write(save.inner.erf.clone());
+
+        backup_file(&full_path).map_err(|err| sf!("Couldn't backup file {path:?}: {err}"))?;
+        fs::write(full_path, bytes)
+            .map_err(|err| sf!("Couldn't write ERF file: {}", err.to_string()))?;
 
         Ok(())
     }

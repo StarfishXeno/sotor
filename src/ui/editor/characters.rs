@@ -38,17 +38,18 @@ impl<'a> Editor<'a> {
     pub fn show(&mut self, ui: UiRef) {
         self.selected = ui.ctx().get_data(self.id.with("selected")).unwrap_or(0);
 
-        ui.horizontal(|ui| self.selection(ui));
+        ui.horizontal(|ui| self.header(ui));
         ui.separator();
         ui.s_offset(0., 5.);
         ui.horizontal_top(|ui| self.main_stats(ui));
     }
 
-    fn selection(&self, ui: UiRef) {
+    fn header(&mut self, ui: UiRef) {
         ui.vertical(|ui| {
-            ui.s_offset(0., 3.);
+            ui.s_offset(0., 0.);
             ui.label("Character: ");
         });
+
         set_combobox_styles(ui);
         ComboBox::from_id_source(self.id.with("selection"))
             .selected_text(&self.characters[self.selected].name)
@@ -62,6 +63,12 @@ impl<'a> Editor<'a> {
                     ui.ctx().set_data(self.id.with("selected"), selected);
                 }
             });
+
+        ui.vertical(|ui| {
+            ui.s_offset(0., 0.);
+            ui.label(color_text("Edit name: ", GREEN));
+        });
+        ui.s_text_edit(&mut char!(self).name, 200.);
     }
 
     fn main_stats(&mut self, ui: UiRef) {
@@ -70,6 +77,14 @@ impl<'a> Editor<'a> {
         set_drag_value_styles(ui);
 
         Self::grid(self.id.with("general"), ui, |ui| {
+            ui.label(color_text("Tag: ", GREEN));
+            ui.s_text(if char.tag.is_empty() {
+                "Player character"
+            } else {
+                &char.tag
+            });
+            ui.end_row();
+
             ui.label(color_text("Max HP: ", GREEN));
             ui.s_slider(&mut char.hp_max, 0..=9999, true);
             ui.end_row();
@@ -110,22 +125,6 @@ impl<'a> Editor<'a> {
             }
         });
 
-        Self::grid(self.id.with("attributes"), ui, |ui| {
-            let labels = [
-                "Strength: ",
-                "Dexterity: ",
-                "Constitution: ",
-                "Intelligence: ",
-                "Wisdom: ",
-                "Charisma: ",
-            ];
-            for (name, value) in labels.into_iter().zip(&mut char.attributes) {
-                ui.label(color_text(name, GREEN));
-                ui.add(DragValue::new(value));
-                ui.end_row();
-            }
-        });
-
         Self::grid(self.id.with("skills"), ui, |ui| {
             let labels = [
                 "Computer Use: ",
@@ -138,6 +137,22 @@ impl<'a> Editor<'a> {
                 "Treat Injury: ",
             ];
             for (name, value) in labels.into_iter().zip(&mut char.skills) {
+                ui.label(color_text(name, GREEN));
+                ui.add(DragValue::new(value));
+                ui.end_row();
+            }
+        });
+
+        Self::grid(self.id.with("attributes"), ui, |ui| {
+            let labels = [
+                "Strength: ",
+                "Dexterity: ",
+                "Constitution: ",
+                "Intelligence: ",
+                "Wisdom: ",
+                "Charisma: ",
+            ];
+            for (name, value) in labels.into_iter().zip(&mut char.attributes) {
                 ui.label(color_text(name, GREEN));
                 ui.add(DragValue::new(value));
                 ui.end_row();

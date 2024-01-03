@@ -27,7 +27,13 @@ pub fn set_selectable_styles(ui: UiRef) {
 
 #[allow(dead_code)]
 pub fn set_combobox_styles(ui: UiRef) {
-    let visuals = ui.visuals_mut();
+    let styles = ui.style_mut();
+    let visuals = &mut styles.visuals;
+    let spacing = &mut styles.spacing;
+
+    spacing.button_padding = [4., 1.].into();
+    spacing.icon_width = 16.;
+
     visuals.override_text_color = Some(BLACK);
 }
 

@@ -357,6 +357,7 @@ impl Reader {
         Ok(Character {
             idx,
             name,
+            tag: get_field!(fields, "Tag", unwrap_string)?,
             hp: get_field!(fields, "CurrentHitPoints", unwrap_short)?,
             hp_max: get_field!(fields, "MaxHitPoints", unwrap_short)?,
             fp: get_field!(fields, "ForcePoints", unwrap_short)?,

@@ -77,7 +77,7 @@ impl<'a> Editor<'a> {
         ui.end_row();
 
         ui.label("PC name: ");
-        ui.s_text_edit(&mut self.characters.first_mut().unwrap().name, 200.);
+        ui.s_text(&self.characters.first().unwrap().name);
         ui.end_row();
 
         ui.label("Area name: ");

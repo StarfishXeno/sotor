@@ -23,6 +23,24 @@ pub fn open_file_manager(path: &str) {
         .unwrap();
 }
 
+pub fn backup_file(path: &PathBuf) -> io::Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let mut target_path = path.clone();
+    target_path.set_extension(
+        target_path
+            .extension()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
+            + ".bak",
+    );
+    fs::copy(path, target_path)?;
+
+    Ok(())
+}
+
 // map of lowercase -> real filenames in a dir
 pub fn read_dir_filemap(path: PathBuf) -> io::Result<HashMap<String, String>> {
     let dir = fs::read_dir(path)?;

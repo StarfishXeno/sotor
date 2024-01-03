@@ -48,8 +48,11 @@ impl<'a> SidePanel<'a> {
                 "Game data missing, select a valid game path in the settings",
             )
         };
-        ui.label(color_text(&format!("K{game}"), color))
-            .on_hover_text(tooltip);
+        ui.vertical(|ui| {
+            ui.s_offset(0., -2.);
+            ui.label(color_text(&format!("K{game}"), color))
+                .on_hover_text(tooltip);
+        });
     }
 
     fn header(&self, ui: UiRef) {
