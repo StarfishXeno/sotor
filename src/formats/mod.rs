@@ -16,6 +16,7 @@ pub enum ResourceType {
     Utc = 2027,
     Fac = 2038,
     Sav = 2057,
+    Tpc = 3007,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

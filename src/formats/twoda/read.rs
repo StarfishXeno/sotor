@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    io::{prelude::*, Cursor, SeekFrom},
+    io::{self, prelude::*, Cursor, SeekFrom},
 };
 
 use super::TwoDAValue;
@@ -16,6 +16,7 @@ struct Reader<'a> {
     target_columns: Vec<(String, usize, TwoDAType)>,
     total_columns: usize,
     row_count: usize,
+    row_indices: Vec<u32>,
     offsets: Vec<u16>,
 }
 
@@ -31,7 +32,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(&mut self) -> ESResult {
-        let header = read_dwords(&mut self.cursor, 2).map_err(|_| "Couldn't read header")?;
+        let header = read_dwords(&mut self.cursor, 2).map_err(|_| "couldn't read header")?;
         let version = bytes_to_string(&header[1].to_ne_bytes());
         if version != "V2.b" {
             return Err(format!("Invalid 2da version: {version}"));
@@ -39,20 +40,16 @@ impl<'a> Reader<'a> {
         // skip newline
         self.cursor
             .seek(SeekFrom::Current(1))
-            .map_err(|_| "Couldn't seek to header ending")?;
+            .map_err(|_| "couldn't seek to header ending")?;
 
         Ok(())
     }
 
     fn read_columns(&mut self) -> ESResult {
-        let mut buf = vec![];
-        self.cursor
-            .read_until(b'\0', &mut buf)
-            .map_err(|_| "Couldn't read column list")?;
+        let mut buf =
+            Self::read_until(&mut self.cursor, b'\0').map_err(|_| "couldn't read column list")?;
 
-        // drop the null
-        buf.pop();
-        // and the extra tab in the end
+        // drop the extra tab in the end
         buf.pop();
 
         let columns: Vec<_> = String::from_utf8_lossy(&buf)
@@ -69,7 +66,7 @@ impl<'a> Reader<'a> {
 
         if self.target_columns.len() != self.required_columns.len() {
             return Err(format!(
-                "Found {} columns, required {}",
+                "found {} columns, required {}",
                 self.target_columns.len(),
                 self.required_columns.len()
             ));
@@ -80,28 +77,31 @@ impl<'a> Reader<'a> {
 
     fn read_row_count(&mut self) -> ESResult {
         let words =
-            read_dwords(&mut self.cursor, 1).map_err(|_| "Couldn't read row count".to_owned())?;
+            read_dwords(&mut self.cursor, 1).map_err(|_| "couldn't read row count".to_owned())?;
         self.row_count = words[0] as usize;
 
         Ok(())
     }
 
     fn read_row_indices(&mut self) -> ESResult {
-        // we don't actually care about indices, just need to seek past them
+        self.row_indices = vec![];
         for i in 0..self.row_count {
-            let mut buf = vec![];
-            self.cursor
-                .read_until(b'\t', &mut buf)
-                .map_err(|_| format!("Couldn't read row index {i}"))?;
+            let buf = Self::read_until(&mut self.cursor, b'\t')
+                .map_err(|_| format!("couldn't read row index {i}"))?;
+            let string = String::from_utf8_lossy(&buf);
+            self.row_indices.push(
+                string
+                    .parse()
+                    .map_err(|_| format!("invalid row index {string}"))?,
+            );
         }
         Ok(())
     }
 
     fn read_cell_offsets(&mut self) -> ESResult {
-        println!("{} {}", self.total_columns, self.row_count);
         // +1 for data size we don't need
         let mut chunks = read_chunks(&mut self.cursor, self.total_columns * self.row_count + 1, 2)
-            .map_err(|_| "Couldn't read offsets".to_owned())?;
+            .map_err(|_| "couldn't read offsets".to_owned())?;
         // drop datasize
         chunks.pop();
         self.offsets = chunks.into_iter().map(|c| cast_bytes(&c)).collect();
@@ -113,39 +113,55 @@ impl<'a> Reader<'a> {
         let mut rows = vec![];
 
         for row_idx in 0..self.row_count {
-            let mut row = HashMap::new();
-            for (col, idx, tp) in &self.target_columns {
-                seek_to!(
-                    self.cursor,
-                    data_offset + self.offsets[row_idx * self.total_columns + idx] as u64,
-                    format
-                )?;
-                let mut buf = vec![];
-                self.cursor
-                    .read_until(b'\0', &mut buf)
-                    .map_err(|_| format!("Couldn't read column {col} in row {row_idx}"))?;
-                // drop the null
-                buf.pop();
-                let value = bytes_to_string(&buf);
-
-                let parsed = if value.is_empty() {
-                    None
-                } else {
-                    Some(match tp {
-                        TwoDAType::Int => TwoDAValue::Int(value.parse().map_err(|_| {
-                            format!(
-                                "Couldn't parse int column {col} in row {row_idx}, value: {value}"
-                            )
-                        })?),
-                        TwoDAType::String => TwoDAValue::String(value),
-                    })
-                };
-                row.insert(col.clone(), parsed);
+            let provided_idx = self.row_indices.get(row_idx).copied().unwrap_or_default();
+            if row_idx as u32 != provided_idx {
+                return Err(format!(
+                    "row index {provided_idx} doesn't match actual position {row_idx}"
+                ));
             }
-            rows.push(row);
+
+            rows.push(self.read_row(data_offset, row_idx)?);
         }
 
         Ok(TwoDA(rows))
+    }
+
+    fn read_row(
+        &mut self,
+        data_offset: u64,
+        row_idx: usize,
+    ) -> SResult<HashMap<String, Option<TwoDAValue>>> {
+        let mut row = HashMap::new();
+        for (col, idx, tp) in &self.target_columns {
+            seek_to!(
+                self.cursor,
+                data_offset + self.offsets[row_idx * self.total_columns + idx] as u64,
+                format
+            )?;
+            let buf = Self::read_until(&mut self.cursor, b'\0')
+                .map_err(|_| format!("couldn't read column {col} in row {row_idx}"))?;
+            let value = bytes_to_string(&buf);
+
+            let parsed = if value.is_empty() {
+                None
+            } else {
+                Some(match tp {
+                    TwoDAType::Int => TwoDAValue::Int(value.parse().map_err(|_| {
+                        format!("couldn't parse int column {col} in row {row_idx}, value: {value}")
+                    })?),
+                    TwoDAType::String => TwoDAValue::String(value),
+                })
+            };
+            row.insert(col.clone(), parsed);
+        }
+        Ok(row)
+    }
+
+    fn read_until(cursor: &mut Cursor<&[u8]>, char: u8) -> io::Result<Vec<u8>> {
+        let mut buf = vec![];
+        cursor.read_until(char, &mut buf)?;
+        buf.pop();
+        Ok(buf)
     }
 }
 
@@ -158,6 +174,7 @@ pub fn read(bytes: &[u8], required_columns: HashMap<String, TwoDAType>) -> SResu
         target_columns: vec![],
         total_columns: 0,
         row_count: 0,
+        row_indices: vec![],
         offsets: vec![],
     };
 
