@@ -42,14 +42,14 @@ pub(crate) use bytes_to_exo_string;
 pub(crate) use sized_bytes_to_bytes;
 
 // reads <count> bytes into a buffer
-pub fn read_bytes<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Vec<u8>> {
+pub fn read_bytes<T: Read>(reader: &mut T, count: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0; count];
     reader.read_exact(&mut buf)?;
 
     Ok(buf)
 }
 // reads <count> chunks of <chunk_size> into a buffer
-pub fn read_chunks<T: Read + Seek>(
+pub fn read_chunks<T: Read>(
     reader: &mut T,
     count: usize,
     chunk_size: usize,
@@ -60,11 +60,25 @@ pub fn read_chunks<T: Read + Seek>(
     Ok(result)
 }
 // reads <count> DWORDs into a buffer
-pub fn read_dwords<T: Read + Seek>(reader: &mut T, count: usize) -> io::Result<Vec<u32>> {
+pub fn read_dwords<T: Read>(reader: &mut T, count: usize) -> io::Result<Vec<u32>> {
     Ok(read_chunks(reader, count, DWORD_SIZE)?
         .into_iter()
         .map(|c| cast_bytes(&c))
         .collect())
+}
+
+// reads all bytes until char is encountered, err if it's not present
+pub fn read_until<T: BufRead>(reader: &mut T, char: u8) -> io::Result<Vec<u8>> {
+    let mut buf = vec![];
+    reader.read_until(char, &mut buf)?;
+    let last_char = buf.pop();
+    if last_char.is_none() || last_char.unwrap() != char {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "target char not found",
+        ));
+    };
+    Ok(buf)
 }
 
 pub fn bytes_to_string(value: &[u8]) -> String {

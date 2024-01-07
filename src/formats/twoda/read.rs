@@ -1,6 +1,9 @@
 use crate::{
     formats::twoda::{TwoDA, TwoDAType},
-    util::{bytes_to_string, cast_bytes, read_chunks, read_dwords, seek_to, ESResult, SResult},
+    util::{
+        bytes_to_string, cast_bytes, read_chunks, read_dwords, read_until, seek_to, ESResult,
+        SResult,
+    },
 };
 use std::{
     collections::HashMap,
@@ -47,7 +50,7 @@ impl<'a> Reader<'a> {
 
     fn read_columns(&mut self) -> ESResult {
         let mut buf =
-            Self::read_until(&mut self.cursor, b'\0').map_err(|_| "couldn't read column list")?;
+            read_until(&mut self.cursor, b'\0').map_err(|_| "couldn't read column list")?;
 
         // drop the extra tab in the end
         buf.pop();
@@ -86,7 +89,7 @@ impl<'a> Reader<'a> {
     fn read_row_indices(&mut self) -> ESResult {
         self.row_indices = vec![];
         for i in 0..self.row_count {
-            let buf = Self::read_until(&mut self.cursor, b'\t')
+            let buf = read_until(&mut self.cursor, b'\t')
                 .map_err(|_| format!("couldn't read row index {i}"))?;
             let string = String::from_utf8_lossy(&buf);
             self.row_indices.push(
@@ -138,7 +141,7 @@ impl<'a> Reader<'a> {
                 data_offset + self.offsets[row_idx * self.total_columns + idx] as u64,
                 format
             )?;
-            let buf = Self::read_until(&mut self.cursor, b'\0')
+            let buf = read_until(&mut self.cursor, b'\0')
                 .map_err(|_| format!("couldn't read column {col} in row {row_idx}"))?;
             let value = bytes_to_string(&buf);
 
@@ -155,13 +158,6 @@ impl<'a> Reader<'a> {
             row.insert(col.clone(), parsed);
         }
         Ok(row)
-    }
-
-    fn read_until(cursor: &mut Cursor<&[u8]>, char: u8) -> io::Result<Vec<u8>> {
-        let mut buf = vec![];
-        cursor.read_until(char, &mut buf)?;
-        buf.pop();
-        Ok(buf)
     }
 }
 
