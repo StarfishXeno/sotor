@@ -28,7 +28,6 @@ struct SaveDirectories {
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-#[serde(default)]
 struct PersistentState {
     game_paths: [Option<String>; Game::COUNT],
 }

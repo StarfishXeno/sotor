@@ -10,7 +10,7 @@ use crate::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
         Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES,
     },
-    util::{get_party, string_lowercase_map},
+    util::{get_party, string_lowercase_map, SResult},
 };
 use egui::TextureHandle;
 
@@ -66,7 +66,7 @@ impl Reader {
         }
     }
 
-    pub fn into_save(self) -> Result<Save, String> {
+    pub fn into_save(self) -> SResult<Save> {
         let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
@@ -104,7 +104,7 @@ impl Reader {
         })
     }
 
-    fn read_nfo(&self) -> Result<Nfo, String> {
+    fn read_nfo(&self) -> SResult<Nfo> {
         let fields = &self.nfo.content.fields;
 
         Ok(Nfo {
@@ -119,7 +119,7 @@ impl Reader {
         })
     }
 
-    fn read_globals(&self) -> Result<Vec<Global>, String> {
+    fn read_globals(&self) -> SResult<Vec<Global>> {
         let fields = &self.globals.content.fields;
 
         let mut names: Vec<Vec<_>> = Vec::with_capacity(GLOBALS_TYPES.len());
@@ -181,7 +181,7 @@ impl Reader {
         Ok(globals)
     }
 
-    fn read_party_table(&self) -> Result<PartyTable, String> {
+    fn read_party_table(&self) -> SResult<PartyTable> {
         let fields = &self.party_table.content.fields;
         let journal = get_field!(fields, "JNL_Entries", unwrap_list)?
             .into_iter()
@@ -193,7 +193,7 @@ impl Reader {
                     date: get_field!(e.fields, "JNL_Date", unwrap_dword)?,
                 })
             })
-            .collect::<Result<_, String>>()?;
+            .collect::<SResult<_>>()?;
 
         let members = get_field!(fields, "PT_MEMBERS", unwrap_list)?
             .into_iter()
@@ -203,7 +203,7 @@ impl Reader {
                     leader: get_field!(m.fields, "PT_IS_LEADER")? != 0,
                 })
             })
-            .collect::<Result<_, String>>()?;
+            .collect::<SResult<_>>()?;
 
         let available_members = get_field!(fields, "PT_AVAIL_NPCS", unwrap_list)?
             .into_iter()
@@ -213,7 +213,7 @@ impl Reader {
                     selectable: get_field!(m.fields, "PT_NPC_SELECT")? != 0,
                 })
             })
-            .collect::<Result<_, String>>()?;
+            .collect::<SResult<_>>()?;
 
         let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
         let cheat_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
@@ -224,7 +224,7 @@ impl Reader {
                 let influence = get_field!(fields, "PT_INFLUENCE", unwrap_list)?
                     .into_iter()
                     .map(|m| get_field!(m.fields, "PT_NPC_INFLUENCE", unwrap_int))
-                    .collect::<Result<_, String>>()?;
+                    .collect::<SResult<_>>()?;
 
                 (
                     Some(get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?),
@@ -258,7 +258,7 @@ impl Reader {
         &self,
         map: &HashMap<String, String>,
         last_module: &str,
-    ) -> Result<(bool, Gff), String> {
+    ) -> SResult<(bool, Gff)> {
         if let Some(name) = map.get(&last_module.to_lowercase()) {
             let module = self.erf.get(name, ResourceType::Sav).unwrap();
             let module_erf = erf::read(&module.content)?;
@@ -279,7 +279,7 @@ impl Reader {
         map: &HashMap<String, String>,
         last_module: &Gff,
         count: usize,
-    ) -> Result<(Vec<Character>, Vec<Struct>), String> {
+    ) -> SResult<(Vec<Character>, Vec<Struct>)> {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
@@ -310,7 +310,7 @@ impl Reader {
         Ok((characters, structs))
     }
 
-    fn read_character(&self, s: &Struct, idx: usize) -> Result<Character, String> {
+    fn read_character(&self, s: &Struct, idx: usize) -> SResult<Character> {
         let fields = &s.fields;
 
         let name = get_field!(fields, "FirstName", unwrap_loc_string)?
@@ -337,19 +337,19 @@ impl Reader {
         let skills = get_field!(fields, "SkillList", unwrap_list)?
             .into_iter()
             .map(|s| get_field!(s.fields, "Rank"))
-            .collect::<Result<Vec<_>, _>>()?
+            .collect::<SResult<Vec<_>>>()?
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
         let feats = get_field!(fields, "FeatList", unwrap_list)?
             .into_iter()
             .map(|s| get_field!(s.fields, "Feat", unwrap_word))
-            .collect::<Result<_, _>>()?;
+            .collect::<SResult<_>>()?;
 
         let classes = get_field!(fields, "ClassList", unwrap_list)?
             .iter()
             .map(Self::read_class)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<SResult<Vec<_>>>()?;
 
         let gender = Gender::try_from(get_field!(fields, "Gender")?)
             .map_err(|id| format!("Invalid gender {id}"))?;
@@ -376,13 +376,13 @@ impl Reader {
         })
     }
 
-    fn read_class(class: &Struct) -> Result<Class, String> {
+    fn read_class(class: &Struct) -> SResult<Class> {
         let powers = get_field!(class.fields, "KnownList0", unwrap_list)
             .ok()
             .map(|list| {
                 list.into_iter()
                     .map(|s| get_field!(s.fields, "Spell", unwrap_word))
-                    .collect::<Result<_, _>>()
+                    .collect::<SResult<_>>()
             })
             .transpose()?
             .unwrap_or_default();

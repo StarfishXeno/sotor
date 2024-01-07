@@ -3,7 +3,7 @@ use crate::{
         erf::{self, Erf},
         gff::{self, Gff, Struct},
     },
-    util::{backup_file, load_tga, read_dir_filemap},
+    util::{backup_file, load_tga, read_dir_filemap, ESResult, SResult},
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use sotor_macros::{EnumFromInt, EnumList, EnumToInt};
@@ -179,7 +179,7 @@ macro_rules! sf {
 }
 
 impl Save {
-    pub fn read_from_directory(path: &str, ctx: &Context) -> Result<Self, String> {
+    pub fn read_from_directory(path: &str, ctx: &Context) -> SResult<Self> {
         // first let's find the files and map names to lowercase
         let file_names =
             read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
@@ -226,7 +226,7 @@ impl Save {
             .map_err(|err| format!("Save::read| {err}"))
     }
 
-    pub fn save_to_directory(path: &str, save: &mut Save) -> Result<(), String> {
+    pub fn save_to_directory(path: &str, save: &mut Save) -> ESResult {
         update::Updater::new(save).update();
         let file_names =
             read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;

@@ -17,7 +17,6 @@ pub const GREY_DARK: Color32 = Color32::from_rgb(52, 52, 52);
 pub const BLACK: Color32 = Color32::from_rgb(26, 26, 26);
 pub const BLACK_TRANSPARENT: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 100);
 
-#[allow(dead_code)]
 pub fn set_selectable_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     visuals.override_text_color = Some(WHITE);
@@ -25,7 +24,6 @@ pub fn set_selectable_styles(ui: UiRef) {
     visuals.widgets.hovered.weak_bg_fill = GREY_DARK;
 }
 
-#[allow(dead_code)]
 pub fn set_combobox_styles(ui: UiRef) {
     let styles = ui.style_mut();
     let visuals = &mut styles.visuals;

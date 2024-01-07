@@ -3,6 +3,7 @@ use sotor_macros::EnumFromInt;
 
 pub mod erf;
 pub mod gff;
+pub mod twoda;
 
 #[repr(u16)]
 #[derive(Debug, EnumFromInt, Serialize, Deserialize, PartialEq, Eq, Clone, Hash)]

@@ -5,7 +5,10 @@ use std::{
 
 use crate::{
     formats::{LocString, ResourceType},
-    util::{bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to, ToUSizeVec, DWORD_SIZE},
+    util::{
+        bytes_to_string, cast_bytes, read_bytes, read_dwords, seek_to, ESResult, SResult,
+        ToUSizeVec, DWORD_SIZE,
+    },
 };
 
 use super::{Erf, Resource, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES, RESOURCE_SIZE};
@@ -40,8 +43,6 @@ struct Reader<'a> {
     resources: Vec<ResourceRead>,
 }
 
-type RResult = Result<(), String>;
-
 macro_rules! rf {
     ($($t:tt)*) => {{
         format!("ERF::read| {}", format!($($t)*))
@@ -49,11 +50,11 @@ macro_rules! rf {
 }
 
 impl<'a> Reader<'a> {
-    fn seek(&mut self, pos: u32) -> RResult {
+    fn seek(&mut self, pos: u32) -> ESResult {
         seek_to!(self.cursor, pos, rf)
     }
 
-    fn read_header(cursor: &mut Cursor<&[u8]>) -> Result<Header, String> {
+    fn read_header(cursor: &mut Cursor<&[u8]>) -> SResult<Header> {
         cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
 
         let dwords = read_dwords(cursor, HEADER_SIZE).map_err(|_| rf!("Couldn't read header"))?;
@@ -83,7 +84,7 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn read_loc_strings(&mut self) -> RResult {
+    fn read_loc_strings(&mut self) -> ESResult {
         self.seek(self.h.loc_string_offset)?;
         let target_count = self.h.loc_string_count as usize;
         self.loc_strings = Vec::with_capacity(target_count);
@@ -106,7 +107,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_key_list(&mut self) -> RResult {
+    fn read_key_list(&mut self) -> ESResult {
         self.seek(self.h.keys_offset)?;
         let target_count = self.h.entry_count;
         self.keys = Vec::with_capacity(target_count);
@@ -135,7 +136,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_resources(&mut self) -> RResult {
+    fn read_resources(&mut self) -> ESResult {
         self.seek(self.h.resources_offset)?;
         let target_count = self.h.entry_count;
         self.resources = Vec::with_capacity(target_count);
@@ -156,7 +157,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn transform(self) -> Result<Erf, String> {
+    fn transform(self) -> SResult<Erf> {
         let mut resources = HashMap::with_capacity(self.h.entry_count);
         let mut cursor = Cursor::new(self.cursor.into_inner());
 
@@ -186,7 +187,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8]) -> Result<Erf, String> {
+pub fn read(bytes: &[u8]) -> SResult<Erf> {
     let mut cursor = Cursor::new(bytes);
     let h = Reader::read_header(&mut cursor)?;
     let mut r = Reader {

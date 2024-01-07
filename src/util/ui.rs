@@ -1,8 +1,10 @@
-use egui::{util::id_type_map::SerializableAny, ColorImage, Context, Id, Ui};
+use egui::{util::id_type_map::SerializableAny, ColorImage, Context, IconData, Id, Ui};
 use image::io::Reader as ImageReader;
 use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
 
 use crate::save::Game;
+
+use super::SResult;
 
 pub enum Message {
     Save,
@@ -72,7 +74,7 @@ pub fn format_seconds(secs: u32) -> String {
 }
 
 // something is wrong with either egui or kotor's TGAs as the normal loader fails, so have to do it this way
-pub fn load_tga(path: PathBuf) -> Result<ColorImage, String> {
+pub fn load_tga(path: PathBuf) -> SResult<ColorImage> {
     let img = ImageReader::open(path)
         .map_err(|err| err.to_string())?
         .decode()
@@ -102,5 +104,17 @@ impl ColumnCounter {
         } else {
             self.current += 1;
         }
+    }
+}
+
+pub fn load_icon() -> IconData {
+    let rgba = image::load_from_memory(include_bytes!("../../assets/hand.png"))
+        .unwrap()
+        .to_rgba8();
+    let (width, height) = rgba.dimensions();
+    IconData {
+        rgba: rgba.to_vec(),
+        width,
+        height,
     }
 }

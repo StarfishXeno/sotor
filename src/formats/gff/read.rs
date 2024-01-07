@@ -6,7 +6,7 @@ use crate::{
     },
     util::{
         bytes_to_exo_string, bytes_to_string, cast_bytes, read_chunks, read_dwords, seek_to,
-        sized_bytes_to_bytes, ToUSizeVec, DWORD_SIZE,
+        sized_bytes_to_bytes, ESResult, SResult, ToUSizeVec, DWORD_SIZE,
     },
 };
 use std::{
@@ -57,8 +57,6 @@ struct Reader<'a> {
     structs: Vec<StructReadTmp>,
 }
 
-type RResult = Result<(), String>;
-
 macro_rules! rf {
     ($($t:tt)*) => {{
         format!("GFF::read| {}", format!($($t)*))
@@ -66,11 +64,11 @@ macro_rules! rf {
 }
 
 impl<'a> Reader<'a> {
-    fn seek(&mut self, pos: usize) -> RResult {
+    fn seek(&mut self, pos: usize) -> ESResult {
         seek_to!(self.cursor, pos, rf)
     }
 
-    fn read_header(cursor: &mut Cursor<&[u8]>) -> Result<Header, String> {
+    fn read_header(cursor: &mut Cursor<&[u8]>) -> SResult<Header> {
         cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
 
         let dwords = read_dwords(cursor, HEADER_SIZE).map_err(|_| rf!("Couldn't read header"))?;
@@ -97,7 +95,7 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn read_list_indices(&mut self) -> RResult {
+    fn read_list_indices(&mut self) -> ESResult {
         self.seek(self.h.list_indices_offset)?;
         self.list_indices = HashMap::new();
 
@@ -125,7 +123,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_field_indices(&mut self) -> RResult {
+    fn read_field_indices(&mut self) -> ESResult {
         let field_indices_offset = self.h.field_indices_offset;
         self.seek(field_indices_offset)?;
 
@@ -141,7 +139,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_field_data(&mut self) -> RResult {
+    fn read_field_data(&mut self) -> ESResult {
         self.seek(self.h.field_data_offset)?;
         self.field_data = vec![0; self.h.field_data_bytes];
 
@@ -155,7 +153,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_labels(&mut self) -> RResult {
+    fn read_labels(&mut self) -> ESResult {
         self.seek(self.h.label_offset)?;
         self.labels = Vec::with_capacity(self.h.label_count);
 
@@ -166,14 +164,14 @@ impl<'a> Reader<'a> {
             )
         })?;
         for c in chunks {
-            let label = String::from_utf8_lossy(&c).trim_matches('\0').to_owned();
+            let label = bytes_to_string(&c).trim_matches('\0').to_owned();
             self.labels.push(label);
         }
 
         Ok(())
     }
 
-    fn read_fields(&mut self) -> RResult {
+    fn read_fields(&mut self) -> ESResult {
         self.seek(self.h.field_offset)?;
         self.fields = Vec::with_capacity(self.h.field_count);
 
@@ -270,7 +268,7 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn read_structs(&mut self) -> RResult {
+    fn read_structs(&mut self) -> ESResult {
         self.seek(self.h.struct_offset)?;
         self.structs = Vec::with_capacity(self.h.struct_count);
 
@@ -340,7 +338,7 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8]) -> Result<Gff, String> {
+pub fn read(bytes: &[u8]) -> SResult<Gff> {
     let mut cursor = Cursor::new(bytes);
     let h = Reader::read_header(&mut cursor)?;
     let mut r = Reader {

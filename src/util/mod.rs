@@ -10,6 +10,9 @@ pub use ui::*;
 
 use crate::save::Game;
 
+pub type SResult<T> = Result<T, String>;
+pub type ESResult = SResult<()>;
+
 pub fn string_lowercase_map(strings: &[String]) -> HashMap<String, String> {
     strings
         .iter()
