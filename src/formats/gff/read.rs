@@ -1,12 +1,16 @@
-use super::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE, STRUCT_SIZE};
+use bytemuck::cast;
+
 use crate::{
     formats::{
-        gff::{Orientation, Vector},
+        gff::{
+            Field, FieldTmp, Gff, Orientation, Struct, Vector, FIELD_SIZE, HEADER_SIZE, STRUCT_SIZE,
+        },
         LocString,
     },
     util::{
-        bytes_to_exo_string, bytes_to_string, cast_bytes, read_chunks, read_dwords, seek_to,
-        sized_bytes_to_bytes, ESResult, SResult, ToUSizeVec, DWORD_SIZE,
+        bytes_to_string, cast_bytes, read_bytes, read_dwords, read_ts, seek_to,
+        sized_bytes_to_bytes, sized_bytes_to_string, ESResult, SResult, ToUsizeVec as _,
+        DWORD_SIZE,
     },
 };
 use std::{
@@ -65,16 +69,19 @@ macro_rules! rf {
 
 impl<'a> Reader<'a> {
     fn seek(&mut self, pos: usize) -> ESResult {
-        seek_to!(self.cursor, pos, rf)
+        seek_to!(self.cursor, pos)
     }
 
     fn read_header(cursor: &mut Cursor<&[u8]>) -> SResult<Header> {
         cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
 
-        let dwords = read_dwords(cursor, HEADER_SIZE).map_err(|_| rf!("Couldn't read header"))?;
-        let file_type = bytes_to_string(&dwords[0].to_ne_bytes());
-        let file_version = bytes_to_string(&dwords[1].to_ne_bytes());
-        let mut dwords = dwords[2..].to_usize_vec().into_iter();
+        let string_bytes =
+            read_ts::<[u8; 4], _>(cursor, 2).map_err(|_| "Couldn't read header strings")?;
+        let file_type = bytes_to_string(&string_bytes[0]);
+        let file_version = bytes_to_string(&string_bytes[1]);
+        let dwords =
+            read_dwords(cursor, HEADER_SIZE - 2).map_err(|_| rf!("Couldn't read header data"))?;
+        let mut dwords = dwords.to_usize_vec().into_iter();
 
         Ok(Header {
             file_type,
@@ -141,9 +148,7 @@ impl<'a> Reader<'a> {
 
     fn read_field_data(&mut self) -> ESResult {
         self.seek(self.h.field_data_offset)?;
-        self.field_data = vec![0; self.h.field_data_bytes];
-
-        self.cursor.read_exact(&mut self.field_data).map_err(|_| {
+        self.field_data = read_bytes(&mut self.cursor, self.h.field_data_bytes).map_err(|_| {
             rf!(
                 "Couldn't read field data, starting offset {}",
                 self.h.field_data_offset
@@ -157,12 +162,14 @@ impl<'a> Reader<'a> {
         self.seek(self.h.label_offset)?;
         self.labels = Vec::with_capacity(self.h.label_count);
 
-        let chunks = read_chunks(&mut self.cursor, self.h.label_count, 16).map_err(|_| {
-            rf!(
-                "Couldn't read field indices, starting offset {}",
-                self.h.field_indices_offset
-            )
-        })?;
+        let chunks =
+            read_ts::<[u8; 16], _>(&mut self.cursor, self.h.label_count).map_err(|_| {
+                rf!(
+                    "Couldn't read field indices, starting offset {}",
+                    self.h.field_indices_offset
+                )
+            })?;
+
         for c in chunks {
             let label = bytes_to_string(&c).trim_matches('\0').to_owned();
             self.labels.push(label);
@@ -180,68 +187,62 @@ impl<'a> Reader<'a> {
         for i in 0..self.h.field_count {
             use FieldTmp::Simple;
 
-            let dwords = read_dwords(&mut self.cursor, FIELD_SIZE)
-                .map_err(|_| {
-                    rf!(
-                        "Couldn't read field {i}, starting offset {}",
-                        self.h.field_offset
-                    )
-                })?
-                .to_usize_vec();
-            let label = self.labels[dwords[1]].clone();
+            let dwords = read_dwords(&mut self.cursor, FIELD_SIZE).map_err(|_| {
+                rf!(
+                    "Couldn't read field {i}, starting offset {}",
+                    self.h.field_offset
+                )
+            })?;
+            let label = self.labels[dwords[1] as usize].clone();
             let inner = dwords[2];
+            let offset = inner as usize;
 
             let value = match dwords[0] {
                 0 => Simple(Field::Byte(inner as u8)),
                 1 => Simple(Field::Char(inner as i8)),
                 2 => Simple(Field::Word(inner as u16)),
                 3 => Simple(Field::Short(inner as i16)),
-                4 => Simple(Field::Dword(inner as u32)),
-                5 => Simple(Field::Int(inner as i32)),
-                6 => Simple(Field::Dword64(cast_bytes(&field_data[inner..]))),
-                7 => Simple(Field::Int64(cast_bytes(&field_data[inner..]))),
-                8 => Simple(Field::Float(cast_bytes(&inner.to_ne_bytes()))),
-                9 => Simple(Field::Double(cast_bytes(&field_data[inner..]))),
-                10 => Simple(Field::String(bytes_to_exo_string!(
-                    &field_data[inner..],
-                    u32
+                4 => Simple(Field::Dword(cast(inner))),
+                5 => Simple(Field::Int(cast(inner))),
+                6 => Simple(Field::Dword64(cast_bytes(&field_data[offset..]))),
+                7 => Simple(Field::Int64(cast_bytes(&field_data[offset..]))),
+                8 => Simple(Field::Float(cast(inner))),
+                9 => Simple(Field::Double(cast_bytes(&field_data[offset..]))),
+                10 => Simple(Field::String(sized_bytes_to_string::<u32>(
+                    &field_data[offset..],
                 ))),
-                11 => Simple(Field::ResRef(bytes_to_exo_string!(
-                    &field_data[inner..],
-                    u8
+                11 => Simple(Field::ResRef(sized_bytes_to_string::<u8>(
+                    &field_data[offset..],
                 ))),
                 12 => {
-                    let str_ref: u32 = cast_bytes(&field_data[inner + DWORD_SIZE..]);
-                    let count: u32 = cast_bytes(&field_data[inner + DWORD_SIZE * 2..]);
-                    let mut offset = inner + DWORD_SIZE * 3;
+                    let str_ref = cast_bytes(&field_data[offset + DWORD_SIZE..]);
+                    let count: u32 = cast_bytes(&field_data[offset + DWORD_SIZE * 2..]);
+                    let mut offset = offset + DWORD_SIZE * 3;
                     let mut strings = Vec::with_capacity(count as usize);
                     for _ in 0..count {
                         let id = cast_bytes(&field_data[offset..]);
                         offset += DWORD_SIZE;
-                        let length: u32 = cast_bytes(&field_data[offset..]);
-                        let length = length as usize;
-                        offset += DWORD_SIZE;
-                        let content = bytes_to_string(&field_data[offset..offset + length]);
+                        let content = sized_bytes_to_string::<u32>(&field_data[offset..]);
+                        offset += DWORD_SIZE + content.len();
                         strings.push(LocString { id, content });
-                        offset += length;
                     }
                     Simple(Field::LocString(str_ref, strings))
                 }
-                13 => Simple(Field::Void(
-                    sized_bytes_to_bytes!(&field_data[inner..], u32).into(),
-                )),
-                14 => FieldTmp::Struct(inner),
+                13 => Simple(Field::Void(sized_bytes_to_bytes::<u32>(
+                    &field_data[offset..],
+                ))),
+                14 => FieldTmp::Struct(offset),
                 15 => {
                     let indices = self
                         .list_indices
-                        .remove(&inner)
+                        .remove(&offset)
                         .ok_or(rf!("Couldn't find list indices at {inner} in field {i}"))?;
 
                     FieldTmp::List(indices)
                 }
                 16 => {
                     const SIZE: usize = size_of::<f32>();
-                    let bytes = &field_data[inner..];
+                    let bytes = &field_data[offset..];
 
                     Simple(Field::Orientation(Orientation {
                         w: cast_bytes(&bytes[0..]),
@@ -252,7 +253,7 @@ impl<'a> Reader<'a> {
                 }
                 17 => {
                     const SIZE: usize = size_of::<f32>();
-                    let bytes = &field_data[inner..];
+                    let bytes = &field_data[offset..];
 
                     Simple(Field::Vector(Vector {
                         x: cast_bytes(&bytes[0..]),

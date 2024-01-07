@@ -4,7 +4,9 @@ use std::{
 };
 
 use super::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE};
-use crate::util::{array_to_bytes, bytes_to_sized_bytes, nullpad_string, num_to_dword, DWORD_SIZE};
+use crate::util::{
+    bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE,
+};
 
 const MAX_LABEL_LEN: usize = 16;
 
@@ -121,10 +123,8 @@ impl Writer {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&bytes))
                     }
                     Field::Void(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v)),
-                    Field::Orientation(v) => {
-                        self.save_bytes(&array_to_bytes(&[v.w, v.x, v.y, v.z]))
-                    }
-                    Field::Vector(v) => self.save_bytes(&array_to_bytes(&[v.x, v.y, v.z])),
+                    Field::Orientation(v) => self.save_bytes([v.w, v.x, v.y, v.z].to_byte_slice()),
+                    Field::Vector(v) => self.save_bytes([v.x, v.y, v.z].to_byte_slice()),
                     _ => unreachable!(),
                 };
 
@@ -207,7 +207,7 @@ impl Writer {
             for field in group {
                 field_idx += 1;
                 let data = [field.tp, field.label_index, field.content];
-                field_bytes.write_all(&array_to_bytes(&data)).unwrap();
+                field_bytes.write_all(data.to_byte_slice()).unwrap();
             }
         }
         // header to be filled later
@@ -229,7 +229,7 @@ impl Writer {
                 (index_offset * DWORD_SIZE) as u32
             };
             let data = [s.tp, idx, s.field_count];
-            cursor.write_all(&array_to_bytes(&data)).unwrap();
+            cursor.write_all(data.to_byte_slice()).unwrap();
         }
         // FIELDS
         let field_offset = cursor.position();
@@ -247,32 +247,33 @@ impl Writer {
         // FIELD INDICES
         let field_indices_offset = cursor.position();
         let field_indices_bytes = field_indices.len() * DWORD_SIZE;
-        cursor.write_all(&array_to_bytes(&field_indices)).unwrap();
+        cursor.write_all(field_indices.to_byte_slice()).unwrap();
         // LIST INDICES
         let list_indices_offset = cursor.position();
         let list_indices_bytes = self.list_indices.len() * DWORD_SIZE;
-        cursor
-            .write_all(&array_to_bytes(&self.list_indices))
-            .unwrap();
+        cursor.write_all(self.list_indices.to_byte_slice()).unwrap();
         // HEADER
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();
         cursor.write_all(file_version.as_bytes()).unwrap();
         cursor
-            .write_all(&array_to_bytes(&[
-                struct_offset as u32,
-                struct_count as u32,
-                field_offset as u32,
-                field_count as u32,
-                label_offset as u32,
-                label_count as u32,
-                field_data_offset as u32,
-                field_data_bytes as u32,
-                field_indices_offset as u32,
-                field_indices_bytes as u32,
-                list_indices_offset as u32,
-                list_indices_bytes as u32,
-            ]))
+            .write_all(
+                [
+                    struct_offset as u32,
+                    struct_count as u32,
+                    field_offset as u32,
+                    field_count as u32,
+                    label_offset as u32,
+                    label_count as u32,
+                    field_data_offset as u32,
+                    field_data_bytes as u32,
+                    field_indices_offset as u32,
+                    field_indices_bytes as u32,
+                    list_indices_offset as u32,
+                    list_indices_bytes as u32,
+                ]
+                .to_byte_slice(),
+            )
             .unwrap();
 
         cursor.into_inner()

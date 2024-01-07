@@ -1,3 +1,4 @@
+use bytemuck::{bytes_of, cast_slice, pod_read_unaligned, AnyBitPattern, NoUninit};
 use std::{
     fmt::Debug,
     io::{self, prelude::*},
@@ -8,67 +9,52 @@ use time::{macros::datetime, OffsetDateTime};
 pub const DWORD_SIZE: usize = 4;
 
 // turns &[u8] into a u32, f64, etc.
-pub fn cast_bytes<T: ToBytes<SIZE>, const SIZE: usize>(bytes: &[u8]) -> T {
-    let source: [u8; SIZE] = bytes[..SIZE].try_into().unwrap();
-    T::from_le_bytes(source)
+pub fn cast_bytes<T: AnyBitPattern>(bytes: &[u8]) -> T {
+    pod_read_unaligned(&bytes[..size_of::<T>()])
 }
 
-// this sucks, SIZE can't be deduced in current version of rust and you'd have to manually specify it every call
-// fn sized_bytes_to_bytes<T, const SIZE: usize, E: Debug>(bytes: &[u8]) -> &[u8] where T: ToBytes<SIZE> + TryInto<usize, Error = E> {
-//     let size: T = cast_bytes(&bytes);
-//     let size = size.try_into().unwrap();
-//     &bytes[SIZE..SIZE + size]
-// }
-
 // reads the size prefix of $type and returns that many following bytes
-macro_rules! sized_bytes_to_bytes {
-    ($bytes:expr, $type:ident) => {{
-        let size_size = std::mem::size_of::<$type>();
-        let size: $type = cast_bytes(&$bytes[..size_size]);
-        let size = size as usize;
-        &$bytes[size_size..size_size + size]
-    }};
+pub fn sized_bytes_to_bytes<S: AnyBitPattern + NoUninit + TryInto<usize, Error = impl Debug>>(
+    bytes: &[u8],
+) -> Vec<u8> {
+    let size_size = size_of::<S>();
+    let size: usize = cast_bytes::<S>(bytes).try_into().unwrap();
+    bytes[size_size..size_size + size].to_vec()
 }
 
 // turns &[u8] with a size prefix into a string
-macro_rules! bytes_to_exo_string {
-    ($bytes:expr, $type:ident) => {{
-        let source = sized_bytes_to_bytes!($bytes, $type);
-        bytes_to_string(source)
-    }};
+pub fn sized_bytes_to_string<S: AnyBitPattern + NoUninit + TryInto<usize, Error = impl Debug>>(
+    bytes: &[u8],
+) -> String {
+    let source = sized_bytes_to_bytes::<S>(bytes);
+    bytes_to_string(&source)
 }
 
-pub(crate) use bytes_to_exo_string;
-pub(crate) use sized_bytes_to_bytes;
-
 // reads <count> bytes into a buffer
-pub fn read_bytes<T: Read>(reader: &mut T, count: usize) -> io::Result<Vec<u8>> {
+pub fn read_bytes<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0; count];
     reader.read_exact(&mut buf)?;
 
     Ok(buf)
 }
-// reads <count> chunks of <chunk_size> into a buffer
-pub fn read_chunks<T: Read>(
-    reader: &mut T,
-    count: usize,
-    chunk_size: usize,
-) -> io::Result<Vec<Vec<u8>>> {
-    let buf = read_bytes(reader, count * chunk_size)?;
-    let result = buf.chunks_exact(chunk_size).map(Into::into).collect();
 
-    Ok(result)
+// reads <count> Ts into a buffer
+pub fn read_ts<T: AnyBitPattern, R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<T>> {
+    if count == 0 {
+        return Ok(vec![]);
+    };
+    let bytes = read_bytes(reader, count * size_of::<T>())?;
+
+    Ok(cast_slice(&bytes).to_vec())
 }
+
 // reads <count> DWORDs into a buffer
-pub fn read_dwords<T: Read>(reader: &mut T, count: usize) -> io::Result<Vec<u32>> {
-    Ok(read_chunks(reader, count, DWORD_SIZE)?
-        .into_iter()
-        .map(|c| cast_bytes(&c))
-        .collect())
+pub fn read_dwords<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<u32>> {
+    read_ts(reader, count)
 }
 
 // reads all bytes until char is encountered, err if it's not present
-pub fn read_until<T: BufRead>(reader: &mut T, char: u8) -> io::Result<Vec<u8>> {
+pub fn read_until<R: BufRead>(reader: &mut R, char: u8) -> io::Result<Vec<u8>> {
     let mut buf = vec![];
     reader.read_until(char, &mut buf)?;
     let last_char = buf.pop();
@@ -86,15 +72,16 @@ pub fn bytes_to_string(value: &[u8]) -> String {
 }
 
 // turns numerics (u16, f32, etc) into a u32, T can't be more than 4 bytes
-#[allow(clippy::needless_pass_by_value)]
-pub fn num_to_dword<T: ToBytes<SIZE>, const SIZE: usize>(num: T) -> u32 {
-    assert!(SIZE <= 4, "T can't be larger than 4 bytes");
+pub fn num_to_dword<T: AnyBitPattern + NoUninit>(num: T) -> u32 {
+    let size = size_of::<T>();
+    assert!(size <= 4, "T can't be larger than 4 bytes");
     let mut buf = [0u8; 4];
-    for (idx, byte) in num.to_le_bytes().into_iter().enumerate() {
-        buf[idx] = byte;
+    for (idx, byte) in bytes_of(&num).iter().enumerate() {
+        buf[idx] = *byte;
     }
     u32::from_ne_bytes(buf)
 }
+
 // returns a buffer with <bytes> prefixed with it's length
 pub fn bytes_to_sized_bytes<const SIZE_SIZE: usize>(bytes: &[u8]) -> Vec<u8> {
     let len = bytes.len();
@@ -106,10 +93,10 @@ pub fn bytes_to_sized_bytes<const SIZE_SIZE: usize>(bytes: &[u8]) -> Vec<u8> {
     buf
 }
 
-pub trait ToUSizeVec {
+pub trait ToUsizeVec {
     fn to_usize_vec(self) -> Vec<usize>;
 }
-impl<T, E> ToUSizeVec for &[T]
+impl<T, E> ToUsizeVec for &[T]
 where
     T: TryInto<usize, Error = E> + Clone,
     E: Debug,
@@ -121,36 +108,21 @@ where
     }
 }
 
-pub trait ToBytes<const SIZE: usize> {
-    fn to_le_bytes(&self) -> [u8; SIZE];
-    fn from_le_bytes(byte: [u8; SIZE]) -> Self;
+pub trait ToByteSlice<'a> {
+    fn to_byte_slice(self) -> &'a [u8];
 }
-macro_rules! impl_to_bytes {
-    ($($t:ident)+) => ($(
-        impl ToBytes<{ size_of::<$t>() }> for $t {
-            fn to_le_bytes(&self) -> [u8; size_of::<$t>()] {
-                $t::to_le_bytes(*self)
-            }
-
-            fn from_le_bytes(bytes: [u8; size_of::<$t>()]) -> $t  {
-                $t::from_le_bytes(bytes)
-            }
-        }
-    )+)
+impl<'a, T: NoUninit> ToByteSlice<'a> for &'a [T] {
+    fn to_byte_slice(self) -> &'a [u8] {
+        cast_slice(self)
+    }
 }
 
-impl_to_bytes!(u8 i8 u16 i16 u32 i32 u64 i64 f32 f64);
-
-pub fn array_to_bytes<T: ToBytes<SIZE>, const SIZE: usize>(data: &[T]) -> Vec<u8> {
-    let vec: Vec<u8> = data.iter().flat_map(T::to_le_bytes).collect();
-    vec
-}
 macro_rules! seek_to {
-    ($reader:expr, $pos:expr, $format_macro:ident) => {
+    ($reader:expr, $pos:expr) => {
         $reader
             .seek(SeekFrom::Start($pos as u64))
             .map(|_| ())
-            .map_err(|_| $format_macro!("Couldn't seek to {}", $pos))
+            .map_err(|_| format!("Couldn't seek to {}", $pos))
     };
 }
 pub(crate) use seek_to;

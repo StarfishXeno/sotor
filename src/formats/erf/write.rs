@@ -2,7 +2,7 @@ use std::io::{Cursor, Seek, Write};
 
 use crate::{
     formats::ResourceType,
-    util::{array_to_bytes, bytes_to_sized_bytes, get_erf_date, nullpad_string, DWORD_SIZE},
+    util::{bytes_to_sized_bytes, get_erf_date, nullpad_string, ToByteSlice as _, DWORD_SIZE},
 };
 
 use super::{
@@ -136,17 +136,20 @@ impl Writer {
         cursor.write_all(file_type.as_bytes()).unwrap();
         cursor.write_all(file_version.as_bytes()).unwrap();
         cursor
-            .write_all(&array_to_bytes(&[
-                loc_string_count,
-                loc_string_bytes as u32,
-                entry_count as u32,
-                loc_string_offset as u32,
-                keys_offset as u32,
-                resources_offset as u32,
-                build_year,
-                build_day,
-                description_str_ref,
-            ]))
+            .write_all(
+                [
+                    loc_string_count,
+                    loc_string_bytes as u32,
+                    entry_count as u32,
+                    loc_string_offset as u32,
+                    keys_offset as u32,
+                    resources_offset as u32,
+                    build_year,
+                    build_day,
+                    description_str_ref,
+                ]
+                .to_byte_slice(),
+            )
             .unwrap();
 
         cursor.into_inner()

@@ -1,13 +1,10 @@
 use crate::{
     formats::twoda::{TwoDA, TwoDAType},
-    util::{
-        bytes_to_string, cast_bytes, read_chunks, read_dwords, read_until, seek_to, ESResult,
-        SResult,
-    },
+    util::{bytes_to_string, read_dwords, read_ts, read_until, seek_to, ESResult, SResult},
 };
 use std::{
     collections::HashMap,
-    io::{self, prelude::*, Cursor, SeekFrom},
+    io::{prelude::*, Cursor, SeekFrom},
 };
 
 use super::TwoDAValue;
@@ -103,11 +100,11 @@ impl<'a> Reader<'a> {
 
     fn read_cell_offsets(&mut self) -> ESResult {
         // +1 for data size we don't need
-        let mut chunks = read_chunks(&mut self.cursor, self.total_columns * self.row_count + 1, 2)
+        let mut ints = read_ts::<u16, _>(&mut self.cursor, self.total_columns * self.row_count + 1)
             .map_err(|_| "couldn't read offsets".to_owned())?;
         // drop datasize
-        chunks.pop();
-        self.offsets = chunks.into_iter().map(|c| cast_bytes(&c)).collect();
+        ints.pop();
+        self.offsets = ints;
         Ok(())
     }
 
@@ -138,8 +135,7 @@ impl<'a> Reader<'a> {
         for (col, idx, tp) in &self.target_columns {
             seek_to!(
                 self.cursor,
-                data_offset + self.offsets[row_idx * self.total_columns + idx] as u64,
-                format
+                data_offset + self.offsets[row_idx * self.total_columns + idx] as u64
             )?;
             let buf = read_until(&mut self.cursor, b'\0')
                 .map_err(|_| format!("couldn't read column {col} in row {row_idx}"))?;
