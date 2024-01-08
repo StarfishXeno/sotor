@@ -1,14 +1,15 @@
-use std::io::{Cursor, Seek, Write};
-
 use crate::{
-    formats::ResourceType,
-    util::{bytes_to_sized_bytes, get_erf_date, nullpad_string, ToByteSlice as _, DWORD_SIZE},
+    formats::{
+        erf::{
+            Erf, Resource, HEADER_PADDING_SIZE_BYTES, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES,
+            RESOURCE_SIZE,
+        },
+        ResourceType,
+    },
+    util::{bytes_to_sized_bytes, nullpad_string, ToByteSlice as _, DWORD_SIZE},
 };
-
-use super::{
-    Erf, Resource, HEADER_PADDING_SIZE_BYTES, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES,
-    RESOURCE_SIZE,
-};
+use std::io::{Cursor, Seek, Write};
+use time::{macros::datetime, OffsetDateTime};
 
 struct KeyWrite {
     name: String,
@@ -130,7 +131,13 @@ impl Writer {
         let file_type = self.file_type;
         let file_version = self.file_version;
         let description_str_ref = self.description_str_ref;
-        let (build_year, build_day) = get_erf_date();
+
+        // build date
+        let now = OffsetDateTime::now_utc();
+        let past = datetime!(1900 - 01 - 01 0:00 UTC);
+        let build_year = now.year() - past.year();
+        past.replace_year(now.year()).unwrap();
+        let build_day = (now - past).whole_days();
 
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();
@@ -144,8 +151,8 @@ impl Writer {
                     loc_string_offset as u32,
                     keys_offset as u32,
                     resources_offset as u32,
-                    build_year,
-                    build_day,
+                    build_year as u32,
+                    build_day as u32,
                     description_str_ref,
                 ]
                 .to_byte_slice(),

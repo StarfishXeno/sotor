@@ -4,7 +4,7 @@ use crate::{
         LocString, ResourceType,
     },
     util::{
-        bytes_to_string, cast_bytes, read_bytes, read_dwords, read_ts, seek_to, ESResult, SResult,
+        bytes_to_string, cast_bytes, read_bytes, read_dwords, read_t, seek_to, ESResult, SResult,
         ToUsizeVec as _, DWORD_SIZE,
     },
 };
@@ -52,7 +52,7 @@ impl<'a> Reader<'a> {
         cursor.rewind().map_err(|_| "Couldn't read header")?;
 
         let string_bytes =
-            read_ts::<[u8; 4], _>(cursor, 2).map_err(|_| "Couldn't read header strings")?;
+            read_t::<[u8; 4], _>(cursor, 2).map_err(|_| "Couldn't read header strings")?;
         let file_type = bytes_to_string(&string_bytes[0]);
         let file_version = bytes_to_string(&string_bytes[1]);
         let mut dwords = read_dwords(cursor, HEADER_SIZE - 2)

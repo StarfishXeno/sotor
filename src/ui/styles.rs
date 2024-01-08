@@ -1,11 +1,10 @@
+use super::UiRef;
 use egui::{
     style::{Selection, Spacing, WidgetVisuals, Widgets},
     Color32, Context, FontData, FontDefinitions,
     FontFamily::{Name, Proportional},
     FontId, TextStyle, Visuals,
 };
-
-use super::UiRef;
 
 pub const WHITE: Color32 = Color32::from_rgb(223, 223, 201);
 pub const GREEN: Color32 = Color32::from_rgb(47, 192, 161);

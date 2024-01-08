@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     formats::{
         erf::{self, Erf},
@@ -8,13 +6,12 @@ use crate::{
     },
     save::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
-        Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES,
+        Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
     },
     util::{get_party, string_lowercase_map, SResult},
 };
 use egui::TextureHandle;
-
-use super::NPC_RESOURCE_PREFIX;
+use std::collections::HashMap;
 
 macro_rules! get_field {
     ($map:expr, $field:literal, $method:tt) => {

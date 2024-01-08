@@ -1,14 +1,11 @@
+use crate::formats::{LocString, ResourceType};
 use std::{collections::HashMap, fmt};
-
-use crate::formats::LocString;
 
 mod read;
 mod write;
 
 pub use read::read;
 pub use write::write;
-
-use super::ResourceType;
 
 // 11 DWORD fields + 116 bytes reserved
 const HEADER_SIZE: usize = 11;

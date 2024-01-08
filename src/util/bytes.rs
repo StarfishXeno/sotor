@@ -4,7 +4,6 @@ use std::{
     io::{self, prelude::*},
     mem::size_of,
 };
-use time::{macros::datetime, OffsetDateTime};
 
 pub const DWORD_SIZE: usize = 4;
 
@@ -13,7 +12,7 @@ pub fn cast_bytes<T: AnyBitPattern>(bytes: &[u8]) -> T {
     pod_read_unaligned(&bytes[..size_of::<T>()])
 }
 
-// reads the size prefix of $type and returns that many following bytes
+// reads the size prefix of type S and returns that many following bytes
 pub fn sized_bytes_to_bytes<S: AnyBitPattern + NoUninit + TryInto<usize, Error = impl Debug>>(
     bytes: &[u8],
 ) -> Vec<u8> {
@@ -30,6 +29,17 @@ pub fn sized_bytes_to_string<S: AnyBitPattern + NoUninit + TryInto<usize, Error 
     bytes_to_string(&source)
 }
 
+// returns a buffer with <bytes> prefixed with it's length
+pub fn bytes_to_sized_bytes<const SIZE_SIZE: usize>(bytes: &[u8]) -> Vec<u8> {
+    let len = bytes.len();
+    let mut buf = Vec::with_capacity(len + SIZE_SIZE);
+    let len_bytes = len.to_le_bytes();
+    buf.extend(&len_bytes[..SIZE_SIZE]);
+    buf.extend(bytes);
+
+    buf
+}
+
 // reads <count> bytes into a buffer
 pub fn read_bytes<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<u8>> {
     let mut buf = vec![0; count];
@@ -39,18 +49,18 @@ pub fn read_bytes<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<u8>> 
 }
 
 // reads <count> Ts into a buffer
-pub fn read_ts<T: AnyBitPattern, R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<T>> {
+pub fn read_t<T: AnyBitPattern, R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<T>> {
     if count == 0 {
         return Ok(vec![]);
     };
-    let bytes = read_bytes(reader, count * size_of::<T>())?;
+    let bytes = read_bytes(reader, count * size_of::<T>())?.into_boxed_slice();
 
     Ok(cast_slice(&bytes).to_vec())
 }
 
 // reads <count> DWORDs into a buffer
 pub fn read_dwords<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<u32>> {
-    read_ts(reader, count)
+    read_t(reader, count)
 }
 
 // reads all bytes until char is encountered, err if it's not present
@@ -73,24 +83,12 @@ pub fn bytes_to_string(value: &[u8]) -> String {
 
 // turns numerics (u16, f32, etc) into a u32, T can't be more than 4 bytes
 pub fn num_to_dword<T: AnyBitPattern + NoUninit>(num: T) -> u32 {
-    let size = size_of::<T>();
-    assert!(size <= 4, "T can't be larger than 4 bytes");
+    debug_assert!(size_of::<T>() <= 4, "T can't be larger than 4 bytes");
     let mut buf = [0u8; 4];
     for (idx, byte) in bytes_of(&num).iter().enumerate() {
         buf[idx] = *byte;
     }
     u32::from_ne_bytes(buf)
-}
-
-// returns a buffer with <bytes> prefixed with it's length
-pub fn bytes_to_sized_bytes<const SIZE_SIZE: usize>(bytes: &[u8]) -> Vec<u8> {
-    let len = bytes.len();
-    let mut buf = Vec::with_capacity(len + SIZE_SIZE);
-    let len_bytes = len.to_le_bytes();
-    buf.extend(&len_bytes[..SIZE_SIZE]);
-    buf.extend(bytes);
-
-    buf
 }
 
 pub trait ToUsizeVec {
@@ -133,16 +131,4 @@ pub fn nullpad_string(mut str: String, to_len: usize) -> String {
         str.push_str(&"\0".repeat(to_len - len));
     }
     str
-}
-
-// years since 1900 and days since jan 1
-pub fn get_erf_date() -> (u32, u32) {
-    let now = OffsetDateTime::now_utc();
-    let past = datetime!(1900 - 01 - 01 0:00 UTC);
-    let build_year = now.year() - past.year();
-
-    past.replace_year(now.year()).unwrap();
-    let build_day = (now - past).whole_days();
-
-    (build_year as u32, build_day as u32)
 }

@@ -1,17 +1,16 @@
 use crate::{
     save::Save,
+    ui::{
+        styles::set_button_styles,
+        widgets::{Icon, UiExt as _},
+        UiRef,
+    },
     util::{select_directory, ContextExt, Message},
 };
 use egui::Layout;
 use emath::Align;
 use serde::{Deserialize, Serialize};
 use sotor_macros::{EnumList, EnumToString};
-
-use super::{
-    styles::set_button_styles,
-    widgets::{Icon, UiExt as _},
-    UiRef,
-};
 
 mod characters;
 mod general;

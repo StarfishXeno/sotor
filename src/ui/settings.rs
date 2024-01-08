@@ -1,18 +1,17 @@
-use std::path::PathBuf;
-
-use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, Window};
-use emath::{Align2, Pos2, Vec2};
-
 use crate::{
     save::Game,
+    ui::{
+        styles::{
+            set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN, RED, WHITE,
+        },
+        widgets::{color_text, Icon, IconButton, UiExt},
+        UiRef,
+    },
     util::{select_directory, ContextExt, Message},
 };
-
-use super::{
-    styles::{set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN, RED, WHITE},
-    widgets::{color_text, Icon, IconButton, UiExt},
-    UiRef,
-};
+use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, Window};
+use emath::{Align2, Pos2, Vec2};
+use std::path::PathBuf;
 
 pub struct Settings<'a> {
     open: &'a mut bool,

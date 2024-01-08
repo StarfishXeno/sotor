@@ -1,13 +1,11 @@
 use crate::{
-    formats::twoda::{TwoDA, TwoDAType},
-    util::{bytes_to_string, read_dwords, read_ts, read_until, seek_to, ESResult, SResult},
+    formats::twoda::{TwoDA, TwoDAType, TwoDAValue},
+    util::{bytes_to_string, read_dwords, read_t, read_until, seek_to, ESResult, SResult},
 };
 use std::{
     collections::HashMap,
     io::{prelude::*, Cursor, SeekFrom},
 };
-
-use super::TwoDAValue;
 
 struct Reader<'a> {
     cursor: Cursor<&'a [u8]>,
@@ -100,7 +98,7 @@ impl<'a> Reader<'a> {
 
     fn read_cell_offsets(&mut self) -> ESResult {
         // +1 for data size we don't need
-        let mut ints = read_ts::<u16, _>(&mut self.cursor, self.total_columns * self.row_count + 1)
+        let mut ints = read_t::<u16, _>(&mut self.cursor, self.total_columns * self.row_count + 1)
             .map_err(|_| "couldn't read offsets".to_owned())?;
         // drop datasize
         ints.pop();

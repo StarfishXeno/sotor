@@ -1,8 +1,8 @@
+use std::collections::HashMap;
+
 mod bytes;
 mod fs;
 mod ui;
-
-use std::collections::HashMap;
 
 pub use bytes::*;
 pub use fs::*;

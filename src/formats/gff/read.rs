@@ -1,5 +1,3 @@
-use bytemuck::cast;
-
 use crate::{
     formats::{
         gff::{
@@ -8,11 +6,12 @@ use crate::{
         LocString,
     },
     util::{
-        bytes_to_string, cast_bytes, read_bytes, read_dwords, read_ts, seek_to,
+        bytes_to_string, cast_bytes, read_bytes, read_dwords, read_t, seek_to,
         sized_bytes_to_bytes, sized_bytes_to_string, ESResult, SResult, ToUsizeVec as _,
         DWORD_SIZE,
     },
 };
+use bytemuck::cast;
 use std::{
     collections::HashMap,
     io::{prelude::*, Cursor, SeekFrom},
@@ -61,26 +60,20 @@ struct Reader<'a> {
     structs: Vec<StructReadTmp>,
 }
 
-macro_rules! rf {
-    ($($t:tt)*) => {{
-        format!("GFF::read| {}", format!($($t)*))
-    }};
-}
-
 impl<'a> Reader<'a> {
     fn seek(&mut self, pos: usize) -> ESResult {
         seek_to!(self.cursor, pos)
     }
 
     fn read_header(cursor: &mut Cursor<&[u8]>) -> SResult<Header> {
-        cursor.rewind().map_err(|_| rf!("Couldn't read header"))?;
+        cursor.rewind().map_err(|_| "Couldn't read header")?;
 
         let string_bytes =
-            read_ts::<[u8; 4], _>(cursor, 2).map_err(|_| "Couldn't read header strings")?;
+            read_t::<[u8; 4], _>(cursor, 2).map_err(|_| "Couldn't read header strings")?;
         let file_type = bytes_to_string(&string_bytes[0]);
         let file_version = bytes_to_string(&string_bytes[1]);
         let dwords =
-            read_dwords(cursor, HEADER_SIZE - 2).map_err(|_| rf!("Couldn't read header data"))?;
+            read_dwords(cursor, HEADER_SIZE - 2).map_err(|_| "Couldn't read header data")?;
         let mut dwords = dwords.to_usize_vec().into_iter();
 
         Ok(Header {
@@ -109,7 +102,7 @@ impl<'a> Reader<'a> {
         let target_len = self.h.list_indices_bytes / DWORD_SIZE;
 
         let mut dwords: &[u32] = &read_dwords(&mut self.cursor, target_len).map_err(|_| {
-            rf!(
+            format!(
                 "Couldn't read list indices at starting offset {}",
                 self.h.list_indices_offset
             )
@@ -119,7 +112,7 @@ impl<'a> Reader<'a> {
         while !dwords.is_empty() {
             let size = dwords[0] as usize;
             let end = size + 1;
-            let indices = &dwords[1..=size];
+            let indices = &dwords[1..end];
 
             self.list_indices
                 .insert(offset * DWORD_SIZE, indices.to_usize_vec());
@@ -136,10 +129,7 @@ impl<'a> Reader<'a> {
 
         self.field_indices = read_dwords(&mut self.cursor, self.h.field_indices_bytes / DWORD_SIZE)
             .map_err(|_| {
-                rf!(
-                    "Couldn't read field indices, starting offset {}",
-                    field_indices_offset
-                )
+                format!("Couldn't read field indices, starting offset {field_indices_offset}")
             })?
             .to_usize_vec();
 
@@ -149,7 +139,7 @@ impl<'a> Reader<'a> {
     fn read_field_data(&mut self) -> ESResult {
         self.seek(self.h.field_data_offset)?;
         self.field_data = read_bytes(&mut self.cursor, self.h.field_data_bytes).map_err(|_| {
-            rf!(
+            format!(
                 "Couldn't read field data, starting offset {}",
                 self.h.field_data_offset
             )
@@ -162,13 +152,12 @@ impl<'a> Reader<'a> {
         self.seek(self.h.label_offset)?;
         self.labels = Vec::with_capacity(self.h.label_count);
 
-        let chunks =
-            read_ts::<[u8; 16], _>(&mut self.cursor, self.h.label_count).map_err(|_| {
-                rf!(
-                    "Couldn't read field indices, starting offset {}",
-                    self.h.field_indices_offset
-                )
-            })?;
+        let chunks = read_t::<[u8; 16], _>(&mut self.cursor, self.h.label_count).map_err(|_| {
+            format!(
+                "Couldn't read field labels, starting offset {}",
+                self.h.field_indices_offset
+            )
+        })?;
 
         for c in chunks {
             let label = bytes_to_string(&c).trim_matches('\0').to_owned();
@@ -188,7 +177,7 @@ impl<'a> Reader<'a> {
             use FieldTmp::Simple;
 
             let dwords = read_dwords(&mut self.cursor, FIELD_SIZE).map_err(|_| {
-                rf!(
+                format!(
                     "Couldn't read field {i}, starting offset {}",
                     self.h.field_offset
                 )
@@ -196,72 +185,70 @@ impl<'a> Reader<'a> {
             let label = self.labels[dwords[1] as usize].clone();
             let inner = dwords[2];
             let offset = inner as usize;
+            let data = |inner_offset| {
+                field_data.get(offset + inner_offset..).ok_or_else(|| {
+                    format!("invalid field data offset {offset} + {inner_offset} in row {i}")
+                })
+            };
 
             let value = match dwords[0] {
                 0 => Simple(Field::Byte(inner as u8)),
                 1 => Simple(Field::Char(inner as i8)),
                 2 => Simple(Field::Word(inner as u16)),
                 3 => Simple(Field::Short(inner as i16)),
-                4 => Simple(Field::Dword(cast(inner))),
-                5 => Simple(Field::Int(cast(inner))),
-                6 => Simple(Field::Dword64(cast_bytes(&field_data[offset..]))),
-                7 => Simple(Field::Int64(cast_bytes(&field_data[offset..]))),
+                4 => Simple(Field::Dword(inner)),
+                5 => Simple(Field::Int(inner as i32)),
+                6 => Simple(Field::Dword64(cast_bytes(data(0)?))),
+                7 => Simple(Field::Int64(cast_bytes(data(0)?))),
                 8 => Simple(Field::Float(cast(inner))),
-                9 => Simple(Field::Double(cast_bytes(&field_data[offset..]))),
-                10 => Simple(Field::String(sized_bytes_to_string::<u32>(
-                    &field_data[offset..],
-                ))),
-                11 => Simple(Field::ResRef(sized_bytes_to_string::<u8>(
-                    &field_data[offset..],
-                ))),
+                9 => Simple(Field::Double(cast_bytes(data(0)?))),
+                10 => Simple(Field::String(sized_bytes_to_string::<u32>(data(0)?))),
+                11 => Simple(Field::ResRef(sized_bytes_to_string::<u8>(data(0)?))),
                 12 => {
-                    let str_ref = cast_bytes(&field_data[offset + DWORD_SIZE..]);
-                    let count: u32 = cast_bytes(&field_data[offset + DWORD_SIZE * 2..]);
-                    let mut offset = offset + DWORD_SIZE * 3;
+                    let mut inner_offset = DWORD_SIZE;
+                    let str_ref = cast_bytes(data(inner_offset)?);
+                    inner_offset += DWORD_SIZE;
+                    let count: u32 = cast_bytes(data(inner_offset)?);
+                    inner_offset += DWORD_SIZE;
                     let mut strings = Vec::with_capacity(count as usize);
+
                     for _ in 0..count {
-                        let id = cast_bytes(&field_data[offset..]);
-                        offset += DWORD_SIZE;
-                        let content = sized_bytes_to_string::<u32>(&field_data[offset..]);
-                        offset += DWORD_SIZE + content.len();
+                        let id = cast_bytes(data(inner_offset)?);
+                        inner_offset += DWORD_SIZE;
+                        let content = sized_bytes_to_string::<u32>(data(inner_offset)?);
+                        inner_offset += DWORD_SIZE + content.len();
                         strings.push(LocString { id, content });
                     }
                     Simple(Field::LocString(str_ref, strings))
                 }
-                13 => Simple(Field::Void(sized_bytes_to_bytes::<u32>(
-                    &field_data[offset..],
-                ))),
+                13 => Simple(Field::Void(sized_bytes_to_bytes::<u32>(data(0)?))),
                 14 => FieldTmp::Struct(offset),
                 15 => {
-                    let indices = self
-                        .list_indices
-                        .remove(&offset)
-                        .ok_or(rf!("Couldn't find list indices at {inner} in field {i}"))?;
+                    let indices = self.list_indices.remove(&offset).ok_or(format!(
+                        "Couldn't find list indices at {inner} in field {i}"
+                    ))?;
 
                     FieldTmp::List(indices)
                 }
                 16 => {
                     const SIZE: usize = size_of::<f32>();
-                    let bytes = &field_data[offset..];
-
                     Simple(Field::Orientation(Orientation {
-                        w: cast_bytes(&bytes[0..]),
-                        x: cast_bytes(&bytes[SIZE..]),
-                        y: cast_bytes(&bytes[SIZE * 2..]),
-                        z: cast_bytes(&bytes[SIZE * 3..]),
+                        w: cast_bytes(data(0)?),
+                        x: cast_bytes(data(SIZE)?),
+                        y: cast_bytes(data(SIZE * 2)?),
+                        z: cast_bytes(data(SIZE * 3)?),
                     }))
                 }
                 17 => {
                     const SIZE: usize = size_of::<f32>();
-                    let bytes = &field_data[offset..];
 
                     Simple(Field::Vector(Vector {
-                        x: cast_bytes(&bytes[0..]),
-                        y: cast_bytes(&bytes[SIZE..]),
-                        z: cast_bytes(&bytes[SIZE * 2..]),
+                        x: cast_bytes(data(0)?),
+                        y: cast_bytes(data(SIZE)?),
+                        z: cast_bytes(data(SIZE * 2)?),
                     }))
                 }
-                t => return Err(rf!("Invalid field type {t} in field {i}: {label}")),
+                t => return Err(format!("Invalid field type {t} in field {i}: {label}")),
             };
 
             self.fields.push(FieldReadTmp { value, label });
@@ -275,7 +262,7 @@ impl<'a> Reader<'a> {
 
         for i in 0..self.h.struct_count {
             let dwords = read_dwords(&mut self.cursor, STRUCT_SIZE).map_err(|_| {
-                rf!(
+                format!(
                     "Couldn't read struct {i}, starting offset {}",
                     self.h.struct_offset
                 )
@@ -291,6 +278,7 @@ impl<'a> Reader<'a> {
                     self.field_indices[start..start + field_count].into()
                 }
             };
+
             self.structs.push(StructReadTmp {
                 r#type: dwords[0],
                 field_indices: struct_field_indices,

@@ -1,11 +1,10 @@
+use crate::{
+    formats::gff::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE},
+    util::{bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE},
+};
 use std::{
     collections::HashMap,
     io::{Cursor, Seek, Write},
-};
-
-use super::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE};
-use crate::util::{
-    bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE,
 };
 
 const MAX_LABEL_LEN: usize = 16;

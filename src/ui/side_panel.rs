@@ -1,15 +1,13 @@
 use crate::{
     save::Game,
     ui::{
-        styles::{BLUE, RED, WHITE},
+        styles::{BLUE, GREY, RED, WHITE},
         widgets::{color_text, Icon, UiExt},
         SaveDirectories, UiRef,
     },
     util::{open_file_manager, ContextExt, Message},
 };
 use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, PointerButton, ScrollArea};
-
-use super::styles::GREY;
 
 pub struct SidePanel<'a> {
     current_save: &'a Option<String>,

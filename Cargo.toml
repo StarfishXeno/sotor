@@ -27,7 +27,6 @@ cast_lossless = "allow"
 [dependencies]
 sotor_macros = { path = "./macros" }
 bytemuck = "1.14.0"
-anyhow = "1.0.79"
 rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
 time = { version = "0.3.31", features = ["macros"] }

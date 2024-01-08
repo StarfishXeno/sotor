@@ -1,10 +1,7 @@
+use crate::{save::Game, util::SResult};
 use egui::{util::id_type_map::SerializableAny, ColorImage, Context, IconData, Id, Ui};
 use image::io::Reader as ImageReader;
 use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
-
-use crate::save::Game;
-
-use super::SResult;
 
 pub enum Message {
     Save,
