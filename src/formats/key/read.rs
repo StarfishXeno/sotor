@@ -3,7 +3,7 @@ use crate::{
         key::{Key, KeyResRef},
         ResourceKey, ResourceType,
     },
-    util::{seek_to, take, take_head, take_slice, take_string, SResult, ToUsizeVec as _},
+    util::{seek_to, take, take_head, take_slice, take_string_trimmed, SResult, ToUsizeVec as _},
 };
 use std::{
     collections::HashMap,
@@ -11,14 +11,12 @@ use std::{
 };
 
 struct Reader<'a> {
-    c: Cursor<&'a [u8]>,
+    c: &'a mut Cursor<&'a [u8]>,
 }
 
 impl<'a> Reader<'a> {
-    fn new(bytes: &'a [u8]) -> Self {
-        Self {
-            c: Cursor::new(bytes),
-        }
+    fn new(c: &'a mut Cursor<&'a [u8]>) -> Self {
+        Self { c }
     }
 
     fn read(mut self) -> SResult<Key> {
@@ -29,7 +27,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(&mut self) -> SResult<(usize, usize)> {
-        let file_head = take_head(&mut self.c).ok_or("couldn't read file version and type")?;
+        let file_head = take_head(self.c).ok_or("couldn't read file version and type")?;
 
         if file_head.tp != "KEY " || file_head.version != "V1  " {
             return Err(format!("invalid file type or version {file_head:?}"));
@@ -55,19 +53,19 @@ impl<'a> Reader<'a> {
         let mut resources = HashMap::with_capacity(count);
 
         for key in key_table {
-            let mut c = Cursor::new(key.as_ref());
-            let file_name = take_string(&mut c, 16).unwrap();
-            let tp_raw = take::<u16>(&mut c).unwrap();
+            let c = &mut Cursor::new(key.as_ref());
+            let file_name = take_string_trimmed(c, 16).unwrap();
+            let tp_raw = take::<u16>(c).unwrap();
             let Ok(tp) = ResourceType::try_from(tp_raw) else {
                 // we don't care about most resource types and the relevant ones are defined
                 continue;
             };
-            let id = take::<u32>(&mut c).unwrap();
+            let id = take::<u32>(c).unwrap();
             let file_idx = id >> 20;
             let resource_idx = (id >> 14) - (file_idx << 6);
 
             resources.insert(
-                (file_name.trim_end_matches('\0').to_string(), tp).into(),
+                (file_name, tp).into(),
                 KeyResRef {
                     file_idx,
                     resource_idx,
@@ -80,7 +78,8 @@ impl<'a> Reader<'a> {
 }
 
 pub fn read(bytes: &[u8]) -> SResult<Key> {
-    Reader::new(bytes)
+    let mut c = Cursor::new(bytes);
+    Reader::new(&mut c)
         .read()
         .map_err(|err| format!("Key::read| {err}"))
 }

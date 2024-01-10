@@ -10,8 +10,6 @@ members = ["macros"]
 [lints]
 workspace = true
 
-[workspace.lints.rust]
-unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 pedantic = "warn"

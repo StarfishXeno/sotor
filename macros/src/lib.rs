@@ -173,10 +173,13 @@ pub fn derive_enum_list(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(EnumToString)]
 pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
     let (name, input, data) = parse_enum!(input);
+    let repr = get_enum_repr!(input);
 
     let mut match_arms = TokenStream2::new();
+    let mut discr_match_arms = TokenStream2::new();
 
     for variant in &data.variants {
+        let discr = variant.discriminant.as_ref().map(|d| d.1.clone());
         let v_name = &variant.ident;
         let str_name = v_name.to_string();
         let fields_in_variant = match &variant.fields {
@@ -190,6 +193,11 @@ pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
         match_arms.extend(quote_spanned! {variant.span()=>
             #name::#v_name #fields_in_variant => #str_name,
         });
+        if let Some(repr) = discr {
+            discr_match_arms.extend(quote_spanned! {variant.span()=>
+                #repr => #str_name,
+            });
+        }
     }
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -200,6 +208,15 @@ pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
                 write!(f, "{}", match self {
                     #match_arms
                 })
+            }
+        }
+
+        impl #impl_generics #name #ty_generics #where_clause {
+            fn repr_to_string(repr: #repr) -> &'static str {
+                match repr {
+                    #discr_match_arms
+                    _ => panic!()
+                }
             }
         }
     };

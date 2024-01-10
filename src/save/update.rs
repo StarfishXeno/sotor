@@ -292,8 +292,7 @@ impl<'a> Updater<'a> {
                 unreachable!()
             };
             res.content = gff::write(Gff {
-                file_type: "UTC ".to_owned(),
-                file_version: "V3.2".to_owned(),
+                file_head: ("UTC ", "V3.2").into(),
                 content: char.clone(),
             });
         }

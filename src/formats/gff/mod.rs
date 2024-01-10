@@ -1,5 +1,5 @@
-use super::LocString;
-use sotor_macros::{EnumToInt, UnwrapVariant};
+use super::{FileHead, LocString};
+use sotor_macros::{EnumToInt, EnumToString, UnwrapVariant};
 use std::collections::HashMap;
 
 mod read;
@@ -39,7 +39,7 @@ pub struct Vector {
 }
 
 #[repr(u8)]
-#[derive(EnumToInt, UnwrapVariant, Debug, Clone, PartialEq)]
+#[derive(EnumToInt, EnumToString, UnwrapVariant, Debug, Clone, PartialEq)]
 pub enum Field {
     Byte(u8) = 0,
     Char(i8) = 1,
@@ -85,8 +85,7 @@ impl Struct {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Gff {
-    pub file_type: String,
-    pub file_version: String,
+    pub file_head: FileHead,
     pub content: Struct,
 }
 
@@ -104,8 +103,7 @@ mod tests {
     #[test]
     fn read_write() {
         let gff = Gff {
-            file_type: "TST ".to_owned(),
-            file_version: "V0.0".to_owned(),
+            file_head: ("TST", "V0.0").into(),
             content: Struct::new(vec![
                 ("Byte", Field::Byte(u8::MAX)),
                 ("Char", Field::Char(i8::MIN)),

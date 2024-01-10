@@ -12,9 +12,15 @@ pub struct FileHead {
     pub tp: String,
 }
 
-impl FileHead {
-    pub fn new(version: String, tp: String) -> Self {
-        Self { version, tp }
+impl From<(&str, &str)> for FileHead {
+    fn from((version, tp): (&str, &str)) -> Self {
+        debug_assert!(version.len() == 4);
+        debug_assert!(tp.len() == 4);
+
+        Self {
+            version: version.to_owned(),
+            tp: tp.to_owned(),
+        }
     }
 }
 

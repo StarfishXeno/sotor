@@ -40,6 +40,7 @@ pub fn editor_placeholder(ui: UiRef) {
 }
 
 #[derive(EnumToString, EnumList, Serialize, Deserialize, PartialEq, Clone, Copy, Default)]
+#[repr(u8)]
 pub enum Tab {
     #[default]
     General,

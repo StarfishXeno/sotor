@@ -1,5 +1,8 @@
 use crate::{
-    formats::gff::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE},
+    formats::{
+        gff::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE},
+        FileHead,
+    },
     util::{bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE},
 };
 use std::{
@@ -20,8 +23,7 @@ struct StructWriteTmp {
     field_count: u32,
 }
 pub struct Writer {
-    file_type: String,
-    file_version: String,
+    file_head: FileHead,
     // indices into labels
     label_map: HashMap<String, usize>,
     labels: Vec<String>,
@@ -36,8 +38,7 @@ pub struct Writer {
 impl Writer {
     fn new(gff: Gff) -> Self {
         let mut w = Self {
-            file_type: gff.file_type,
-            file_version: gff.file_version,
+            file_head: gff.file_head,
             label_map: HashMap::new(),
             labels: vec![],
             structs: vec![],
@@ -191,8 +192,8 @@ impl Writer {
         let buf = Vec::with_capacity(self.fields.len() * 12 * DWORD_SIZE);
         let mut cursor = Cursor::new(buf);
         let field_count = self.field_count;
-        let file_type = self.file_type;
-        let file_version = self.file_version;
+        let file_type = self.file_head.tp;
+        let file_version = self.file_head.version;
 
         // sort structs propertly
         self.structs.sort_by_key(|s| s.my_idx);

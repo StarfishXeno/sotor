@@ -56,13 +56,13 @@ impl Erf {
 mod tests {
     use crate::formats::{
         erf::{read, write, Erf, Resource},
-        FileHead, LocString, ResourceType,
+        LocString, ResourceType,
     };
 
     #[test]
     fn read_write() {
         let erf = Erf {
-            file_head: FileHead::new("TST ".to_owned(), "V0.0".to_owned()),
+            file_head: ("TST ", "V0.0").into(),
 
             resources: [
                 (

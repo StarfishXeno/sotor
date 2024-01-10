@@ -1,8 +1,6 @@
 use crate::{
     formats::twoda::{TwoDA, TwoDAType, TwoDAValue},
-    util::{
-        bytes_to_string, read_t, seek_to, take, take_head, take_string_until, ESResult, SResult,
-    },
+    util::{seek_to, take, take_head, take_slice, take_string_until, ESResult, SResult},
 };
 use std::{
     collections::HashMap,
@@ -101,8 +99,8 @@ impl<'a> Reader<'a> {
 
     fn read_cell_offsets(&mut self, total_columns: usize, row_count: usize) -> SResult<Vec<u16>> {
         // +1 for data size we don't need
-        let mut offsets = read_t::<u16, _>(&mut self.c, total_columns * row_count + 1)
-            .map_err(|_| "couldn't read offsets".to_owned())?;
+        let mut offsets = take_slice::<u16>(&mut self.c, total_columns * row_count + 1)
+            .ok_or("couldn't read offsets")?;
         // drop datasize
         offsets.pop();
 
