@@ -80,5 +80,7 @@ impl<'a> Reader<'a> {
 }
 
 pub fn read(bytes: &[u8]) -> SResult<Key> {
-    Reader::new(bytes).read()
+    Reader::new(bytes)
+        .read()
+        .map_err(|err| format!("Key::read| {err}"))
 }

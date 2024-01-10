@@ -1,10 +1,8 @@
 use crate::formats::FileHead;
-use bytemuck::{
-    bytes_of, cast_slice, pod_read_unaligned, try_pod_read_unaligned, AnyBitPattern, NoUninit, Pod,
-};
+use bytemuck::{bytes_of, cast_slice, pod_read_unaligned, AnyBitPattern, NoUninit, Pod};
 use std::{
     fmt::Debug,
-    io::{self, prelude::*, Cursor},
+    io::{self, prelude::*, Cursor, Read},
     mem::size_of,
 };
 
@@ -66,20 +64,6 @@ pub fn read_dwords<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<u32>
     read_t(reader, count)
 }
 
-// reads all bytes until char is encountered, err if it's not present
-pub fn read_until<R: BufRead>(reader: &mut R, char: u8) -> io::Result<Vec<u8>> {
-    let mut buf = vec![];
-    reader.read_until(char, &mut buf)?;
-    let last_char = buf.pop();
-    if last_char.is_none() || last_char.unwrap() != char {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "target char not found",
-        ));
-    };
-    Ok(buf)
-}
-
 pub fn bytes_to_string(value: &[u8]) -> String {
     String::from_utf8_lossy(value).to_string()
 }
@@ -99,13 +83,11 @@ pub trait ToUsizeVec {
 }
 impl<T, E> ToUsizeVec for &[T]
 where
-    T: TryInto<usize, Error = E> + Clone,
+    T: TryInto<usize, Error = E> + Copy,
     E: Debug,
 {
     fn to_usize_vec(self) -> Vec<usize> {
-        self.iter()
-            .map(|i| (*i).clone().try_into().unwrap())
-            .collect()
+        self.iter().map(|i| (*i).try_into().unwrap()).collect()
     }
 }
 
@@ -123,7 +105,7 @@ macro_rules! seek_to {
         $reader
             .seek(SeekFrom::Start($pos as u64))
             .map(|_| ())
-            .map_err(|_| format!("Couldn't seek to {}", $pos))
+            .map_err(|_| format!("couldn't seek to {}", $pos))
     };
 }
 pub(crate) use seek_to;
@@ -152,7 +134,7 @@ pub fn take<T: Pod>(input: &mut Cursor<&[u8]>) -> Option<T> {
     let offset = input.position() as usize;
     let next_offset = offset + size_of::<T>();
     let buf = *input.get_ref();
-    let v = try_pod_read_unaligned(&buf[offset..next_offset]).ok()?;
+    let v = pod_read_unaligned(buf.get(offset..next_offset)?);
     input.set_position(next_offset as u64);
 
     Some(v)
@@ -163,6 +145,21 @@ pub fn take_string(input: &mut Cursor<&[u8]>, len: usize) -> Option<String> {
         return None;
     };
     Some(bytes_to_string(bytes))
+}
+
+pub fn take_string_until(input: &mut Cursor<&[u8]>, terminator: u8) -> Option<String> {
+    let mut buf = vec![];
+    input.read_until(terminator, &mut buf).ok()?;
+
+    if let Some(byte) = buf.pop() {
+        if byte != terminator {
+            return None;
+        }
+    } else {
+        return None;
+    }
+
+    String::from_utf8(buf).ok()
 }
 
 pub fn take_head(input: &mut Cursor<&[u8]>) -> Option<FileHead> {

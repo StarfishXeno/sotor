@@ -167,5 +167,7 @@ impl<'a> Reader<'a> {
 pub fn read(bytes: &[u8]) -> SResult<Erf> {
     let mut c = Cursor::new(bytes);
     let h = Reader::read_header(&mut c)?;
-    Reader::new(c, h).read()
+    Reader::new(c, h)
+        .read()
+        .map_err(|err| format!("Erf::read| {err}"))
 }
