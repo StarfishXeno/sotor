@@ -4,7 +4,7 @@ use crate::{
             Erf, Resource, HEADER_PADDING_SIZE_BYTES, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES,
             RESOURCE_SIZE,
         },
-        ResourceKey, ResourceType,
+        FileHead, ResourceKey, ResourceType,
     },
     util::{bytes_to_sized_bytes, nullpad_string, ToByteSlice as _, DWORD_SIZE},
 };
@@ -23,8 +23,7 @@ struct ResourceWrite {
 }
 
 pub struct Writer {
-    file_type: String,
-    file_version: String,
+    file_head: FileHead,
     description_str_ref: u32,
 
     loc_strings: Vec<u8>,
@@ -73,9 +72,8 @@ impl Writer {
         }
 
         Self {
-            file_type: erf.file_type,
-            file_version: erf.file_version,
-            description_str_ref: erf.description_str_ref,
+            file_head: erf.file_head,
+            description_str_ref: erf.description_str_ref as u32,
 
             loc_strings,
             loc_strings_count,
@@ -127,8 +125,7 @@ impl Writer {
         // DATA
         cursor.write_all(&self.data).unwrap();
         // HEADER
-        let file_type = self.file_type;
-        let file_version = self.file_version;
+        let file_head = self.file_head;
         let description_str_ref = self.description_str_ref;
 
         // build date
@@ -139,8 +136,8 @@ impl Writer {
         let build_day = (now - past).whole_days();
 
         cursor.rewind().unwrap();
-        cursor.write_all(file_type.as_bytes()).unwrap();
-        cursor.write_all(file_version.as_bytes()).unwrap();
+        cursor.write_all(file_head.tp.as_bytes()).unwrap();
+        cursor.write_all(file_head.version.as_bytes()).unwrap();
         cursor
             .write_all(
                 [

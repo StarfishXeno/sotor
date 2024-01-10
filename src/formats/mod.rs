@@ -6,6 +6,18 @@ pub mod gff;
 pub mod key;
 pub mod twoda;
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct FileHead {
+    pub version: String,
+    pub tp: String,
+}
+
+impl FileHead {
+    pub fn new(version: String, tp: String) -> Self {
+        Self { version, tp }
+    }
+}
+
 #[repr(u16)]
 #[derive(EnumFromInt, Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ResourceType {

@@ -7,6 +7,8 @@ mod write;
 pub use read::read;
 pub use write::write;
 
+use super::FileHead;
+
 // 11 DWORD fields + 116 bytes reserved
 const HEADER_SIZE: usize = 11;
 const HEADER_PADDING_SIZE_BYTES: usize = 116;
@@ -33,12 +35,11 @@ impl fmt::Debug for Resource {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Erf {
-    pub file_type: String,
-    pub file_version: String,
+    pub file_head: FileHead,
 
     pub resources: HashMap<ResourceKey, Resource>,
     pub loc_strings: Vec<LocString>,
-    pub description_str_ref: u32,
+    pub description_str_ref: usize,
 }
 
 impl Erf {
@@ -55,14 +56,13 @@ impl Erf {
 mod tests {
     use crate::formats::{
         erf::{read, write, Erf, Resource},
-        LocString, ResourceType,
+        FileHead, LocString, ResourceType,
     };
 
     #[test]
     fn read_write() {
         let erf = Erf {
-            file_type: "TST ".to_owned(),
-            file_version: "V0.0".to_owned(),
+            file_head: FileHead::new("TST ".to_owned(), "V0.0".to_owned()),
 
             resources: [
                 (

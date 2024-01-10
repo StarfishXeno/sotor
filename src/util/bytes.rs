@@ -1,7 +1,10 @@
-use bytemuck::{bytes_of, cast_slice, pod_read_unaligned, AnyBitPattern, NoUninit};
+use crate::formats::FileHead;
+use bytemuck::{
+    bytes_of, cast_slice, pod_read_unaligned, try_pod_read_unaligned, AnyBitPattern, NoUninit, Pod,
+};
 use std::{
     fmt::Debug,
-    io::{self, prelude::*},
+    io::{self, prelude::*, Cursor},
     mem::size_of,
 };
 
@@ -131,4 +134,40 @@ pub fn nullpad_string(mut str: String, to_len: usize) -> String {
         str.push_str(&"\0".repeat(to_len - len));
     }
     str
+}
+
+pub fn take_slice<'a, T: Pod + Debug>(input: &'a mut Cursor<&[u8]>, len: usize) -> Option<&'a [T]> {
+    let offset = input.position() as usize;
+    let next_offset = offset + len * size_of::<T>();
+    let buf = *input.get_ref();
+    let Some(bytes) = buf.get(offset..next_offset) else {
+        return None;
+    };
+    input.set_position(next_offset as u64);
+
+    Some(cast_slice(bytes))
+}
+
+pub fn take<T: Pod>(input: &mut Cursor<&[u8]>) -> Option<T> {
+    let offset = input.position() as usize;
+    let next_offset = offset + size_of::<T>();
+    let buf = *input.get_ref();
+    let v = try_pod_read_unaligned(&buf[offset..next_offset]).ok()?;
+    input.set_position(next_offset as u64);
+
+    Some(v)
+}
+
+pub fn take_string(input: &mut Cursor<&[u8]>, len: usize) -> Option<String> {
+    let Some(bytes) = take_slice(input, len) else {
+        return None;
+    };
+    Some(bytes_to_string(bytes))
+}
+
+pub fn take_head(input: &mut Cursor<&[u8]>) -> Option<FileHead> {
+    let head = take_string(input, 8)?;
+    let (tp, version) = head.split_at(4);
+
+    Some(FileHead::new(tp.to_owned(), version.to_owned()))
 }
