@@ -1,4 +1,4 @@
-use crate::formats::{LocString, ResourceType};
+use crate::formats::{LocString, ResourceKey, ResourceType};
 use std::{collections::HashMap, fmt};
 
 mod read;
@@ -36,18 +36,18 @@ pub struct Erf {
     pub file_type: String,
     pub file_version: String,
 
-    pub resources: HashMap<(String, ResourceType), Resource>,
+    pub resources: HashMap<ResourceKey, Resource>,
     pub loc_strings: Vec<LocString>,
     pub description_str_ref: u32,
 }
 
 impl Erf {
     pub fn get(&self, name: &str, tp: ResourceType) -> Option<&Resource> {
-        self.resources.get(&(name.to_string(), tp))
+        self.resources.get(&(name.to_string(), tp).into())
     }
 
     pub fn get_mut(&mut self, name: &str, tp: ResourceType) -> Option<&mut Resource> {
-        self.resources.get_mut(&(name.to_string(), tp))
+        self.resources.get_mut(&(name.to_string(), tp).into())
     }
 }
 
@@ -66,14 +66,14 @@ mod tests {
 
             resources: [
                 (
-                    ("pc".to_owned(), ResourceType::Txt),
+                    ("pc".to_owned(), ResourceType::Txt).into(),
                     Resource {
                         id: 0,
                         content: (*b"pc").into(),
                     },
                 ),
                 (
-                    ("inventory".to_owned(), ResourceType::Txt),
+                    ("inventory".to_owned(), ResourceType::Txt).into(),
                     Resource {
                         id: 1,
                         content: (*b"inventory").into(),

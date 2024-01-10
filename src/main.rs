@@ -4,6 +4,10 @@ mod ui;
 mod util;
 
 fn main() -> eframe::Result<()> {
+    #[cfg(target_endian = "big")]
+    {
+        compile_error!("nope");
+    }
     env_logger::init();
 
     let native_options = eframe::NativeOptions {

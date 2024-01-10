@@ -4,7 +4,7 @@ use crate::{
             Erf, Resource, HEADER_PADDING_SIZE_BYTES, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES,
             RESOURCE_SIZE,
         },
-        ResourceType,
+        ResourceKey, ResourceType,
     },
     util::{bytes_to_sized_bytes, nullpad_string, ToByteSlice as _, DWORD_SIZE},
 };
@@ -49,15 +49,14 @@ impl Writer {
         let mut data = Vec::with_capacity(data_len);
 
         // resort it properly by ids before saving
-        let mut sorted: Vec<((String, ResourceType), Resource)> =
-            erf.resources.into_iter().collect();
+        let mut sorted: Vec<(ResourceKey, Resource)> = erf.resources.into_iter().collect();
         sorted.sort_by_key(|(_, r)| r.id);
 
-        for ((name, tp), r) in sorted {
+        for (key, r) in sorted {
             keys.push(KeyWrite {
-                name: nullpad_string(name, KEY_NAME_LEN),
+                name: nullpad_string(key.0, KEY_NAME_LEN),
                 id: r.id,
-                tp,
+                tp: key.1,
             });
             let offset = data.len() as u32;
             let size = r.content.len() as u32;

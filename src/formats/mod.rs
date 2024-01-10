@@ -3,12 +3,13 @@ use sotor_macros::EnumFromInt;
 
 pub mod erf;
 pub mod gff;
+pub mod key;
 pub mod twoda;
 
 #[repr(u16)]
-#[derive(Debug, EnumFromInt, Serialize, Deserialize, PartialEq, Eq, Clone, Hash)]
+#[derive(EnumFromInt, Debug, PartialEq, Eq, Clone, Hash)]
 pub enum ResourceType {
-    Res = 0,
+    Unknown = 0,
     Txt = 10,
     Are = 2012,
     Ifo = 2014,
@@ -17,6 +18,15 @@ pub enum ResourceType {
     Fac = 2038,
     Sav = 2057,
     Tpc = 3007,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct ResourceKey(pub String, pub ResourceType);
+
+impl From<(String, ResourceType)> for ResourceKey {
+    fn from((str, tp): (String, ResourceType)) -> Self {
+        Self(str, tp)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

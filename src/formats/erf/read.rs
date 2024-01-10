@@ -163,7 +163,7 @@ impl<'a> Reader<'a> {
             seek_to!(cursor, res.offset)?;
 
             resources.insert(
-                (key.name, key.res_type),
+                (key.name, key.res_type).into(),
                 Resource {
                     id: key.id,
                     content: read_bytes(&mut cursor, res.size).map_err(|_| {

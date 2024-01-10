@@ -63,6 +63,7 @@ impl SotorApp {
                 .and_then(|s| eframe::get_value(s, APP_KEY))
                 .unwrap_or_default(),
         };
+
         app.reload_save_list(&cc.egui_ctx);
         app.reload_game_data();
 
