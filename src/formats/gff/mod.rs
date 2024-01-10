@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn read_write() {
         let gff = Gff {
-            file_head: ("TST", "V0.0").into(),
+            file_head: ("TST ", "V0.0").into(),
             content: Struct::new(vec![
                 ("Byte", Field::Byte(u8::MAX)),
                 ("Char", Field::Char(i8::MIN)),

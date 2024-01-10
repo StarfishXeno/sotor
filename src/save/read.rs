@@ -312,7 +312,7 @@ impl Reader {
 
         let name = get_field!(fields, "FirstName", unwrap_loc_string)?
             .1
-            .get(0)
+            .first()
             .map_or_else(
                 || {
                     get_party(self.game)

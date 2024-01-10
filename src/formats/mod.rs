@@ -8,18 +8,18 @@ pub mod twoda;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FileHead {
-    pub version: String,
     pub tp: String,
+    pub version: String,
 }
 
 impl From<(&str, &str)> for FileHead {
-    fn from((version, tp): (&str, &str)) -> Self {
-        debug_assert!(version.len() == 4);
+    fn from((tp, version): (&str, &str)) -> Self {
         debug_assert!(tp.len() == 4);
+        debug_assert!(version.len() == 4);
 
         Self {
-            version: version.to_owned(),
             tp: tp.to_owned(),
+            version: version.to_owned(),
         }
     }
 }
