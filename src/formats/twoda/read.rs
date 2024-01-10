@@ -42,9 +42,7 @@ impl<'a> Reader<'a> {
             return Err(format!("Invalid 2da version: {}", file_head.version));
         }
         // skip newline
-        self.c
-            .seek(SeekFrom::Current(1))
-            .map_err(|_| "couldn't seek to header ending")?;
+        self.c.consume(1);
 
         Ok(())
     }

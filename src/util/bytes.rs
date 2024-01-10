@@ -133,6 +133,11 @@ pub fn take_string_trimmed(input: &mut Cursor<&[u8]>, max_len: usize) -> Option<
     let mut limited = Cursor::new(input.get_ref().get(position..position + max_len)?);
     let mut buf = Vec::with_capacity(max_len);
     limited.read_until(b'\0', &mut buf).ok()?;
+    if let Some(last) = buf.last() {
+        if *last == b'\0' {
+            buf.pop();
+        }
+    };
     input.consume(max_len);
 
     String::from_utf8(buf).ok()

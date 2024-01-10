@@ -207,7 +207,7 @@ impl<'a> Reader<'a> {
                     take_string_sized::<u8>(c).map(Field::ResRef)
                 })?),
                 12 => Simple(read_data(tp, field_data, value, idx, |c| {
-                    c.seek(SeekFrom::Current(DWORD_SIZE as i64)).ok()?;
+                    c.consume(DWORD_SIZE);
                     let [str_ref, count] = take::<[u32; 2]>(c)?;
                     let mut strings = Vec::with_capacity(count as usize);
 
