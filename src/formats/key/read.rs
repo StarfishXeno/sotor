@@ -3,7 +3,7 @@ use crate::{
         key::{Key, KeyResRef},
         ResourceKey, ResourceType,
     },
-    util::{seek_to, take, take_head, take_slice, take_string_trimmed, SResult, ToUsizeVec as _},
+    util::{seek_to, take, take_bytes, take_head, take_string_trimmed, SResult, ToUsizeVec as _},
 };
 use std::{
     collections::HashMap,
@@ -27,12 +27,12 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(&mut self) -> SResult<(usize, usize)> {
-        let file_head = take_head(self.c).ok_or("couldn't read file version and type")?;
+        let file_head = take_head(self.c).ok_or("couldn't read file head")?;
 
         if file_head.tp != "KEY " || file_head.version != "V1  " {
             return Err(format!("invalid file type or version {file_head:?}"));
         }
-        let [_file_count, key_count, _file_offset, key_offset] = take::<[u32; 4]>(&mut self.c)
+        let [_file_count, key_count, _file_offset, key_offset] = take::<[u32; 4]>(self.c)
             .ok_or("could read header contents")?
             .to_usize_vec()
             .try_into()
@@ -48,19 +48,19 @@ impl<'a> Reader<'a> {
     ) -> SResult<HashMap<ResourceKey, KeyResRef>> {
         const RESOURCE_SIZE_BYTES: usize = 22;
         seek_to!(self.c, offset)?;
-        let key_table = take_slice::<[u8; RESOURCE_SIZE_BYTES]>(&mut self.c, count)
-            .ok_or("couldn't read key table")?;
+        let bytes =
+            take_bytes(self.c, count * RESOURCE_SIZE_BYTES).ok_or("couldn't read key table")?;
+        let c = &mut Cursor::new(bytes);
         let mut resources = HashMap::with_capacity(count);
 
-        for key in key_table {
-            let c = &mut Cursor::new(key.as_ref());
+        for _ in 0..count {
             let file_name = take_string_trimmed(c, 16).unwrap();
             let tp_raw = take::<u16>(c).unwrap();
+            let id = take::<u32>(c).unwrap();
             let Ok(tp) = ResourceType::try_from(tp_raw) else {
                 // we don't care about most resource types and the relevant ones are defined
                 continue;
             };
-            let id = take::<u32>(c).unwrap();
             let file_idx = id >> 20;
             let resource_idx = (id >> 14) - (file_idx << 6);
 

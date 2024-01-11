@@ -4,13 +4,13 @@ use crate::{
         FileHead, LocString, ResourceType,
     },
     util::{
-        seek_to, take, take_head, take_slice, take_string, take_string_trimmed, SResult,
-        ToUsizeVec as _,
+        seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed,
+        SResult, ToUsizeVec as _,
     },
 };
 use std::{
     collections::HashMap,
-    io::{Cursor, Seek, SeekFrom},
+    io::{BufRead, Cursor, Seek, SeekFrom},
 };
 
 use super::HEADER_SIZE;
@@ -48,7 +48,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(c: &mut Cursor<&[u8]>) -> SResult<Header> {
-        let head = take_head(c).ok_or("Couldn't read head")?;
+        let head = take_head(c).ok_or("couldn't read file head")?;
         let slice = take_slice::<u32>(c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let [loc_string_count, _, entry_count, loc_string_offset, keys_offset, resources_offset, _, _, description_str_ref] =
             slice.to_usize_vec().try_into().unwrap();
@@ -96,14 +96,16 @@ impl<'a> Reader<'a> {
     fn read_key_list(&mut self) -> SResult<Vec<KeyRead>> {
         seek_to!(self.c, self.h.keys_offset)?;
         let mut keys = Vec::with_capacity(self.h.entry_count);
-        let key_bytes = take_slice::<[u8; KEY_SIZE_BYTES]>(self.c, self.h.entry_count)
+        let bytes = take_bytes(self.c, self.h.entry_count * KEY_SIZE_BYTES)
             .ok_or("couldn't read key list")?;
+        let c = &mut Cursor::new(bytes);
 
-        for (idx, bytes) in key_bytes.iter().enumerate() {
-            let c = &mut Cursor::new(bytes.as_ref());
+        for idx in 0..self.h.entry_count {
             let name = take_string_trimmed(c, KEY_NAME_LEN).unwrap();
             let id = take::<u32>(c).unwrap();
             let res_type = take::<u16>(c).unwrap();
+            // last 2 are unused
+            c.consume(2);
 
             keys.push(KeyRead {
                 name,
@@ -144,14 +146,17 @@ impl<'a> Reader<'a> {
         for (idx, key) in keys.into_iter().enumerate() {
             let res = &resources[idx];
             seek_to!(self.c, res.offset)?;
+            let content = take_bytes(self.c, res.size)
+                .ok_or_else(|| format!("Couldn't read resource content {idx} at {}", res.offset))?
+                .to_vec();
 
-            let resource = Resource {
-                id: key.id,
-                content: take_slice::<u8>(self.c, res.size).ok_or_else(|| {
-                    format!("Couldn't read resource content {idx} at {}", res.offset)
-                })?,
-            };
-            result.insert((key.name, key.res_type).into(), resource);
+            result.insert(
+                (key.name, key.res_type).into(),
+                Resource {
+                    id: key.id,
+                    content,
+                },
+            );
         }
 
         Ok(Erf {

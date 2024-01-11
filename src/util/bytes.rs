@@ -29,6 +29,10 @@ pub fn num_to_dword<T: AnyBitPattern + NoUninit>(num: T) -> u32 {
     u32::from_ne_bytes(buf)
 }
 
+pub fn bytes_to_string(bytes: Vec<u8>) -> Option<String> {
+    String::from_utf8(bytes).ok().map(String::from)
+}
+
 pub trait ToUsizeVec {
     fn to_usize_vec(self) -> Vec<usize>;
 }
@@ -69,24 +73,30 @@ pub fn nullpad_string(mut str: String, to_len: usize) -> String {
     str
 }
 
+pub fn take_bytes<'a>(input: &mut Cursor<&'a [u8]>, len: usize) -> Option<&'a [u8]> {
+    let pos = input.position() as usize;
+    let end = pos + len;
+    input.set_position(end as u64);
+    input.get_ref().get(pos..end)
+}
+
 pub fn take_slice<T: Pod>(input: &mut Cursor<&[u8]>, len: usize) -> Option<Vec<T>> {
     let byte_len = len * size_of::<T>();
     let offset = input.position() as usize;
     let next_offset = offset + byte_len;
     let bytes = input.get_ref().get(offset..next_offset)?;
+    input.set_position(next_offset as u64);
+
     let mut vec = Vec::<T>::with_capacity(len);
     let ptr = vec.as_mut_ptr().cast::<u8>();
-    // fuck you alignment
-    // miri says it's ok
     unsafe {
         ptr.copy_from_nonoverlapping(bytes.as_ptr(), byte_len);
         vec.set_len(len);
     }
-    input.set_position(next_offset as u64);
     Some(vec)
 }
 
-pub fn take_slice_sized<P: AnyBitPattern + TryInto<usize>, T: Pod + Debug>(
+pub fn take_slice_sized<P: AnyBitPattern + TryInto<usize>, T: Pod>(
     input: &mut Cursor<&[u8]>,
 ) -> Option<Vec<T>> {
     let size = take::<P>(input)?;
@@ -104,15 +114,15 @@ pub fn take<T: AnyBitPattern>(input: &mut Cursor<&[u8]>) -> Option<T> {
 }
 
 pub fn take_string(input: &mut Cursor<&[u8]>, len: usize) -> Option<String> {
-    let bytes = take_slice(input, len)?;
-    String::from_utf8(bytes).ok()
+    let bytes = take_bytes(input, len)?;
+    bytes_to_string(bytes.to_vec())
 }
 
 pub fn take_string_sized<P: AnyBitPattern + TryInto<usize>>(
     input: &mut Cursor<&[u8]>,
 ) -> Option<String> {
-    let size = take::<P>(input)?;
-    take_string(input, size.try_into().ok()?)
+    let bytes = take_slice_sized::<P, u8>(input)?;
+    bytes_to_string(bytes)
 }
 
 pub fn take_string_until(input: &mut Cursor<&[u8]>, terminator: u8) -> Option<String> {
@@ -124,7 +134,7 @@ pub fn take_string_until(input: &mut Cursor<&[u8]>, terminator: u8) -> Option<St
         return None;
     }
 
-    String::from_utf8(buf).ok()
+    bytes_to_string(buf)
 }
 
 pub fn take_string_trimmed(input: &mut Cursor<&[u8]>, max_len: usize) -> Option<String> {
@@ -132,14 +142,12 @@ pub fn take_string_trimmed(input: &mut Cursor<&[u8]>, max_len: usize) -> Option<
     let mut limited = Cursor::new(input.get_ref().get(position..position + max_len)?);
     let mut buf = Vec::with_capacity(max_len);
     limited.read_until(b'\0', &mut buf).ok()?;
-    if let Some(last) = buf.last() {
-        if *last == b'\0' {
-            buf.pop();
-        }
+    if Some(b'\0') == buf.last().copied() {
+        buf.pop();
     };
     input.consume(max_len);
 
-    String::from_utf8(buf).ok()
+    bytes_to_string(buf)
 }
 
 pub fn take_head(input: &mut Cursor<&[u8]>) -> Option<FileHead> {

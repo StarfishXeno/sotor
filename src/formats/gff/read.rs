@@ -6,7 +6,7 @@ use crate::{
         FileHead, LocString,
     },
     util::{
-        seek_to, take, take_head, take_slice, take_slice_sized, take_string_sized,
+        seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
         take_string_trimmed, ESResult, SResult, ToUsizeVec as _, DWORD_SIZE,
     },
 };
@@ -28,6 +28,7 @@ struct StructReadTmp {
     field_indices: Vec<usize>,
 }
 
+#[derive(Debug)]
 struct Header {
     file_head: FileHead,
 
@@ -82,14 +83,13 @@ impl<'a> Reader<'a> {
         self.read_structs()?;
 
         Ok(Gff {
-            content: self.transform_struct(&self.structs[0]),
-
+            content: self.transform_struct(0),
             file_head: self.h.file_head,
         })
     }
 
     fn read_header(c: &mut Cursor<&[u8]>) -> SResult<Header> {
-        let file_head = take_head(c).ok_or("couldn't read header strings")?;
+        let file_head = take_head(c).ok_or("couldn't read file head")?;
         let dwords = take_slice::<u32>(c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let mut dwords = dwords.to_usize_vec().into_iter();
 
@@ -112,27 +112,25 @@ impl<'a> Reader<'a> {
     }
 
     fn read_list_indices(&mut self) -> ESResult {
-        seek_to!(self.c, self.h.list_indices_offset)?;
+        let offset = self.h.list_indices_offset;
+        seek_to!(self.c, offset)?;
         self.list_indices = HashMap::new();
 
-        let bytes = take_slice::<u8>(self.c, self.h.list_indices_bytes).ok_or_else(|| {
-            format!(
-                "Couldn't read list indices at starting offset {}",
-                self.h.list_indices_offset
-            )
-        })?;
-        let c = &mut Cursor::new(bytes.as_ref());
-        let mut offset = 0;
+        let bytes = take_bytes(self.c, self.h.list_indices_bytes)
+            .ok_or_else(|| format!("couldn't read list indices at starting offset {offset}"))?;
+        let c = &mut Cursor::new(bytes);
+        let mut inner_offset = 0;
 
-        while offset < self.h.list_indices_bytes {
+        while inner_offset < self.h.list_indices_bytes {
             let size = take::<u32>(c)
-                .ok_or_else(|| format!("couldn't read list index size at {offset}"))?;
+                .ok_or_else(|| format!("couldn't read list index size at {inner_offset}"))?;
             let indices = take_slice::<u32>(c, size as usize)
-                .ok_or_else(|| format!("couldn't read {size} list indices at {offset}"))?;
+                .ok_or_else(|| format!("couldn't read {size} list indices at {inner_offset}"))?;
 
-            self.list_indices.insert(offset, indices.to_usize_vec());
+            self.list_indices
+                .insert(inner_offset, indices.to_usize_vec());
 
-            offset = c.position() as usize;
+            inner_offset = c.position() as usize;
         }
         Ok(())
     }
@@ -148,12 +146,9 @@ impl<'a> Reader<'a> {
     }
 
     fn read_field_data(&mut self) -> ESResult {
-        let offset = self.h.field_data_offset;
-        self.field_data = self
-            .c
-            .get_ref()
-            .get(offset..offset + self.h.field_data_bytes)
-            .ok_or("couldn't read field data")?;
+        seek_to!(self.c, self.h.field_data_offset)?;
+        self.field_data =
+            take_bytes(self.c, self.h.field_data_bytes).ok_or("couldn't read field data")?;
 
         Ok(())
     }
@@ -278,13 +273,11 @@ impl<'a> Reader<'a> {
     fn unwrap_tmp_field(&self, f: &FieldTmp) -> Field {
         match f {
             FieldTmp::Simple(value) => value.clone(),
-            FieldTmp::Struct(idx) => {
-                Field::Struct(Box::new(self.transform_struct(&self.structs[*idx])))
-            }
+            FieldTmp::Struct(idx) => Field::Struct(Box::new(self.transform_struct(*idx))),
             FieldTmp::List(indices) => {
                 let structs: Vec<Struct> = indices
                     .iter()
-                    .map(|idx| self.transform_struct(&self.structs[*idx]))
+                    .map(|idx| self.transform_struct(*idx))
                     .collect();
 
                 Field::List(structs)
@@ -292,16 +285,14 @@ impl<'a> Reader<'a> {
         }
     }
 
-    fn transform_struct(&self, s: &StructReadTmp) -> Struct {
-        let mut struct_fields = HashMap::with_capacity(s.field_indices.len());
+    fn transform_struct(&self, idx: usize) -> Struct {
+        let s = &self.structs[idx];
+        let mut fields = HashMap::with_capacity(s.field_indices.len());
         for idx in &s.field_indices {
             let f = &self.fields[*idx];
-            struct_fields.insert(f.label.clone(), self.unwrap_tmp_field(&f.value));
+            fields.insert(f.label.clone(), self.unwrap_tmp_field(&f.value));
         }
-        Struct {
-            tp: s.tp,
-            fields: struct_fields,
-        }
+        Struct { tp: s.tp, fields }
     }
 }
 

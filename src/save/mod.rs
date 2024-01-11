@@ -12,6 +12,7 @@ use std::{
     fmt::{self, Display},
     fs,
     path::PathBuf,
+    time::Instant,
 };
 
 mod read;
@@ -184,6 +185,7 @@ impl Save {
         let file_names =
             read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
+        let now = Instant::now();
         // ERF
         let erf_name = file_names
             .get(ERF_NAME)
@@ -205,7 +207,7 @@ impl Save {
                 .map_err(|err| sf!("Couldn't read GFF file {gff_name}: {err}"))?;
             gffs.push_back(gff::read(&file)?);
         }
-
+        println!("{:.2?}", now.elapsed());
         // autosaves don't have screenshots
         let texture = file_names
             .get(IMAGE_NAME)

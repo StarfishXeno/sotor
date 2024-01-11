@@ -37,7 +37,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(&mut self) -> ESResult {
-        let file_head = take_head(&mut self.c).ok_or("couldn't read header")?;
+        let file_head = take_head(&mut self.c).ok_or("couldn't read file head")?;
         if file_head.version != "V2.b" {
             return Err(format!("Invalid 2da version: {}", file_head.version));
         }
@@ -97,8 +97,9 @@ impl<'a> Reader<'a> {
 
     fn read_cell_offsets(&mut self, total_columns: usize, row_count: usize) -> SResult<Vec<u16>> {
         // +1 for data size we don't need
-        let mut offsets = take_slice::<u16>(&mut self.c, total_columns * row_count + 1)
-            .ok_or("couldn't read offsets")?;
+        let mut offsets: Vec<_> = take_slice::<u16>(&mut self.c, total_columns * row_count + 1)
+            .ok_or("couldn't read offsets")?
+            .into();
         // drop datasize
         offsets.pop();
 
