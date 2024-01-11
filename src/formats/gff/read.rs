@@ -24,7 +24,7 @@ struct FieldReadTmp {
 
 #[derive(Debug)]
 struct StructReadTmp {
-    r#type: u32,
+    tp: u32,
     field_indices: Vec<usize>,
 }
 
@@ -50,7 +50,7 @@ struct Reader<'a> {
     h: Header,
 
     list_indices: HashMap<usize, Vec<usize>>,
-    field_indices: Vec<usize>,
+    field_indices: Vec<u32>,
     field_data: &'a [u8],
     labels: Vec<String>,
     fields: Vec<FieldReadTmp>,
@@ -125,10 +125,10 @@ impl<'a> Reader<'a> {
         let mut offset = 0;
 
         while offset < self.h.list_indices_bytes {
-            let size =
-                take::<u32>(c).ok_or_else(|| format!("could read list index size at {offset}"))?;
+            let size = take::<u32>(c)
+                .ok_or_else(|| format!("couldn't read list index size at {offset}"))?;
             let indices = take_slice::<u32>(c, size as usize)
-                .ok_or_else(|| format!("could read {size} list indices at {offset}"))?;
+                .ok_or_else(|| format!("couldn't read {size} list indices at {offset}"))?;
 
             self.list_indices.insert(offset, indices.to_usize_vec());
 
@@ -142,8 +142,7 @@ impl<'a> Reader<'a> {
         seek_to!(self.c, offset)?;
 
         self.field_indices = take_slice::<u32>(self.c, self.h.field_indices_bytes / DWORD_SIZE)
-            .ok_or_else(|| format!("Couldn't read field indices, starting offset {offset}"))?
-            .to_usize_vec();
+            .ok_or_else(|| format!("Couldn't read field indices, starting offset {offset}"))?;
 
         Ok(())
     }
@@ -181,7 +180,11 @@ impl<'a> Reader<'a> {
 
         for (idx, [tp, label_idx, value]) in fields.iter().copied().enumerate() {
             use FieldTmp::Simple;
-            let label = self.labels[label_idx as usize].clone();
+            let label = self
+                .labels
+                .get(label_idx as usize)
+                .ok_or_else(|| format!("missing label {label_idx} in field {idx}"))?
+                .clone();
 
             let value = match tp {
                 0 => Simple(Field::Byte(value as u8)),
@@ -223,9 +226,9 @@ impl<'a> Reader<'a> {
                 })?),
                 14 => FieldTmp::Struct(value as usize),
                 15 => {
-                    let indices = self.list_indices.remove(&(value as usize)).ok_or(format!(
-                        "couldn't find list indices at {value} in field {idx}"
-                    ))?;
+                    let indices = self.list_indices.remove(&(value as usize)).ok_or_else(|| {
+                        format!("couldn't find list indices at {value} in field {idx}")
+                    })?;
 
                     FieldTmp::List(indices)
                 }
@@ -245,32 +248,28 @@ impl<'a> Reader<'a> {
     }
 
     fn read_structs(&mut self) -> ESResult {
-        seek_to!(self.c, self.h.struct_offset)?;
+        let offset = self.h.struct_offset;
+        seek_to!(self.c, offset)?;
         self.structs = Vec::with_capacity(self.h.struct_count);
 
         for i in 0..self.h.struct_count {
-            let dwords = take::<[u32; STRUCT_SIZE]>(self.c).ok_or_else(|| {
-                format!(
-                    "Couldn't read struct {i}, starting offset {}",
-                    self.h.struct_offset
-                )
-            })?;
+            let [tp, data, field_count] = take::<[u32; STRUCT_SIZE]>(self.c)
+                .ok_or_else(|| format!("couldn't read struct {i}, starting offset {offset}"))?;
+            let data = data as usize;
 
-            let data_or_data_offset = dwords[1] as usize;
-            let field_count = dwords[2] as usize;
-            let struct_field_indices = match field_count {
+            let field_indices = match field_count {
                 0 => vec![],
-                1 => vec![data_or_data_offset],
+                1 => vec![data],
                 _ => {
-                    let start = data_or_data_offset / DWORD_SIZE;
-                    self.field_indices[start..start + field_count].into()
+                    let start = data / DWORD_SIZE;
+                    self.field_indices
+                        .get(start..start + field_count as usize)
+                        .ok_or_else(|| format!("couldn't read struct's {i} field indices"))?
+                        .to_usize_vec()
                 }
             };
 
-            self.structs.push(StructReadTmp {
-                r#type: dwords[0],
-                field_indices: struct_field_indices,
-            });
+            self.structs.push(StructReadTmp { tp, field_indices });
         }
 
         Ok(())
@@ -300,7 +299,7 @@ impl<'a> Reader<'a> {
             struct_fields.insert(f.label.clone(), self.unwrap_tmp_field(&f.value));
         }
         Struct {
-            tp: s.r#type,
+            tp: s.tp,
             fields: struct_fields,
         }
     }
@@ -316,10 +315,13 @@ fn read_data(
     let data = field_data
         .get(offset as usize..)
         .ok_or_else(|| format!("invalid field data offset in field {field_idx}"))?;
-    let variant_name = Field::repr_to_string(tp as u8);
 
-    get_field(&mut Cursor::new(data))
-        .ok_or_else(|| format!("couldn't read Field::{variant_name} in field {field_idx}"))
+    get_field(&mut Cursor::new(data)).ok_or_else(|| {
+        format!(
+            "couldn't read Field::{} in field {field_idx}",
+            Field::repr_to_string(tp as u8)
+        )
+    })
 }
 
 pub fn read(bytes: &[u8]) -> SResult<Gff> {

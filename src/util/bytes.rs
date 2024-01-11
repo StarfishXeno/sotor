@@ -69,21 +69,20 @@ pub fn nullpad_string(mut str: String, to_len: usize) -> String {
     str
 }
 
-pub fn take_slice<T: Pod + Debug>(input: &mut Cursor<&[u8]>, len: usize) -> Option<Vec<T>> {
+pub fn take_slice<T: Pod>(input: &mut Cursor<&[u8]>, len: usize) -> Option<Vec<T>> {
+    let byte_len = len * size_of::<T>();
     let offset = input.position() as usize;
-    let size = size_of::<T>();
-    let next_offset = offset + len * size;
-    let buf = *input.get_ref();
-    let bytes = buf.get(offset..next_offset)?;
-    input.set_position(next_offset as u64);
+    let next_offset = offset + byte_len;
+    let bytes = input.get_ref().get(offset..next_offset)?;
     let mut vec = Vec::<T>::with_capacity(len);
     let ptr = vec.as_mut_ptr().cast::<u8>();
     // fuck you alignment
     // miri says it's ok
     unsafe {
-        ptr.copy_from_nonoverlapping(bytes.as_ptr(), len * size);
+        ptr.copy_from_nonoverlapping(bytes.as_ptr(), byte_len);
         vec.set_len(len);
     }
+    input.set_position(next_offset as u64);
     Some(vec)
 }
 
