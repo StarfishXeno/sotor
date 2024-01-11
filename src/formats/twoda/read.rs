@@ -1,10 +1,10 @@
 use crate::{
     formats::twoda::{TwoDA, TwoDAType, TwoDAValue},
-    util::{seek_to, take, take_head, take_slice, take_string_until, ESResult, SResult},
+    util::{seek_to, take, take_head, take_slice, take_string_until, Cursor, ESResult, SResult},
 };
 use std::{
     collections::HashMap,
-    io::{prelude::*, Cursor, SeekFrom},
+    io::{prelude::*, SeekFrom},
     usize,
 };
 
@@ -15,11 +15,18 @@ struct TargetColumn {
 }
 
 struct Reader<'a> {
-    c: Cursor<&'a [u8]>,
+    c: &'a mut Cursor<'a>,
     required_columns: HashMap<String, TwoDAType>,
 }
 
 impl<'a> Reader<'a> {
+    fn new(c: &'a mut Cursor<'a>, required_columns: HashMap<String, TwoDAType>) -> Self {
+        Self {
+            c,
+            required_columns,
+        }
+    }
+
     fn read(mut self) -> SResult<TwoDA> {
         self.read_header()?;
         let (total_columns, target_columns) = self.read_columns()?;
@@ -37,7 +44,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_header(&mut self) -> ESResult {
-        let file_head = take_head(&mut self.c).ok_or("couldn't read file head")?;
+        let file_head = take_head(self.c).ok_or("couldn't read file head")?;
         if file_head.version != "V2.b" {
             return Err(format!("Invalid 2da version: {}", file_head.version));
         }
@@ -49,7 +56,7 @@ impl<'a> Reader<'a> {
 
     fn read_columns(&mut self) -> SResult<(usize, Vec<TargetColumn>)> {
         let mut columns_str =
-            take_string_until(&mut self.c, b'\0').ok_or("couldn't read column list")?;
+            take_string_until(self.c, b'\0').ok_or("couldn't read column list")?;
         // drop the extra tab in the end
         columns_str.pop();
         let columns: Vec<_> = columns_str.split('\t').map(ToString::to_string).collect();
@@ -77,13 +84,13 @@ impl<'a> Reader<'a> {
     }
 
     fn read_row_count(&mut self) -> SResult<u32> {
-        take::<u32>(&mut self.c).ok_or("couldn't read row count".to_owned())
+        take::<u32>(self.c).ok_or("couldn't read row count".to_owned())
     }
 
     fn read_row_indices(&mut self, row_count: usize) -> SResult<Vec<usize>> {
         let mut row_indices = vec![];
         for i in 0..row_count {
-            let string = take_string_until(&mut self.c, b'\t')
+            let string = take_string_until(self.c, b'\t')
                 .ok_or_else(|| format!("couldn't read row index {i}"))?;
 
             row_indices.push(
@@ -97,9 +104,8 @@ impl<'a> Reader<'a> {
 
     fn read_cell_offsets(&mut self, total_columns: usize, row_count: usize) -> SResult<Vec<u16>> {
         // +1 for data size we don't need
-        let mut offsets: Vec<_> = take_slice::<u16>(&mut self.c, total_columns * row_count + 1)
-            .ok_or("couldn't read offsets")?
-            .into();
+        let mut offsets: Vec<_> = take_slice::<u16>(self.c, total_columns * row_count + 1)
+            .ok_or("couldn't read offsets")?;
         // drop datasize
         offsets.pop();
 
@@ -171,11 +177,8 @@ impl<'a> Reader<'a> {
 }
 
 pub fn read(bytes: &[u8], required_columns: HashMap<String, TwoDAType>) -> SResult<TwoDA> {
-    let cursor = Cursor::new(bytes);
-    let reader = Reader {
-        c: cursor,
-        required_columns,
-    };
-
-    reader.read().map_err(|err| format!("TwoDA::read| {err}"))
+    let c = &mut Cursor::new(bytes);
+    Reader::new(c, required_columns)
+        .read()
+        .map_err(|err| format!("TwoDA::read| {err}"))
 }

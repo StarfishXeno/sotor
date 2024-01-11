@@ -4,13 +4,13 @@ use crate::{
         FileHead, LocString, ResourceType,
     },
     util::{
-        seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed,
+        seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed, Cursor,
         SResult, ToUsizeVec as _,
     },
 };
 use std::{
     collections::HashMap,
-    io::{BufRead, Cursor, Seek, SeekFrom},
+    io::{BufRead, Seek, SeekFrom},
 };
 
 use super::HEADER_SIZE;
@@ -37,17 +37,17 @@ struct ResourceRead {
 }
 
 struct Reader<'a> {
-    c: &'a mut Cursor<&'a [u8]>,
+    c: &'a mut Cursor<'a>,
     h: Header,
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<&'a [u8]>) -> SResult<Self> {
+    fn new(c: &'a mut Cursor<'a>) -> SResult<Self> {
         let h = Self::read_header(c)?;
         Ok(Self { c, h })
     }
 
-    fn read_header(c: &mut Cursor<&[u8]>) -> SResult<Header> {
+    fn read_header(c: &mut Cursor) -> SResult<Header> {
         let head = take_head(c).ok_or("couldn't read file head")?;
         let slice = take_slice::<u32>(c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let [loc_string_count, _, entry_count, loc_string_offset, keys_offset, resources_offset, _, _, description_str_ref] =

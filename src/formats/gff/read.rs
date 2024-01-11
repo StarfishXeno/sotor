@@ -7,13 +7,13 @@ use crate::{
     },
     util::{
         seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
-        take_string_trimmed, ESResult, SResult, ToUsizeVec as _, DWORD_SIZE,
+        take_string_trimmed, Cursor, ESResult, SResult, ToUsizeVec as _, DWORD_SIZE,
     },
 };
 use bytemuck::cast;
 use std::{
     collections::HashMap,
-    io::{prelude::*, Cursor, SeekFrom},
+    io::{prelude::*, SeekFrom},
 };
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ struct Header {
 }
 
 struct Reader<'a> {
-    c: &'a mut Cursor<&'a [u8]>,
+    c: &'a mut Cursor<'a>,
     h: Header,
 
     list_indices: HashMap<usize, Vec<usize>>,
@@ -59,7 +59,7 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<&'a [u8]>) -> SResult<Self> {
+    fn new(c: &'a mut Cursor<'a>) -> SResult<Self> {
         let h = Self::read_header(c)?;
         Ok(Self {
             c,
@@ -88,7 +88,7 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn read_header(c: &mut Cursor<&[u8]>) -> SResult<Header> {
+    fn read_header(c: &mut Cursor) -> SResult<Header> {
         let file_head = take_head(c).ok_or("couldn't read file head")?;
         let dwords = take_slice::<u32>(c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let mut dwords = dwords.to_usize_vec().into_iter();
@@ -301,7 +301,7 @@ fn read_data(
     field_data: &[u8],
     offset: u32,
     field_idx: usize,
-    get_field: impl FnOnce(&mut Cursor<&[u8]>) -> Option<Field>,
+    get_field: impl FnOnce(&mut Cursor) -> Option<Field>,
 ) -> SResult<Field> {
     let data = field_data
         .get(offset as usize..)
@@ -316,8 +316,8 @@ fn read_data(
 }
 
 pub fn read(bytes: &[u8]) -> SResult<Gff> {
-    let mut c = Cursor::new(bytes);
-    Reader::new(&mut c)
+    let c = &mut Cursor::new(bytes);
+    Reader::new(c)
         .and_then(Reader::read)
         .map_err(|err| format!("Gff::read| {err}"))
 }

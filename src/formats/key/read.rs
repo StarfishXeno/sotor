@@ -3,19 +3,21 @@ use crate::{
         key::{Key, KeyResRef},
         ResourceKey, ResourceType,
     },
-    util::{seek_to, take, take_bytes, take_head, take_string_trimmed, SResult, ToUsizeVec as _},
+    util::{
+        seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, SResult, ToUsizeVec as _,
+    },
 };
 use std::{
     collections::HashMap,
-    io::{Cursor, Seek, SeekFrom},
+    io::{Seek, SeekFrom},
 };
 
 struct Reader<'a> {
-    c: &'a mut Cursor<&'a [u8]>,
+    c: &'a mut Cursor<'a>,
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<&'a [u8]>) -> Self {
+    fn new(c: &'a mut Cursor<'a>) -> Self {
         Self { c }
     }
 
@@ -78,8 +80,8 @@ impl<'a> Reader<'a> {
 }
 
 pub fn read(bytes: &[u8]) -> SResult<Key> {
-    let mut c = Cursor::new(bytes);
-    Reader::new(&mut c)
+    let c = &mut Cursor::new(bytes);
+    Reader::new(c)
         .read()
         .map_err(|err| format!("Key::read| {err}"))
 }

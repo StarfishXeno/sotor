@@ -1,10 +1,6 @@
 use crate::formats::FileHead;
-use bytemuck::{bytes_of, cast_slice, pod_read_unaligned, AnyBitPattern, NoUninit, Pod};
-use std::{
-    fmt::Debug,
-    io::{prelude::*, Cursor},
-    mem::size_of,
-};
+use bytemuck::{bytes_of, cast_slice, try_pod_read_unaligned, AnyBitPattern, NoUninit, Pod};
+use std::{fmt::Debug, io::prelude::*, mem::size_of};
 
 pub const DWORD_SIZE: usize = 4;
 
@@ -73,20 +69,20 @@ pub fn nullpad_string(mut str: String, to_len: usize) -> String {
     str
 }
 
-pub fn take_bytes<'a>(input: &mut Cursor<&'a [u8]>, len: usize) -> Option<&'a [u8]> {
+pub type Cursor<'a> = std::io::Cursor<&'a [u8]>;
+
+pub fn take_bytes<'a>(input: &mut Cursor<'a>, len: usize) -> Option<&'a [u8]> {
     let pos = input.position() as usize;
     let end = pos + len;
-    input.set_position(end as u64);
+    input.consume(len);
     input.get_ref().get(pos..end)
 }
 
-pub fn take_slice<T: Pod>(input: &mut Cursor<&[u8]>, len: usize) -> Option<Vec<T>> {
+pub fn take_slice<T: Pod>(input: &mut Cursor, len: usize) -> Option<Vec<T>> {
     let byte_len = len * size_of::<T>();
-    let offset = input.position() as usize;
-    let next_offset = offset + byte_len;
-    let bytes = input.get_ref().get(offset..next_offset)?;
-    input.set_position(next_offset as u64);
-
+    let bytes = take_bytes(input, byte_len)?;
+    // pointer allignment issues won't let us use bytemuck's cast_slice
+    // have to copy everything over into a properly aligned vec
     let mut vec = Vec::<T>::with_capacity(len);
     let ptr = vec.as_mut_ptr().cast::<u8>();
     unsafe {
@@ -97,35 +93,28 @@ pub fn take_slice<T: Pod>(input: &mut Cursor<&[u8]>, len: usize) -> Option<Vec<T
 }
 
 pub fn take_slice_sized<P: AnyBitPattern + TryInto<usize>, T: Pod>(
-    input: &mut Cursor<&[u8]>,
+    input: &mut Cursor,
 ) -> Option<Vec<T>> {
     let size = take::<P>(input)?;
     take_slice(input, size.try_into().ok()?)
 }
 
-pub fn take<T: AnyBitPattern>(input: &mut Cursor<&[u8]>) -> Option<T> {
-    let offset = input.position() as usize;
-    let next_offset = offset + size_of::<T>();
-    let buf = *input.get_ref();
-    let v = pod_read_unaligned(buf.get(offset..next_offset)?);
-    input.set_position(next_offset as u64);
-
-    Some(v)
+pub fn take<T: AnyBitPattern>(input: &mut Cursor) -> Option<T> {
+    let bytes = take_bytes(input, size_of::<T>())?;
+    try_pod_read_unaligned(bytes).ok()
 }
 
-pub fn take_string(input: &mut Cursor<&[u8]>, len: usize) -> Option<String> {
+pub fn take_string(input: &mut Cursor, len: usize) -> Option<String> {
     let bytes = take_bytes(input, len)?;
     bytes_to_string(bytes.to_vec())
 }
 
-pub fn take_string_sized<P: AnyBitPattern + TryInto<usize>>(
-    input: &mut Cursor<&[u8]>,
-) -> Option<String> {
+pub fn take_string_sized<P: AnyBitPattern + TryInto<usize>>(input: &mut Cursor) -> Option<String> {
     let bytes = take_slice_sized::<P, u8>(input)?;
     bytes_to_string(bytes)
 }
 
-pub fn take_string_until(input: &mut Cursor<&[u8]>, terminator: u8) -> Option<String> {
+pub fn take_string_until(input: &mut Cursor, terminator: u8) -> Option<String> {
     let mut buf = vec![];
     input.read_until(terminator, &mut buf).ok()?;
 
@@ -137,20 +126,19 @@ pub fn take_string_until(input: &mut Cursor<&[u8]>, terminator: u8) -> Option<St
     bytes_to_string(buf)
 }
 
-pub fn take_string_trimmed(input: &mut Cursor<&[u8]>, max_len: usize) -> Option<String> {
-    let position = input.position() as usize;
-    let mut limited = Cursor::new(input.get_ref().get(position..position + max_len)?);
+pub fn take_string_trimmed(input: &mut Cursor, max_len: usize) -> Option<String> {
+    let bytes = take_bytes(input, max_len)?;
+    let mut limited = Cursor::new(bytes);
     let mut buf = Vec::with_capacity(max_len);
     limited.read_until(b'\0', &mut buf).ok()?;
     if Some(b'\0') == buf.last().copied() {
         buf.pop();
     };
-    input.consume(max_len);
 
     bytes_to_string(buf)
 }
 
-pub fn take_head(input: &mut Cursor<&[u8]>) -> Option<FileHead> {
+pub fn take_head(input: &mut Cursor) -> Option<FileHead> {
     let head = take_string(input, 8)?;
     let (tp, version) = head.split_at(4);
 
