@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sotor_macros::EnumFromInt;
 
+pub mod bif;
 pub mod erf;
 pub mod gff;
 pub mod key;

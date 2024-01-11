@@ -55,7 +55,6 @@ macro_rules! seek_to {
     ($reader:expr, $pos:expr) => {
         $reader
             .seek(SeekFrom::Start($pos as u64))
-            .map(|_| ())
             .map_err(|_| format!("couldn't seek to {}", $pos))
     };
 }

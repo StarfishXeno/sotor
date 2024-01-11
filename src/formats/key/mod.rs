@@ -11,5 +11,6 @@ pub struct KeyResRef {
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key {
+    file_names: Vec<String>,
     resources: HashMap<ResourceKey, KeyResRef>,
 }
