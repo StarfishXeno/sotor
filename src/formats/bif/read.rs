@@ -1,11 +1,8 @@
 use crate::{
     formats::bif::Bif,
-    util::{seek_to, take, take_bytes, take_head, Cursor, SResult, ToUsizeVec as _, DWORD_SIZE},
+    util::{seek_to, take, take_bytes, take_head, Cursor, SResult, DWORD_SIZE},
 };
-use std::{
-    collections::HashMap,
-    io::{BufRead, Seek, SeekFrom},
-};
+use std::io::{BufRead, Seek, SeekFrom};
 
 struct Reader<'a> {
     c: &'a mut Cursor<'a>,
@@ -33,21 +30,18 @@ impl<'a> Reader<'a> {
         if file_head.tp != "BIFF" || file_head.version != "V1  " {
             return Err(format!("invalid file type or version {file_head:?}"));
         }
-        let [_, _, offset] = take::<[u32; 3]>(self.c)
-            .ok_or("couldn't read header contents")?
-            .to_usize_vec()
-            .try_into()
-            .unwrap();
+        self.c.consume(DWORD_SIZE * 2);
+        let offset = take::<u32>(self.c).ok_or("couldn't read header contents")?;
 
-        Ok(offset)
+        Ok(offset as usize)
     }
 
-    fn read_resources(&mut self, offset: usize) -> SResult<HashMap<usize, Vec<u8>>> {
-        const RESORUCE_SIZE: usize = 4;
-        let mut resources = HashMap::with_capacity(self.required_indices.len());
+    fn read_resources(&mut self, offset: usize) -> SResult<Vec<Vec<u8>>> {
+        const RESOURCE_SIZE: usize = 4;
+        let mut resources = Vec::with_capacity(self.required_indices.len());
 
         for idx in self.required_indices {
-            seek_to!(self.c, offset + idx * RESORUCE_SIZE * DWORD_SIZE)?;
+            seek_to!(self.c, offset + idx * RESOURCE_SIZE * DWORD_SIZE)?;
             // skip the id
             self.c.consume(DWORD_SIZE);
             let [offset, size] = take::<[u32; 2]>(self.c)
@@ -57,7 +51,7 @@ impl<'a> Reader<'a> {
                 .ok_or_else(|| format!("couldn't read resource {idx} content at offset {offset}"))?
                 .to_vec();
 
-            resources.insert(*idx, content);
+            resources.push(content);
         }
 
         Ok(resources)

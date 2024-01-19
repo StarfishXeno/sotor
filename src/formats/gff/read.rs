@@ -140,7 +140,8 @@ impl<'a> Reader<'a> {
         seek_to!(self.c, offset)?;
 
         self.field_indices = take_slice::<u32>(self.c, self.h.field_indices_bytes / DWORD_SIZE)
-            .ok_or_else(|| format!("Couldn't read field indices, starting offset {offset}"))?;
+            .ok_or_else(|| format!("Couldn't read field indices, starting offset {offset}"))?
+            .into_owned();
 
         Ok(())
     }
@@ -217,7 +218,7 @@ impl<'a> Reader<'a> {
                     Some(Field::LocString(str_ref, strings))
                 })?),
                 13 => Simple(read_data(tp, field_data, value, idx, |c| {
-                    take_slice_sized::<u32, _>(c).map(Field::Void)
+                    take_slice_sized::<u32, _>(c).map(|s| Field::Void(s.into_owned()))
                 })?),
                 14 => FieldTmp::Struct(value as usize),
                 15 => {

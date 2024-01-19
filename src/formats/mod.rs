@@ -1,10 +1,15 @@
+use std::any::type_name;
+
 use serde::{Deserialize, Serialize};
 use sotor_macros::EnumFromInt;
+
+use crate::util::{Cursor, SResult};
 
 pub mod bif;
 pub mod erf;
 pub mod gff;
 pub mod key;
+pub mod tlk;
 pub mod twoda;
 
 #[derive(Debug, PartialEq, Clone)]

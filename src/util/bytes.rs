@@ -1,6 +1,9 @@
 use crate::formats::FileHead;
-use bytemuck::{bytes_of, cast_slice, try_pod_read_unaligned, AnyBitPattern, NoUninit, Pod};
-use std::{fmt::Debug, io::prelude::*, mem::size_of};
+use bytemuck::{
+    bytes_of, cast_slice, checked::try_cast_slice, try_pod_read_unaligned, AnyBitPattern, NoUninit,
+    Pod,
+};
+use std::{borrow::Cow, fmt::Debug, io::prelude::*, mem::size_of};
 
 pub const DWORD_SIZE: usize = 4;
 
@@ -25,8 +28,8 @@ pub fn num_to_dword<T: AnyBitPattern + NoUninit>(num: T) -> u32 {
     u32::from_ne_bytes(buf)
 }
 
-pub fn bytes_to_string(bytes: Vec<u8>) -> Option<String> {
-    String::from_utf8(bytes).ok().map(String::from)
+pub fn bytes_to_string(bytes: Vec<u8>) -> String {
+    String::from_utf8(bytes).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
 }
 
 pub trait ToUsizeVec {
@@ -77,23 +80,27 @@ pub fn take_bytes<'a>(input: &mut Cursor<'a>, len: usize) -> Option<&'a [u8]> {
     input.get_ref().get(pos..end)
 }
 
-pub fn take_slice<T: Pod>(input: &mut Cursor, len: usize) -> Option<Vec<T>> {
+pub fn take_slice<'a, T: Pod>(input: &'a mut Cursor, len: usize) -> Option<Cow<'a, [T]>> {
     let byte_len = len * size_of::<T>();
     let bytes = take_bytes(input, byte_len)?;
-    // pointer allignment issues won't let us use bytemuck's cast_slice
-    // have to copy everything over into a properly aligned vec
-    let mut vec = Vec::<T>::with_capacity(len);
-    let ptr = vec.as_mut_ptr().cast::<u8>();
-    unsafe {
-        ptr.copy_from_nonoverlapping(bytes.as_ptr(), byte_len);
-        vec.set_len(len);
+    if let Ok(slice) = try_cast_slice(bytes) {
+        Some(Cow::Borrowed(slice))
+    } else {
+        // pointer allignment issues won't let us use bytemuck's cast_slice
+        // have to copy everything over into a properly aligned vec
+        let mut vec = Vec::<T>::with_capacity(len);
+        let ptr = vec.as_mut_ptr().cast::<u8>();
+        unsafe {
+            ptr.copy_from_nonoverlapping(bytes.as_ptr(), byte_len);
+            vec.set_len(len);
+        }
+        Some(Cow::Owned(vec))
     }
-    Some(vec)
 }
 
-pub fn take_slice_sized<P: AnyBitPattern + TryInto<usize>, T: Pod>(
-    input: &mut Cursor,
-) -> Option<Vec<T>> {
+pub fn take_slice_sized<'a, P: AnyBitPattern + TryInto<usize>, T: Pod>(
+    input: &'a mut Cursor,
+) -> Option<Cow<'a, [T]>> {
     let size = take::<P>(input)?;
     take_slice(input, size.try_into().ok()?)
 }
@@ -105,12 +112,12 @@ pub fn take<T: AnyBitPattern>(input: &mut Cursor) -> Option<T> {
 
 pub fn take_string(input: &mut Cursor, len: usize) -> Option<String> {
     let bytes = take_bytes(input, len)?;
-    bytes_to_string(bytes.to_vec())
+    Some(bytes_to_string(bytes.to_vec()))
 }
 
 pub fn take_string_sized<P: AnyBitPattern + TryInto<usize>>(input: &mut Cursor) -> Option<String> {
     let bytes = take_slice_sized::<P, u8>(input)?;
-    bytes_to_string(bytes)
+    Some(bytes_to_string(bytes.into_owned()))
 }
 
 pub fn take_string_until(input: &mut Cursor, terminator: u8) -> Option<String> {
@@ -122,7 +129,7 @@ pub fn take_string_until(input: &mut Cursor, terminator: u8) -> Option<String> {
         return None;
     }
 
-    bytes_to_string(buf)
+    Some(bytes_to_string(buf))
 }
 
 pub fn take_string_trimmed(input: &mut Cursor, max_len: usize) -> Option<String> {
@@ -133,8 +140,8 @@ pub fn take_string_trimmed(input: &mut Cursor, max_len: usize) -> Option<String>
     if Some(b'\0') == buf.last().copied() {
         buf.pop();
     };
-
-    bytes_to_string(buf)
+    buf.shrink_to_fit();
+    Some(bytes_to_string(buf))
 }
 
 pub fn take_head(input: &mut Cursor) -> Option<FileHead> {

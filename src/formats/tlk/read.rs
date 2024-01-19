@@ -1,0 +1,79 @@
+use crate::{
+    formats::tlk::Tlk,
+    util::{seek_to, take, take_head, take_string, Cursor, SResult, DWORD_SIZE},
+};
+use std::io::{BufRead, Seek, SeekFrom};
+
+struct Reader<'a> {
+    c: &'a mut Cursor<'a>,
+    required_indices: &'a [usize],
+}
+
+impl<'a> Reader<'a> {
+    fn new(c: &'a mut Cursor<'a>, required_indices: &'a [usize]) -> Self {
+        Self {
+            c,
+            required_indices,
+        }
+    }
+
+    fn read(mut self) -> SResult<Tlk> {
+        let [language, count, offset] = self.read_header()?;
+        let strings = self.read_strings(count as usize, offset as usize)?;
+
+        Ok(Tlk { language, strings })
+    }
+
+    fn read_header(&mut self) -> SResult<[u32; 3]> {
+        let file_head = take_head(self.c).ok_or("couldn't read file head")?;
+
+        if file_head.tp != "TLK " || file_head.version != "V3.0" {
+            return Err(format!("invalid file type or version {file_head:?}"));
+        }
+        take::<[u32; 3]>(self.c).ok_or_else(|| "couldn't read header contents".to_owned())
+    }
+
+    fn read_strings(&mut self, count: usize, offset: usize) -> SResult<Vec<String>> {
+        const STRING_DATA_SIZE_BYTES: usize = 10 * DWORD_SIZE;
+        const HEADER_SIZE_BYTES: usize = 5 * DWORD_SIZE;
+        let mut strings = Vec::with_capacity(self.required_indices.len());
+
+        for idx in self.required_indices {
+            // intentionally invalid string
+            if *idx == u32::MAX as usize {
+                strings.push(String::new());
+                continue;
+            }
+            if *idx > count {
+                return Err(format!(
+                    "TLK contains {count} strings but index {idx} is requested"
+                ));
+            }
+            seek_to!(self.c, HEADER_SIZE_BYTES + idx * STRING_DATA_SIZE_BYTES)?;
+            let flags =
+                take::<u32>(self.c).ok_or_else(|| format!("couldn't read string {idx} flags"))?;
+            // this entry has no string, meant to return an empty one
+            if (flags & 1) != 1 {
+                strings.push(String::new());
+                continue;
+            }
+            self.c.consume(6 * DWORD_SIZE);
+            let [str_offset, len] = take::<[u32; 2]>(self.c)
+                .ok_or_else(|| format!("couldn't read string {idx} offset and size"))?;
+            seek_to!(self.c, offset + str_offset as usize)?;
+            let content = take_string(self.c, len as usize)
+                .ok_or_else(|| format!("couldn't read string {idx} content at offset {offset}"))?;
+
+            strings.push(content);
+        }
+
+        Ok(strings)
+    }
+}
+
+pub fn read(bytes: &[u8], required_indices: &[usize]) -> SResult<Tlk> {
+    let c = &mut Cursor::new(bytes);
+    Reader::new(c, required_indices)
+        .read()
+        .map_err(|err| format!("Tlk::read| {err}"))
+}

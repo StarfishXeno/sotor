@@ -4,8 +4,8 @@ use crate::{
         ResourceKey, ResourceType,
     },
     util::{
-        seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed, Cursor,
-        SResult, ToUsizeVec as _, DWORD_SIZE,
+        seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, SResult,
+        ToUsizeVec as _, DWORD_SIZE,
     },
 };
 use std::{

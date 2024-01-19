@@ -125,10 +125,10 @@ impl<'a> Reader<'a> {
         let resource_dwords =
             take_slice::<[u32; 2]>(self.c, self.h.entry_count).ok_or("couldn't read resources")?;
 
-        for [offset, size] in resource_dwords {
+        for [offset, size] in resource_dwords.iter() {
             resources.push(ResourceRead {
-                offset: offset as usize,
-                size: size as usize,
+                offset: *offset as usize,
+                size: *size as usize,
             });
         }
 

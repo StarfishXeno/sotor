@@ -104,8 +104,9 @@ impl<'a> Reader<'a> {
 
     fn read_cell_offsets(&mut self, total_columns: usize, row_count: usize) -> SResult<Vec<u16>> {
         // +1 for data size we don't need
-        let mut offsets: Vec<_> = take_slice::<u16>(self.c, total_columns * row_count + 1)
-            .ok_or("couldn't read offsets")?;
+        let mut offsets = take_slice::<u16>(self.c, total_columns * row_count + 1)
+            .ok_or("couldn't read offsets")?
+            .into_owned();
         // drop datasize
         offsets.pop();
 
@@ -157,7 +158,7 @@ impl<'a> Reader<'a> {
                 self.c,
                 data_offset + offsets[row_idx * total_columns + idx] as u64
             )?;
-            let value = take_string_until(&mut self.c, b'\0')
+            let value = take_string_until(self.c, b'\0')
                 .ok_or_else(|| format!("couldn't read column {name} in row {row_idx}"))?;
 
             let parsed = if value.is_empty() {
