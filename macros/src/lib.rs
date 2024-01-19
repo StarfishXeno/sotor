@@ -218,6 +218,11 @@ pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
                     _ => panic!()
                 }
             }
+            fn to_str(self) -> &'static str {
+                match self {
+                    #match_arms
+                }
+            }
         }
     };
 

@@ -1,7 +1,7 @@
 use crate::{
     formats::{
         erf::{Erf, Resource, KEY_NAME_LEN, KEY_SIZE_BYTES},
-        FileHead, LocString, ResourceType,
+        impl_read_resource, FileHead, LocString, ReadResource, ResourceType,
     },
     util::{
         seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed, Cursor,
@@ -15,7 +15,7 @@ use std::{
 
 use super::HEADER_SIZE;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Header {
     file_head: FileHead,
     loc_string_count: usize,
@@ -42,14 +42,17 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<'a>) -> SResult<Self> {
-        let h = Self::read_header(c)?;
-        Ok(Self { c, h })
+    fn new(c: &'a mut Cursor<'a>, _: ()) -> Self {
+        Self {
+            c,
+            h: Header::default(),
+        }
     }
 
-    fn read_header(c: &mut Cursor) -> SResult<Header> {
-        let head = take_head(c).ok_or("couldn't read file head")?;
-        let slice = take_slice::<u32>(c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
+    fn read_header(&mut self) -> SResult<Header> {
+        let head = take_head(self.c).ok_or("couldn't read file head")?;
+        let slice =
+            take_slice::<u32>(self.c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let [loc_string_count, _, entry_count, loc_string_offset, keys_offset, resources_offset, _, _, description_str_ref] =
             slice.to_usize_vec().try_into().unwrap();
 
@@ -66,6 +69,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read(mut self) -> SResult<Erf> {
+        self.h = self.read_header()?;
         let loc_strings = self.read_loc_strings()?;
         let key_list = self.read_key_list()?;
         let resources = self.read_resources()?;
@@ -169,9 +173,4 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8]) -> SResult<Erf> {
-    let c = &mut Cursor::new(bytes);
-    Reader::new(c)
-        .and_then(Reader::read)
-        .map_err(|err| format!("Erf::read| {err}"))
-}
+impl_read_resource!(Erf, Reader);

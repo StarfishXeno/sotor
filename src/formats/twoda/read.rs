@@ -1,5 +1,9 @@
 use crate::{
-    formats::twoda::{TwoDA, TwoDAType, TwoDAValue},
+    formats::{
+        impl_read_resource,
+        twoda::{TwoDA, TwoDAType, TwoDAValue},
+        ReadResource, ResourceType,
+    },
     util::{seek_to, take, take_head, take_slice, take_string_until, Cursor, ESResult, SResult},
 };
 use std::{
@@ -20,7 +24,11 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<'a>, required_columns: HashMap<String, TwoDAType>) -> Self {
+    fn new(c: &'a mut Cursor<'a>, required_columns: &[(&str, TwoDAType)]) -> Self {
+        let required_columns = required_columns
+            .iter()
+            .map(|(name, tp)| ((*name).to_owned(), *tp))
+            .collect();
         Self {
             c,
             required_columns,
@@ -153,6 +161,7 @@ impl<'a> Reader<'a> {
         offsets: &[u16],
     ) -> SResult<HashMap<String, Option<TwoDAValue>>> {
         let mut row = HashMap::new();
+        row.insert("_idx".to_owned(), Some(TwoDAValue::Int(row_idx as i32)));
         for TargetColumn { name, idx, tp } in target_columns {
             seek_to!(
                 self.c,
@@ -177,9 +186,9 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8], required_columns: HashMap<String, TwoDAType>) -> SResult<TwoDA> {
-    let c = &mut Cursor::new(bytes);
-    Reader::new(c, required_columns)
-        .read()
-        .map_err(|err| format!("TwoDA::read| {err}"))
-}
+impl_read_resource!(
+    TwoDA,
+    Reader,
+    &'a [(&'a str, TwoDAType)],
+    ResourceType::Twoda
+);

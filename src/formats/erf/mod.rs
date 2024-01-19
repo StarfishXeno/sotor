@@ -4,7 +4,6 @@ use std::{collections::HashMap, fmt};
 mod read;
 mod write;
 
-pub use read::read;
 pub use write::write;
 
 use super::FileHead;
@@ -44,19 +43,19 @@ pub struct Erf {
 
 impl Erf {
     pub fn get(&self, name: &str, tp: ResourceType) -> Option<&Resource> {
-        self.resources.get(&(name.to_string(), tp).into())
+        self.resources.get(&(name, tp).into())
     }
 
     pub fn get_mut(&mut self, name: &str, tp: ResourceType) -> Option<&mut Resource> {
-        self.resources.get_mut(&(name.to_string(), tp).into())
+        self.resources.get_mut(&(name, tp).into())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::formats::{
-        erf::{read, write, Erf, Resource},
-        LocString, ResourceType,
+        erf::{write, Erf, Resource},
+        LocString, ReadResourceNoArg as _, ResourceType,
     };
 
     #[test]
@@ -66,14 +65,14 @@ mod tests {
 
             resources: [
                 (
-                    ("pc".to_owned(), ResourceType::Txt).into(),
+                    ("pc", ResourceType::Txt).into(),
                     Resource {
                         id: 0,
                         content: (*b"pc").into(),
                     },
                 ),
                 (
-                    ("inventory".to_owned(), ResourceType::Txt).into(),
+                    ("inventory", ResourceType::Txt).into(),
                     Resource {
                         id: 1,
                         content: (*b"inventory").into(),
@@ -89,7 +88,7 @@ mod tests {
             description_str_ref: 0,
         };
         let bytes = write(erf.clone());
-        let new_erf = read(&bytes).unwrap();
+        let new_erf = Erf::read(&bytes).unwrap();
 
         assert_eq!(erf, new_erf);
     }

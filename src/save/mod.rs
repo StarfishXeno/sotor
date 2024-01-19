@@ -2,8 +2,9 @@ use crate::{
     formats::{
         erf::{self, Erf},
         gff::{self, Gff, Struct},
+        ReadResourceNoArg as _,
     },
-    util::{backup_file, load_tga, read_dir_filemap, ESResult, SResult},
+    util::{backup_file, load_tga, read_dir_filemap, read_file, ESResult, SResult},
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use sotor_macros::{EnumFromInt, EnumList, EnumToInt};
@@ -182,15 +183,15 @@ impl Save {
     pub fn read_from_directory(path: &str, ctx: &Context) -> SResult<Self> {
         // first let's find the files and map names to lowercase
         let file_names =
-            read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
+            read_dir_filemap(&path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
         // ERF
         let erf_name = file_names
             .get(ERF_NAME)
             .ok_or(sf!("Couldn't find ERF file {ERF_NAME}"))?;
-        let erf_bytes = fs::read(PathBuf::from_iter([path, erf_name]))
+        let erf_bytes = read_file(path, erf_name)
             .map_err(|err| sf!("Couldn't read ERF file {erf_name}: {err}"))?;
-        let erf = erf::read(&erf_bytes)?;
+        let erf = Erf::read(&erf_bytes)?;
 
         // GFFs
         let mut gffs = VecDeque::with_capacity(GFFS.len());
@@ -201,9 +202,9 @@ impl Save {
                 }
                 continue;
             };
-            let file = fs::read(PathBuf::from_iter([path, gff_name]))
+            let file = read_file(path, gff_name)
                 .map_err(|err| sf!("Couldn't read GFF file {gff_name}: {err}"))?;
-            gffs.push_back(gff::read(&file)?);
+            gffs.push_back(Gff::read(&file)?);
         }
         // autosaves don't have screenshots
         let texture = file_names
@@ -228,7 +229,7 @@ impl Save {
     pub fn save_to_directory(path: &str, save: &mut Save) -> ESResult {
         update::Updater::new(save).update();
         let file_names =
-            read_dir_filemap(path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
+            read_dir_filemap(&path.into()).map_err(|err| sf!("Couldn't read dir {path}: {err}"))?;
 
         for ((_, name), gff) in GFFS.iter().zip([
             Some(&save.inner.nfo),

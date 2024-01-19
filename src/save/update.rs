@@ -1,8 +1,8 @@
 use crate::{
     formats::{
-        erf::{self},
+        erf::{self, Erf},
         gff::{self, Field, Gff, Struct},
-        LocString, ResourceType,
+        LocString, ReadResourceNoArg as _, ResourceType,
     },
     save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX},
     util::string_lowercase_map,
@@ -268,9 +268,9 @@ impl<'a> Updater<'a> {
         if !self.save.inner.use_pifo {
             let key = &map[&self.save.nfo.last_module.to_lowercase()];
             let module = erf.get_mut(key, ResourceType::Sav).unwrap();
-            let mut module_erf = erf::read(&module.content).unwrap();
+            let mut module_erf = Erf::read(&module.content).unwrap();
             let module_inner = module_erf.get_mut("Module", ResourceType::Ifo).unwrap();
-            let mut module_inner_gff = gff::read(&module_inner.content).unwrap();
+            let mut module_inner_gff = Gff::read(&module_inner.content).unwrap();
             let Field::List(list) = module_inner_gff
                 .content
                 .fields

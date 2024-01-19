@@ -5,7 +5,6 @@ use std::collections::HashMap;
 mod read;
 mod write;
 
-pub use read::read;
 pub use write::write;
 
 // 7 pairs of DWORDS
@@ -91,7 +90,10 @@ pub struct Gff {
 
 #[cfg(test)]
 mod tests {
-    use super::{read, write, Field, Gff, LocString, Struct};
+    use crate::formats::{
+        gff::{write, Field, Gff, LocString, Struct},
+        ReadResourceNoArg,
+    };
 
     #[test]
     fn field_value_type() {
@@ -145,7 +147,7 @@ mod tests {
             ]),
         };
         let bytes = write(gff.clone());
-        let new_gff = read(&bytes).unwrap();
+        let new_gff = Gff::read(&bytes).unwrap();
         assert_eq!(gff, new_gff);
     }
 }

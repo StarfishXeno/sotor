@@ -2,10 +2,12 @@ use std::collections::HashMap;
 
 mod bytes;
 mod fs;
+mod game_data;
 mod ui;
 
 pub use bytes::*;
 pub use fs::*;
+pub use game_data::*;
 pub use ui::*;
 
 use crate::save::Game;

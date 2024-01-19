@@ -1,7 +1,8 @@
 use crate::{
     formats::{
+        impl_read_resource,
         key::{Key, KeyResRef},
-        ResourceKey, ResourceType,
+        ReadResource, ResourceKey, ResourceType,
     },
     util::{
         seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, SResult,
@@ -25,7 +26,7 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<'a>) -> Self {
+    fn new(c: &'a mut Cursor<'a>, _: ()) -> Self {
         Self { c }
     }
 
@@ -137,9 +138,4 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8]) -> SResult<Key> {
-    let c = &mut Cursor::new(bytes);
-    Reader::new(c)
-        .read()
-        .map_err(|err| format!("Key::read| {err}"))
-}
+impl_read_resource!(Key, Reader);

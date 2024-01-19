@@ -1,5 +1,5 @@
 use crate::{
-    formats::bif::Bif,
+    formats::{bif::Bif, impl_read_resource, ReadResource, ResourceType},
     util::{seek_to, take, take_bytes, take_head, Cursor, SResult, DWORD_SIZE},
 };
 use std::io::{BufRead, Seek, SeekFrom};
@@ -58,9 +58,4 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8], required_indices: &[usize]) -> SResult<Bif> {
-    let c = &mut Cursor::new(bytes);
-    Reader::new(c, required_indices)
-        .read()
-        .map_err(|err| format!("Bif::read| {err}"))
-}
+impl_read_resource!(Bif, Reader, &'a [usize]);

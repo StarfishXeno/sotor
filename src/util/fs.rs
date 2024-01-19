@@ -3,7 +3,13 @@ use rfd::{AsyncFileDialog, FileHandle};
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::process::CommandExt;
 use std::{
-    collections::HashMap, fs, future::Future, io, path::PathBuf, process::Command, time::SystemTime,
+    collections::HashMap,
+    fs,
+    future::Future,
+    io,
+    path::{Path, PathBuf},
+    process::Command,
+    time::SystemTime,
 };
 
 pub fn open_file_manager(path: &str) {
@@ -45,8 +51,14 @@ pub fn backup_file(path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
+pub fn read_file(dir: impl AsRef<Path>, file: impl AsRef<Path>) -> io::Result<Vec<u8>> {
+    let mut path = dir.as_ref().to_path_buf();
+    path.push(file);
+    fs::read(path)
+}
+
 // map of lowercase -> real filenames in a dir
-pub fn read_dir_filemap(path: PathBuf) -> io::Result<HashMap<String, String>> {
+pub fn read_dir_filemap(path: &PathBuf) -> io::Result<HashMap<String, String>> {
     let dir = fs::read_dir(path)?;
     let names: io::Result<Vec<_>> = dir
         .map(|e| Ok(e?.file_name().to_str().unwrap().to_owned()))

@@ -6,11 +6,13 @@ pub use read::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeyResRef {
-    file_idx: u32,
-    resource_idx: u32,
+    // index into Key's file_names
+    pub file_idx: u32,
+    // bif resource index
+    pub resource_idx: u32,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key {
-    file_names: Vec<String>,
-    resources: HashMap<ResourceKey, KeyResRef>,
+    pub file_names: Vec<String>,
+    pub resources: HashMap<ResourceKey, KeyResRef>,
 }

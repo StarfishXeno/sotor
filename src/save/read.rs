@@ -1,8 +1,8 @@
 use crate::{
     formats::{
-        erf::{self, Erf},
-        gff::{self, Field, Gff, Struct},
-        ResourceType,
+        erf::Erf,
+        gff::{Field, Gff, Struct},
+        ReadResourceNoArg as _, ResourceType,
     },
     save::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
@@ -258,12 +258,12 @@ impl Reader {
     ) -> SResult<(bool, Gff)> {
         if let Some(name) = map.get(&last_module.to_lowercase()) {
             let module = self.erf.get(name, ResourceType::Sav).unwrap();
-            let module_erf = erf::read(&module.content)?;
+            let module_erf = Erf::read(&module.content)?;
             let module_inner = module_erf
                 .get("Module", ResourceType::Ifo)
                 .ok_or("Couldn't get inner module resource".to_string())?;
 
-            Ok((false, gff::read(&module_inner.content)?))
+            Ok((false, Gff::read(&module_inner.content)?))
         } else if let Some(res) = &self.pifo {
             Ok((true, res.clone()))
         } else {
@@ -294,7 +294,7 @@ impl Reader {
             let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
                 continue;
             };
-            let gff = gff::read(&self.erf.get(name, ResourceType::Utc).unwrap().content)
+            let gff = Gff::read(&self.erf.get(name, ResourceType::Utc).unwrap().content)
                 .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
 
             characters.push(

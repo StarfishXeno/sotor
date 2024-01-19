@@ -3,7 +3,7 @@ use crate::{
         gff::{
             Field, FieldTmp, Gff, Orientation, Struct, Vector, FIELD_SIZE, HEADER_SIZE, STRUCT_SIZE,
         },
-        FileHead, LocString,
+        impl_read_resource, FileHead, LocString, ReadResource, ResourceType,
     },
     util::{
         seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
@@ -28,7 +28,7 @@ struct StructReadTmp {
     field_indices: Vec<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Header {
     file_head: FileHead,
 
@@ -59,11 +59,10 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<'a>) -> SResult<Self> {
-        let h = Self::read_header(c)?;
-        Ok(Self {
+    fn new(c: &'a mut Cursor<'a>, _: ()) -> Self {
+        Self {
             c,
-            h,
+            h: Header::default(),
 
             list_indices: HashMap::new(),
             field_indices: vec![],
@@ -71,10 +70,11 @@ impl<'a> Reader<'a> {
             labels: vec![],
             fields: vec![],
             structs: vec![],
-        })
+        }
     }
 
     fn read(mut self) -> SResult<Gff> {
+        self.h = self.read_header()?;
         self.read_list_indices()?;
         self.read_field_indices()?;
         self.read_field_data()?;
@@ -88,9 +88,10 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn read_header(c: &mut Cursor) -> SResult<Header> {
-        let file_head = take_head(c).ok_or("couldn't read file head")?;
-        let dwords = take_slice::<u32>(c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
+    fn read_header(&mut self) -> SResult<Header> {
+        let file_head = take_head(self.c).ok_or("couldn't read file head")?;
+        let dwords =
+            take_slice::<u32>(self.c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let mut dwords = dwords.to_usize_vec().into_iter();
 
         Ok(Header {
@@ -316,9 +317,4 @@ fn read_data(
     })
 }
 
-pub fn read(bytes: &[u8]) -> SResult<Gff> {
-    let c = &mut Cursor::new(bytes);
-    Reader::new(c)
-        .and_then(Reader::read)
-        .map_err(|err| format!("Gff::read| {err}"))
-}
+impl_read_resource!(Gff, Reader);

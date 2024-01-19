@@ -1,5 +1,5 @@
 use crate::{
-    formats::tlk::Tlk,
+    formats::{impl_read_resource, tlk::Tlk, ReadResource, ResourceType},
     util::{seek_to, take, take_head, take_string, Cursor, SResult, DWORD_SIZE},
 };
 use std::io::{BufRead, Seek, SeekFrom};
@@ -71,9 +71,4 @@ impl<'a> Reader<'a> {
     }
 }
 
-pub fn read(bytes: &[u8], required_indices: &[usize]) -> SResult<Tlk> {
-    let c = &mut Cursor::new(bytes);
-    Reader::new(c, required_indices)
-        .read()
-        .map_err(|err| format!("Tlk::read| {err}"))
-}
+impl_read_resource!(Tlk, Reader, &'a [usize]);
