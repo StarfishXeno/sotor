@@ -1,11 +1,10 @@
 use crate::{
-    save::Game,
     ui::{
         styles::{BLUE, GREY, RED, WHITE},
         widgets::{color_text, Icon, UiExt},
         SaveDirectories, UiRef,
     },
-    util::{open_file_manager, ContextExt, Message},
+    util::{open_file_manager, ContextExt, Game, Message},
 };
 use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, PointerButton, ScrollArea};
 

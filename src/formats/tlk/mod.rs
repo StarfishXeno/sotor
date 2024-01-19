@@ -3,6 +3,6 @@ pub use read::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tlk {
-    language: u32,
-    strings: Vec<String>,
+    pub language: u32,
+    pub strings: Vec<String>,
 }

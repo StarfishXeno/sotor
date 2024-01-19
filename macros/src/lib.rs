@@ -258,16 +258,25 @@ pub fn derive_unwrap_variant(input: TokenStream) -> TokenStream {
             Fields::Named(_) => return derive_error!("Named fields are unsupported"),
         };
         let snake_name = v_name.to_string().to_case(Case::Snake);
-        let full_name = format_ident!("unwrap_{}", snake_name);
+        let get_name = format_ident!("get_{}", snake_name);
+        let unwrap_name = format_ident!("unwrap_{}", snake_name);
 
         generated.extend(quote! {
-           pub fn  #full_name(self) -> Option<#ret> {
+           pub fn  #get_name(self) -> Option<#ret> {
                 if let #name::#v_name #fields = self {
                     Some(#ret_fields)
                 } else {
                     None
                 }
             }
+
+           pub fn  #unwrap_name(self) -> #ret {
+            if let #name::#v_name #fields = self {
+                #ret_fields
+            } else {
+                panic!("incorrect field type")
+            }
+        }
         });
     }
 

@@ -1,4 +1,4 @@
-use crate::{save::Game, util::SResult};
+use crate::util::{Game, SResult};
 use egui::{util::id_type_map::SerializableAny, ColorImage, Context, IconData, Id, Ui};
 use image::io::Reader as ImageReader;
 use std::{any::Any, path::PathBuf, sync::mpsc::Sender};

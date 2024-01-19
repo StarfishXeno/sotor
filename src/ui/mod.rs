@@ -1,7 +1,8 @@
 use crate::{
-    save::{Game, Save},
+    save::Save,
     util::{
-        get_extra_save_directories, read_dir_dirs, ContextExt as _, Directory, Message, CHANNEL_ID,
+        get_extra_save_directories, read_dir_dirs, ContextExt as _, Directory, Game, Message,
+        CHANNEL_ID,
     },
 };
 use eframe::APP_KEY;

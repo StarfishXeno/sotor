@@ -3,6 +3,7 @@ use std::collections::HashMap;
 mod read;
 
 pub use read::*;
+use sotor_macros::UnwrapVariant;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TwoDAType {
@@ -10,7 +11,7 @@ pub enum TwoDAType {
     Int,
 }
 
-#[derive(Debug, Clone)]
+#[derive(UnwrapVariant, Debug, Clone)]
 pub enum TwoDAValue {
     String(String),
     Int(i32),

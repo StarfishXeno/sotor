@@ -1,19 +1,36 @@
-use std::collections::HashMap;
+use sotor_macros::EnumList;
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+};
 
 mod bytes;
 mod fs;
-mod game_data;
 mod ui;
 
 pub use bytes::*;
 pub use fs::*;
-pub use game_data::*;
 pub use ui::*;
-
-use crate::save::Game;
 
 pub type SResult<T> = Result<T, String>;
 pub type ESResult = SResult<()>;
+
+#[derive(Debug, EnumList, Clone, PartialEq, Copy)]
+#[repr(u8)]
+pub enum Game {
+    One = 0,
+    Two,
+}
+impl Game {
+    pub fn idx(self) -> usize {
+        self as usize
+    }
+}
+impl Display for Game {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&(*self as u8 + 1).to_string())
+    }
+}
 
 pub fn string_lowercase_map(strings: &[String]) -> HashMap<String, String> {
     strings

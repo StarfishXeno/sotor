@@ -24,7 +24,7 @@ macro_rules! get_field {
             })
     };
     ($map:expr, $field:literal) => {
-        get_field!($map, $field, unwrap_byte)
+        get_field!($map, $field, get_byte)
     };
 }
 
@@ -107,12 +107,12 @@ impl Reader {
         Ok(Nfo {
             save_name: fields
                 .get("SAVEGAMENAME")
-                .and_then(|f| f.clone().unwrap_string())
+                .and_then(|f| f.clone().get_string())
                 .unwrap_or_default(), // autosaves don't have this field
-            area_name: get_field!(fields, "AREANAME", unwrap_string)?,
-            last_module: get_field!(fields, "LASTMODULE", unwrap_string)?,
+            area_name: get_field!(fields, "AREANAME", get_string)?,
+            last_module: get_field!(fields, "LASTMODULE", get_string)?,
             cheat_used: get_field!(fields, "CHEATUSED")? != 0,
-            time_played: get_field!(fields, "TIMEPLAYED", unwrap_dword)?,
+            time_played: get_field!(fields, "TIMEPLAYED", get_dword)?,
         })
     }
 
@@ -138,7 +138,7 @@ impl Reader {
             names.push(
                 name_list
                     .iter()
-                    .map(|s| get_field!(s.fields, "Name", unwrap_string).unwrap())
+                    .map(|s| get_field!(s.fields, "Name", get_string).unwrap())
                     .collect(),
             );
         }
@@ -180,29 +180,29 @@ impl Reader {
 
     fn read_party_table(&self) -> SResult<PartyTable> {
         let fields = &self.party_table.content.fields;
-        let journal = get_field!(fields, "JNL_Entries", unwrap_list)?
+        let journal = get_field!(fields, "JNL_Entries", get_list)?
             .into_iter()
             .map(|e| {
                 Ok(JournalEntry {
-                    id: get_field!(e.fields, "JNL_PlotID", unwrap_string)?,
-                    state: get_field!(e.fields, "JNL_State", unwrap_int)?,
-                    time: get_field!(e.fields, "JNL_Time", unwrap_dword)?,
-                    date: get_field!(e.fields, "JNL_Date", unwrap_dword)?,
+                    id: get_field!(e.fields, "JNL_PlotID", get_string)?,
+                    state: get_field!(e.fields, "JNL_State", get_int)?,
+                    time: get_field!(e.fields, "JNL_Time", get_dword)?,
+                    date: get_field!(e.fields, "JNL_Date", get_dword)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let members = get_field!(fields, "PT_MEMBERS", unwrap_list)?
+        let members = get_field!(fields, "PT_MEMBERS", get_list)?
             .into_iter()
             .map(|m| {
                 Ok(PartyMember {
-                    idx: get_field!(m.fields, "PT_MEMBER_ID", unwrap_int)? as usize,
+                    idx: get_field!(m.fields, "PT_MEMBER_ID", get_int)? as usize,
                     leader: get_field!(m.fields, "PT_IS_LEADER")? != 0,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let available_members = get_field!(fields, "PT_AVAIL_NPCS", unwrap_list)?
+        let available_members = get_field!(fields, "PT_AVAIL_NPCS", get_list)?
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
@@ -212,20 +212,20 @@ impl Reader {
             })
             .collect::<SResult<_>>()?;
 
-        let party_xp = get_field!(fields, "PT_XP_POOL", unwrap_int)?;
+        let party_xp = get_field!(fields, "PT_XP_POOL", get_int)?;
         let cheat_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
-        let credits = get_field!(fields, "PT_GOLD", unwrap_dword)?;
+        let credits = get_field!(fields, "PT_GOLD", get_dword)?;
         let (components, chemicals, influence) = match self.game {
             Game::One => (None, None, None),
             Game::Two => {
-                let influence = get_field!(fields, "PT_INFLUENCE", unwrap_list)?
+                let influence = get_field!(fields, "PT_INFLUENCE", get_list)?
                     .into_iter()
-                    .map(|m| get_field!(m.fields, "PT_NPC_INFLUENCE", unwrap_int))
+                    .map(|m| get_field!(m.fields, "PT_NPC_INFLUENCE", get_int))
                     .collect::<SResult<_>>()?;
 
                 (
-                    Some(get_field!(fields, "PT_ITEM_COMPONEN", unwrap_dword)?),
-                    Some(get_field!(fields, "PT_ITEM_CHEMICAL", unwrap_dword)?),
+                    Some(get_field!(fields, "PT_ITEM_COMPONEN", get_dword)?),
+                    Some(get_field!(fields, "PT_ITEM_CHEMICAL", get_dword)?),
                     Some(influence),
                 )
             }
@@ -280,8 +280,7 @@ impl Reader {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
-        let mut player_field =
-            get_field!(last_module.content.fields, "Mod_PlayerList", unwrap_list)?;
+        let mut player_field = get_field!(last_module.content.fields, "Mod_PlayerList", get_list)?;
         if player_field.is_empty() {
             return Err("Couldn't get player character struct".to_string());
         }
@@ -310,7 +309,7 @@ impl Reader {
     fn read_character(&self, s: &Struct, idx: usize) -> SResult<Character> {
         let fields = &s.fields;
 
-        let name = get_field!(fields, "FirstName", unwrap_loc_string)?
+        let name = get_field!(fields, "FirstName", get_loc_string)?
             .1
             .first()
             .map_or_else(
@@ -331,19 +330,19 @@ impl Reader {
             get_field!(fields, "Cha")?,
         ];
 
-        let skills = get_field!(fields, "SkillList", unwrap_list)?
+        let skills = get_field!(fields, "SkillList", get_list)?
             .into_iter()
             .map(|s| get_field!(s.fields, "Rank"))
             .collect::<SResult<Vec<_>>>()?
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
-        let feats = get_field!(fields, "FeatList", unwrap_list)?
+        let feats = get_field!(fields, "FeatList", get_list)?
             .into_iter()
-            .map(|s| get_field!(s.fields, "Feat", unwrap_word))
+            .map(|s| get_field!(s.fields, "Feat", get_word))
             .collect::<SResult<_>>()?;
 
-        let classes = get_field!(fields, "ClassList", unwrap_list)?
+        let classes = get_field!(fields, "ClassList", get_list)?
             .iter()
             .map(Self::read_class)
             .collect::<SResult<Vec<_>>>()?;
@@ -354,39 +353,39 @@ impl Reader {
         Ok(Character {
             idx,
             name,
-            tag: get_field!(fields, "Tag", unwrap_string)?,
-            hp: get_field!(fields, "CurrentHitPoints", unwrap_short)?,
-            hp_max: get_field!(fields, "MaxHitPoints", unwrap_short)?,
-            fp: get_field!(fields, "ForcePoints", unwrap_short)?,
-            fp_max: get_field!(fields, "MaxForcePoints", unwrap_short)?,
+            tag: get_field!(fields, "Tag", get_string)?,
+            hp: get_field!(fields, "CurrentHitPoints", get_short)?,
+            hp_max: get_field!(fields, "MaxHitPoints", get_short)?,
+            fp: get_field!(fields, "ForcePoints", get_short)?,
+            fp_max: get_field!(fields, "MaxForcePoints", get_short)?,
             min_1_hp: get_field!(fields, "Min1HP")? != 0,
             good_evil: get_field!(fields, "GoodEvil")?,
-            experience: get_field!(fields, "Experience", unwrap_dword)?,
+            experience: get_field!(fields, "Experience", get_dword)?,
             attributes,
             skills,
             feats,
             classes,
             gender,
-            portrait: get_field!(fields, "PortraitId", unwrap_word)?,
-            appearance: get_field!(fields, "Appearance_Type", unwrap_word)?,
-            soundset: get_field!(fields, "SoundSetFile", unwrap_word)?,
+            portrait: get_field!(fields, "PortraitId", get_word)?,
+            appearance: get_field!(fields, "Appearance_Type", get_word)?,
+            soundset: get_field!(fields, "SoundSetFile", get_word)?,
         })
     }
 
     fn read_class(class: &Struct) -> SResult<Class> {
-        let powers = get_field!(class.fields, "KnownList0", unwrap_list)
+        let powers = get_field!(class.fields, "KnownList0", get_list)
             .ok()
             .map(|list| {
                 list.into_iter()
-                    .map(|s| get_field!(s.fields, "Spell", unwrap_word))
+                    .map(|s| get_field!(s.fields, "Spell", get_word))
                     .collect::<SResult<_>>()
             })
             .transpose()?
             .unwrap_or_default();
 
         Ok(Class {
-            id: get_field!(class.fields, "Class", unwrap_int)?,
-            level: get_field!(class.fields, "ClassLevel", unwrap_short)?,
+            id: get_field!(class.fields, "Class", get_int)?,
+            level: get_field!(class.fields, "ClassLevel", get_short)?,
             powers,
         })
     }

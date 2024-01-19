@@ -1,5 +1,4 @@
 use crate::{
-    save::Game,
     ui::{
         styles::{
             set_button_styles, set_striped_styles, BLACK, BLACK_TRANSPARENT, GREEN, RED, WHITE,
@@ -7,7 +6,7 @@ use crate::{
         widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
-    util::{select_directory, ContextExt, Message},
+    util::{select_directory, ContextExt, Game, Message},
 };
 use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, Window};
 use emath::{Align2, Pos2, Vec2};

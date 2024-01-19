@@ -4,13 +4,13 @@ use crate::{
         gff::{self, Gff, Struct},
         ReadResourceNoArg as _,
     },
-    util::{backup_file, load_tga, read_dir_filemap, read_file, ESResult, SResult},
+    util::{backup_file, load_tga, read_dir_filemap, read_file, ESResult, Game, SResult},
 };
 use egui::{Context, TextureHandle, TextureOptions};
-use sotor_macros::{EnumFromInt, EnumList, EnumToInt};
+use sotor_macros::{EnumFromInt, EnumToInt};
 use std::{
     collections::VecDeque,
-    fmt::{self, Display},
+    fmt::{self},
     fs,
     path::PathBuf,
 };
@@ -72,22 +72,6 @@ pub struct Nfo {
     pub last_module: String,
     pub cheat_used: bool,
     pub time_played: u32,
-}
-#[derive(Debug, EnumList, Clone, PartialEq, Copy)]
-#[repr(u8)]
-pub enum Game {
-    One = 0,
-    Two,
-}
-impl Game {
-    pub fn idx(self) -> usize {
-        self as usize
-    }
-}
-impl Display for Game {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&(*self as u8 + 1).to_string())
-    }
 }
 
 #[derive(EnumFromInt, EnumToInt, Debug, Clone, PartialEq)]

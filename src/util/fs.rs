@@ -1,4 +1,4 @@
-use crate::{save::Game, util::string_lowercase_map};
+use crate::util::{string_lowercase_map, Game};
 use rfd::{AsyncFileDialog, FileHandle};
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::process::CommandExt;
