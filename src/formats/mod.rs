@@ -39,6 +39,7 @@ pub enum ResourceType {
     Uti = 2025,
     Utc = 2027,
     Fac = 2038,
+    Jrl = 2056,
     Sav = 2057,
     Tpc = 3007,
 }

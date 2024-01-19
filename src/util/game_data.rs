@@ -29,7 +29,7 @@ enum ResourceSource {
     Bif { file: PathBuf, res_idx: u32 },
 }
 
-fn get_resource_source(
+fn find_source(
     over: &Option<PathBuf>,
     key: &Key,
     name: &str,
@@ -53,7 +53,7 @@ fn get_resource_source(
     })
 }
 
-fn find_resources_by_names(
+fn find_sources_by_name(
     over: &Option<PathBuf>,
     key: &Key,
     names: &[&str],
@@ -61,7 +61,7 @@ fn find_resources_by_names(
 ) -> SResult<Vec<ResourceSource>> {
     let mut sources = Vec::with_capacity(names.len());
     for name in names {
-        let Some(source) = get_resource_source(over, key, name, tp) else {
+        let Some(source) = find_source(over, key, name, tp) else {
             return Err(format!("couldn't find resource {name}"));
         };
         sources.push(source);
@@ -70,7 +70,7 @@ fn find_resources_by_names(
     Ok(sources)
 }
 
-fn find_resources_by_type(
+fn find_sources_by_type(
     over: &Option<PathBuf>,
     key: &Key,
     tp: ResourceType,
@@ -153,6 +153,26 @@ fn get_resources<'a, T: ReadResource<'a, Arg>, Arg: 'a + Copy>(
     Ok(resources)
 }
 
+fn get_resource<'a, T: ReadResource<'a, Arg>, Arg: 'a + Copy>(
+    dir: &Path,
+    source: ResourceSource,
+    arg: Arg,
+) -> SResult<T> {
+    let bytes = match source {
+        ResourceSource::File(path) => {
+            fs::read(&path).map_err(|err| format!("couldn't read file {path:?}: {err}"))?
+        }
+        ResourceSource::Bif { file, res_idx } => {
+            let bif_bytes = read_file(dir, &file)
+                .map_err(|err| format!("couldn't read bif {file:?}: {err}"))?;
+            let mut bif = Bif::read(&bif_bytes, &[res_idx as usize])
+                .map_err(|err| format!("couldn't read bif {file:?}: {err}"))?;
+            bif.resources.pop().unwrap()
+        }
+    };
+    T::read(&bytes, arg)
+}
+
 pub fn read() {
     let dir: PathBuf = "/mnt/media/SteamLibrary/steamapps/common/swkotor".into();
     let map = read_dir_filemap(&dir).unwrap();
@@ -167,12 +187,14 @@ pub fn read() {
     let key = Key::read(&key_bytes, ()).unwrap();
 
     let (twoda_names, twoda_args): (Vec<_>, Vec<_>) = TWODAS.iter().copied().unzip();
-    let twoda_sources =
-        find_resources_by_names(&over, &key, &twoda_names, TwoDA::get_type()).unwrap();
+    let twoda_sources = find_sources_by_name(&over, &key, &twoda_names, TwoDA::get_type()).unwrap();
     let twodas: Vec<TwoDA> = get_resources(&dir, twoda_sources, &twoda_args).unwrap();
     let [feats, spells, classes, portraits, appearances, soundsets] = twodas.try_into().unwrap();
 
-    let item_sources = find_resources_by_type(&over, &key, ResourceType::Uti);
+    let item_sources = find_sources_by_type(&over, &key, ResourceType::Uti);
     let item_count = item_sources.len();
     let items: Vec<Gff> = get_resources(&dir, item_sources, &[()].repeat(item_count)).unwrap();
+
+    let journal_source = find_source(&over, &key, "global", ResourceType::Jrl).unwrap();
+    let journal: Gff = get_resource(&dir, journal_source, ()).unwrap();
 }
