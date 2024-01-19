@@ -5,10 +5,8 @@ use crate::{
     },
     util::{bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE},
 };
-use std::{
-    collections::HashMap,
-    io::{Cursor, Seek, Write},
-};
+use ahash::{HashMap, HashMapExt as _};
+use std::io::{Cursor, Seek, Write};
 
 const MAX_LABEL_LEN: usize = 16;
 

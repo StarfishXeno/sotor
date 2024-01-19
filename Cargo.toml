@@ -24,6 +24,7 @@ cast_lossless = "allow"
 
 [dependencies]
 sotor_macros = { path = "./macros" }
+ahash = "0.8.7"
 bytemuck = "1.14.0"
 rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
@@ -32,12 +33,12 @@ fastrand = "2.0.1"
 futures-lite = "2.1.0"
 serde = { version = "1.0.193", features = ["derive"] }
 log = "0.4"
-egui = "0.24.1"
-eframe = { version = "0.24.1", default-features = false, features = [
+egui = "0.25"
+eframe = { version = "0.25", default-features = false, features = [
     "persistence",
     "glow",
 ] }
-emath = "0.24.1"
+emath = "0.25"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

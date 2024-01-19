@@ -1,11 +1,11 @@
 use super::{FileHead, LocString};
+use ahash::HashMap;
 use sotor_macros::{EnumToInt, EnumToString, UnwrapVariant};
-use std::collections::HashMap;
 
 mod read;
 mod write;
 
-pub use write::write;
+pub use write::*;
 
 // 7 pairs of DWORDS
 const HEADER_SIZE: usize = 7 * 2;
@@ -94,6 +94,7 @@ mod tests {
         gff::{write, Field, Gff, LocString, Struct},
         ReadResourceNoArg,
     };
+    use ahash::HashMap;
 
     #[test]
     fn field_value_type() {
@@ -134,14 +135,14 @@ mod tests {
                     "Struct",
                     Field::Struct(Box::new(Struct {
                         tp: 2,
-                        fields: [("NESTED".to_owned(), Field::Byte(0))].into(),
+                        fields: HashMap::from_iter([("NESTED".to_owned(), Field::Byte(0))]),
                     })),
                 ),
                 (
                     "List",
                     Field::List(vec![Struct {
                         tp: 0,
-                        fields: [("LIST_NESTED".to_owned(), Field::Byte(0))].into(),
+                        fields: HashMap::from_iter([("LIST_NESTED".to_owned(), Field::Byte(0))]),
                     }]),
                 ),
             ]),

@@ -1,9 +1,9 @@
 use crate::util::{string_lowercase_map, Game};
+use ahash::HashMap;
 use rfd::{AsyncFileDialog, FileHandle};
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::process::CommandExt;
 use std::{
-    collections::HashMap,
     fs,
     future::Future,
     io,

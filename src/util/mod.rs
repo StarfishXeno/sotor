@@ -1,8 +1,6 @@
+use ahash::HashMap;
 use sotor_macros::EnumList;
-use std::{
-    collections::HashMap,
-    fmt::{self, Display},
-};
+use std::fmt::{self, Display};
 
 mod bytes;
 mod fs;

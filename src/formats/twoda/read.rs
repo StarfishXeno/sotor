@@ -6,8 +6,8 @@ use crate::{
     },
     util::{seek_to, take, take_head, take_slice, take_string_until, Cursor, ESResult, SResult},
 };
+use ahash::{HashMap, HashMapExt as _};
 use std::{
-    collections::HashMap,
     io::{prelude::*, SeekFrom},
     usize,
 };

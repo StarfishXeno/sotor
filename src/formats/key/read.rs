@@ -9,10 +9,8 @@ use crate::{
         ToUsizeVec as _, DWORD_SIZE,
     },
 };
-use std::{
-    collections::HashMap,
-    io::{BufRead, Seek, SeekFrom},
-};
+use ahash::{HashMap, HashMapExt as _};
+use std::io::{BufRead, Seek, SeekFrom};
 
 struct Header {
     file_count: usize,

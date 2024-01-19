@@ -1,5 +1,6 @@
 use super::ResourceKey;
-use std::{collections::HashMap, path::PathBuf};
+use ahash::HashMap;
+use std::path::PathBuf;
 
 mod read;
 pub use read::*;

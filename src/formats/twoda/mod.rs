@@ -1,9 +1,8 @@
-use std::collections::HashMap;
+use ahash::HashMap;
+use sotor_macros::UnwrapVariant;
 
 mod read;
-
 pub use read::*;
-use sotor_macros::UnwrapVariant;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TwoDAType {

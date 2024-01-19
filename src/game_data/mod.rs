@@ -1,12 +1,16 @@
 use crate::{
     formats::{gff::Gff, key::Key, twoda::TwoDA, ReadResource, ResourceType},
+    game_data::read::{
+        find_source, find_sources_by_name, find_sources_by_type, get_resource, get_resources,
+        read_feats, read_workshop_dir, TWODAS,
+    },
     util::{read_dir_filemap, read_file, Game, SResult},
 };
-use read::{
-    find_source, find_sources_by_name, find_sources_by_type, get_resource, get_resources,
-    read_feats, read_workshop_dir, TWODAS,
+use ahash::HashMap;
+use std::{
+    fs,
+    path::{Path, PathBuf},
 };
-use std::{collections::HashMap, fs, path::PathBuf};
 
 mod read;
 
@@ -63,8 +67,8 @@ pub struct GameData {
 }
 
 impl GameData {
-    pub fn read(game: Game, dir: &str, steam_dir: Option<&str>) -> SResult<Self> {
-        let mut dir: PathBuf = dir.into();
+    pub fn read(game: Game, dir: impl AsRef<Path>, steam_dir: Option<&str>) -> SResult<Self> {
+        let mut dir: PathBuf = dir.as_ref().into();
         let mut map = read_dir_filemap(&dir)
             .map_err(|err| format!("couldn't read game dir {dir:?}: {err}"))?;
         // updated steam version of TSL stores game data in steamassets dir

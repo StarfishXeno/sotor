@@ -186,16 +186,16 @@ impl<'a> Widget for IconButton<'a> {
             .text_style(TextStyle::Name("icon".into()))
             .size(self.size)
             .into();
-        let mut text_job = text.into_text_job(ui.style(), FontSelection::Default, valign);
+        let mut layout_job = text.into_layout_job(ui.style(), FontSelection::Default, valign);
 
-        text_job.job.wrap.max_width = f32::INFINITY;
-        text_job.job.halign = ui.layout().horizontal_placement();
-        text_job.job.justify = ui.layout().horizontal_justify();
+        layout_job.wrap.max_width = f32::INFINITY;
+        layout_job.halign = ui.layout().horizontal_placement();
+        layout_job.justify = ui.layout().horizontal_justify();
 
-        let text_galley = ui.fonts(|f| text_job.into_galley(f));
+        let text_galley = ui.fonts(|f| f.layout_job(layout_job));
 
         let (rect, mut response) = ui.allocate_exact_size(text_galley.size(), Sense::click());
-        let pos = match text_galley.galley.job.halign {
+        let pos = match text_galley.job.halign {
             Align::LEFT => rect.left_top(),
             Align::Center => rect.center_top(),
             Align::RIGHT => rect.right_top(),
@@ -213,8 +213,9 @@ impl<'a> Widget for IconButton<'a> {
             };
 
             ui.painter().add(TextShape {
+                fallback_color: GREEN,
                 pos,
-                galley: text_galley.galley,
+                galley: text_galley,
                 override_text_color,
                 underline: Stroke::NONE,
                 angle: 0.,
@@ -274,8 +275,9 @@ impl Widget for ListItem {
             let override_text_color = if selected { Some(BLUE) } else { None };
 
             ui.painter().add(TextShape {
+                fallback_color: GREEN,
                 pos,
-                galley: text_galley.galley,
+                galley: text_galley,
                 override_text_color,
                 underline: Stroke::NONE,
                 angle: 0.,

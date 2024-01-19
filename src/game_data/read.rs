@@ -9,8 +9,8 @@ use crate::{
     game_data::Feat,
     util::{read_dir_dirs, read_dir_filemap, read_file, SResult},
 };
+use ahash::{HashMap, HashMapExt as _};
 use std::{
-    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };

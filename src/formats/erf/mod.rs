@@ -1,12 +1,11 @@
-use crate::formats::{LocString, ResourceKey, ResourceType};
-use std::{collections::HashMap, fmt};
+use crate::formats::{FileHead, LocString, ResourceKey, ResourceType};
+use std::fmt;
 
 mod read;
 mod write;
 
-pub use write::write;
-
-use super::FileHead;
+use ahash::HashMap;
+pub use write::*;
 
 // 11 DWORD fields + 116 bytes reserved
 const HEADER_SIZE: usize = 11;
@@ -57,13 +56,14 @@ mod tests {
         erf::{write, Erf, Resource},
         LocString, ReadResourceNoArg as _, ResourceType,
     };
+    use ahash::HashMap;
 
     #[test]
     fn read_write() {
         let erf = Erf {
             file_head: ("TST ", "V0.0").into(),
 
-            resources: [
+            resources: HashMap::from_iter([
                 (
                     ("pc", ResourceType::Txt).into(),
                     Resource {
@@ -78,8 +78,7 @@ mod tests {
                         content: (*b"inventory").into(),
                     },
                 ),
-            ]
-            .into(),
+            ]),
 
             loc_strings: vec![LocString {
                 id: 0,

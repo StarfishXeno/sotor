@@ -1,6 +1,8 @@
+use ahash::{HashMap, HashMapExt as _};
+
 use crate::{
     formats::{
-        erf::{Erf, Resource, KEY_NAME_LEN, KEY_SIZE_BYTES},
+        erf::{Erf, Resource, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES},
         impl_read_resource, FileHead, LocString, ReadResource, ResourceType,
     },
     util::{
@@ -8,12 +10,7 @@ use crate::{
         SResult, ToUsizeVec as _,
     },
 };
-use std::{
-    collections::HashMap,
-    io::{BufRead, Seek, SeekFrom},
-};
-
-use super::HEADER_SIZE;
+use std::io::{BufRead, Seek, SeekFrom};
 
 #[derive(Debug, Default)]
 struct Header {

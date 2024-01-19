@@ -10,11 +10,9 @@ use crate::{
         take_string_trimmed, Cursor, ESResult, SResult, ToUsizeVec as _, DWORD_SIZE,
     },
 };
+use ahash::{HashMap, HashMapExt as _};
 use bytemuck::cast;
-use std::{
-    collections::HashMap,
-    io::{prelude::*, SeekFrom},
-};
+use std::io::{prelude::*, SeekFrom};
 
 #[derive(Debug)]
 struct FieldReadTmp {

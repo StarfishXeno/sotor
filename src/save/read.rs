@@ -10,8 +10,8 @@ use crate::{
     },
     util::{get_party, string_lowercase_map, SResult},
 };
+use ahash::HashMap;
 use egui::TextureHandle;
-use std::collections::HashMap;
 
 macro_rules! get_field {
     ($map:expr, $field:literal, $method:tt) => {
