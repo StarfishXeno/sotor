@@ -44,10 +44,10 @@ pub enum ResourceType {
 }
 
 impl ResourceType {
-    pub fn to_extension(self) -> &'static str {
+    pub fn to_extension(self) -> String {
         match self {
-            Self::Twoda => "2da",
-            _ => self.to_str(),
+            Self::Twoda => "2da".to_owned(),
+            _ => self.to_str().to_lowercase(),
         }
     }
 }

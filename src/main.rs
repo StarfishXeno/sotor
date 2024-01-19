@@ -4,6 +4,8 @@ mod ui;
 mod util;
 
 fn main() -> eframe::Result<()> {
+    util::read();
+    std::process::exit(0);
     #[cfg(target_endian = "big")]
     {
         compile_error!("nope");

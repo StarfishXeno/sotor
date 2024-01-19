@@ -1,5 +1,5 @@
 use super::ResourceKey;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 mod read;
 pub use read::*;
@@ -15,4 +15,11 @@ pub struct KeyResRef {
 pub struct Key {
     pub file_names: Vec<String>,
     pub resources: HashMap<ResourceKey, KeyResRef>,
+}
+
+impl Key {
+    pub fn get_file_path(&self, idx: u32) -> PathBuf {
+        let file_name = &self.file_names[idx as usize];
+        file_name.split('\\').collect()
+    }
 }
