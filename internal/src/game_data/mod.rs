@@ -54,40 +54,44 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
     ("soundset", &[("label", TwoDAType::String)]),
 ];
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Feat {
+    pub id: u16,
     pub name: String,
     pub description: Option<String>,
 }
 
-pub type Power = Feat;
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Class {
+    pub id: i32,
     pub name: String,
     pub hit_die: u8,
     pub force_die: u8,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Appearance {
+    pub id: u16,
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QuestStage {
+    pub id: i32,
     pub description: String,
     pub end: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Quest {
+    pub id: String,
     pub name: String,
     pub stages: BTreeMap<i32, QuestStage>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Item {
+    pub res_ref: String,
     pub tag: String,
     pub name: String,
     pub identified: bool,
@@ -95,16 +99,16 @@ pub struct Item {
     pub stack_size: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {
-    pub feats: HashMap<u16, Feat>,
-    pub powers: HashMap<u16, Power>,
-    pub classes: HashMap<i32, Class>,
-    pub portraits: HashMap<u16, Appearance>,
-    pub appearances: HashMap<u16, Appearance>,
-    pub soundsets: HashMap<u16, Appearance>,
-    pub quests: HashMap<String, Quest>,
-    pub items: HashMap<String, Item>,
+    pub feats: Vec<Feat>,
+    pub powers: Vec<Feat>,
+    pub classes: Vec<Class>,
+    pub portraits: Vec<Appearance>,
+    pub appearances: Vec<Appearance>,
+    pub soundsets: Vec<Appearance>,
+    pub quests: Vec<Quest>,
+    pub items: Vec<Item>,
 }
 
 impl GameData {
@@ -180,3 +184,39 @@ impl GameData {
         })
     }
 }
+
+// we need to both iterate through sorted lists of data and look values up by id
+// so we make a wrapper of gamedata with vecs copied into hashmaps
+// costs a couple MB of RAM though
+macro_rules! impl_game_data_mapped {
+    ($([$s:ident, $id_type:ident, $id_field:tt, [$($field:tt,)+]],)+) => {
+        $(
+        impl $s {
+            pub fn mapped(vec: Vec<$s>) -> HashMap<$id_type, $s> {
+                vec.into_iter().map(|s| (s.$id_field.clone(), s)).collect()
+            }
+        }
+        )+
+        #[derive(Debug)]
+        pub struct GameDataMapped {
+            inner: GameData,
+            $($($field: HashMap<$id_type, $s>,)+)+
+        }
+        impl From<GameData> for GameDataMapped {
+            fn from(inner: GameData) -> GameDataMapped {
+                GameDataMapped {
+                    $($($field: $s::mapped(inner.$field.clone()),)+)+
+                    inner
+                }
+            }
+        }
+    };
+}
+
+impl_game_data_mapped!(
+    [Feat, u16, id, [feats, powers,]],
+    [Class, i32, id, [classes,]],
+    [Appearance, u16, id, [portraits, appearances, soundsets,]],
+    [Quest, String, id, [quests,]],
+    [Item, String, res_ref, [items,]],
+);

@@ -202,11 +202,7 @@ fn to_str_ref(v: i32) -> usize {
     }
 }
 
-pub fn read_feats(
-    twoda: TwoDA,
-    tlk_bytes: &[u8],
-    description_field: &str,
-) -> SResult<HashMap<u16, Feat>> {
+pub fn read_feats(twoda: TwoDA, tlk_bytes: &[u8], description_field: &str) -> SResult<Vec<Feat>> {
     let mut tmp = Vec::with_capacity(twoda.0.len());
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
@@ -233,22 +229,22 @@ pub fn read_feats(
     let mut tlk =
         Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
 
-    let mut feats = HashMap::new();
+    let mut feats = Vec::with_capacity(tmp.len());
     for (idx, id, label) in tmp {
         let name = mem::take(&mut tlk.strings[idx * 2]);
         let descr = mem::take(&mut tlk.strings[idx * 2 + 1]);
-        feats.insert(
+        feats.push(Feat {
             id,
-            Feat {
-                name: if name.is_empty() { label } else { name },
-                description: (!descr.is_empty()).then_some(descr),
-            },
-        );
+            name: if name.is_empty() { label } else { name },
+            description: (!descr.is_empty()).then_some(descr),
+        });
     }
+    feats.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
     Ok(feats)
 }
 
-pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<HashMap<i32, Class>> {
+pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
     let mut tmp = Vec::with_capacity(twoda.0.len());
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
@@ -271,36 +267,35 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<HashMap<i32, Clas
     let mut tlk =
         Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
 
-    let mut classes = HashMap::new();
+    let mut classes = Vec::with_capacity(tmp.len());
     for (idx, id, hit_die, force_die) in tmp {
-        classes.insert(
+        classes.push(Class {
             id,
-            Class {
-                name: mem::take(&mut tlk.strings[idx]),
-                hit_die,
-                force_die,
-            },
-        );
+            name: mem::take(&mut tlk.strings[idx]),
+            hit_die,
+            force_die,
+        });
     }
+    classes.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     Ok(classes)
 }
 
-pub fn read_appearances(twoda: TwoDA, field: &str) -> HashMap<u16, Appearance> {
-    let mut appearances = HashMap::with_capacity(twoda.0.len());
+pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
+    let mut appearances = Vec::with_capacity(twoda.0.len());
     for appearance in twoda.0 {
-        let id = appearance["_idx"].clone().unwrap().unwrap_int();
+        let id = appearance["_idx"].clone().unwrap().unwrap_int() as u16;
         let Some(name) = appearance[field].clone().map(TwoDAValue::unwrap_string) else {
             continue;
         };
 
-        appearances.insert(id as u16, Appearance { name });
+        appearances.push(Appearance { id, name });
     }
 
     appearances
 }
 
-pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<HashMap<String, Quest>> {
+pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
     let list = get_field!(journal.content, "Categories", get_list)?;
     let mut tmp = Vec::with_capacity(list.len());
     let mut str_refs = Vec::with_capacity(list.len() * 10);
@@ -322,7 +317,7 @@ pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<HashMap<String, Q
     let tlk =
         Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
-    let mut quests = HashMap::with_capacity(tmp.len());
+    let mut quests = Vec::with_capacity(tmp.len());
 
     for (id, name_ref, stages) in tmp {
         let stages = stages
@@ -331,25 +326,26 @@ pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<HashMap<String, Q
                 (
                     id,
                     QuestStage {
+                        id,
                         end,
                         description: mem::take(map.get_mut(&descr_ref).unwrap()),
                     },
                 )
             })
             .collect();
-        quests.insert(
+
+        quests.push(Quest {
             id,
-            Quest {
-                name: mem::take(map.get_mut(&name_ref).unwrap()),
-                stages,
-            },
-        );
+            name: mem::take(map.get_mut(&name_ref).unwrap()),
+            stages,
+        });
     }
+    quests.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     Ok(quests)
 }
 
-pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<HashMap<String, Item>> {
+pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut tmp = Vec::with_capacity(items.len());
     let mut str_refs = Vec::with_capacity(items.len() * 2);
     for item in items {
@@ -368,20 +364,19 @@ pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<HashMap<String, It
     let tlk =
         Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
-    let mut items = HashMap::with_capacity(tmp.len());
+    let mut items = Vec::with_capacity(tmp.len());
 
     for (tag, res_ref, identified, name_ref, descr_ref, stack_size) in tmp {
-        items.insert(
+        items.push(Item {
             res_ref,
-            Item {
-                tag,
-                identified,
-                stack_size,
-                name: mem::take(map.get_mut(&name_ref).unwrap()),
-                description: mem::take(map.get_mut(&descr_ref).unwrap()),
-            },
-        );
+            tag,
+            identified,
+            stack_size,
+            name: mem::take(map.get_mut(&name_ref).unwrap()),
+            description: mem::take(map.get_mut(&descr_ref).unwrap()),
+        });
     }
+    items.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     Ok(items)
 }

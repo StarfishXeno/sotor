@@ -172,7 +172,7 @@ impl<'a> Editor<'a> {
             .find(|(_, i)| *i == idx);
 
         if let Some((idx, _)) = in_party_idx {
-            let btn = ui.s_icon_button(Icon::Remove, "Remove from current party");
+            let btn = ui.s_icon_button(Icon::Leave, "Remove from current party");
 
             if btn.clicked() {
                 members.remove(idx);

@@ -7,9 +7,11 @@ use crate::{
 };
 use eframe::APP_KEY;
 use egui::{panel::Side, Context, Frame, Margin, Ui};
-use internal::GameData;
+use internal::{GameData, GameDataMapped};
 use log::error;
 use std::{
+    default,
+    mem::size_of,
     path::PathBuf,
     sync::mpsc::{channel, Receiver, Sender},
 };
@@ -42,7 +44,8 @@ pub struct SotorApp {
     settings_open: bool,
     save_list: [Vec<SaveDirectories>; Game::COUNT],
     latest_save: Option<Directory>,
-    default_game_data: [GameData; Game::COUNT],
+    game_data: [Option<GameDataMapped>; Game::COUNT],
+    default_game_data: [GameDataMapped; Game::COUNT],
 
     prs: PersistentState,
 }
@@ -59,7 +62,13 @@ impl SotorApp {
             settings_open: false,
             save_list: [vec![], vec![]],
             latest_save: None,
-            default_game_data: get_default_game_data(),
+            game_data: [None, None],
+            default_game_data: get_default_game_data()
+                .into_iter()
+                .map(GameData::into)
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
 
             prs: cc
                 .storage

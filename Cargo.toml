@@ -45,8 +45,6 @@ internal = { workspace = true }
 ahash = { workspace = true }
 bincode = { workspace = true }
 dotenv = "0.15"
-quote = "1.0"
-proc-macro2 = "1.0"
 
 [profile.release]
 opt-level = 3

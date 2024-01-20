@@ -1744,8 +1744,6 @@ dependencies = [
  "internal",
  "log",
  "macros",
- "proc-macro2",
- "quote",
  "rfd",
  "serde",
  "wasm-bindgen-futures",
