@@ -32,24 +32,37 @@ pub fn bytes_to_string(bytes: Vec<u8>) -> String {
     String::from_utf8(bytes).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
 }
 
-pub trait ToUsizeVec {
-    fn to_usize_vec(self) -> Vec<usize>;
+pub trait IntoUsizeVec {
+    fn into_usize_vec(self) -> Vec<usize>;
 }
-impl<T, E> ToUsizeVec for &[T]
+impl<T, E> IntoUsizeVec for &[T]
 where
     T: TryInto<usize, Error = E> + Copy,
     E: Debug,
 {
-    fn to_usize_vec(self) -> Vec<usize> {
+    fn into_usize_vec(self) -> Vec<usize> {
         self.iter().map(|i| (*i).try_into().unwrap()).collect()
     }
 }
 
-pub trait ToByteSlice<'a> {
-    fn to_byte_slice(self) -> &'a [u8];
+pub trait IntoUsizeArray<const SIZE: usize> {
+    fn into_usize_array(self) -> [usize; SIZE];
 }
-impl<'a, T: NoUninit> ToByteSlice<'a> for &'a [T] {
-    fn to_byte_slice(self) -> &'a [u8] {
+impl<T, E, const SIZE: usize> IntoUsizeArray<SIZE> for [T; SIZE]
+where
+    T: TryInto<usize, Error = E> + Copy,
+    E: Debug,
+{
+    fn into_usize_array(self) -> [usize; SIZE] {
+        self.map(|i| i.try_into().unwrap())
+    }
+}
+
+pub trait IntoByteSlice<'a> {
+    fn into_byte_slice(self) -> &'a [u8];
+}
+impl<'a, T: NoUninit> IntoByteSlice<'a> for &'a [T] {
+    fn into_byte_slice(self) -> &'a [u8] {
         cast_slice(self)
     }
 }

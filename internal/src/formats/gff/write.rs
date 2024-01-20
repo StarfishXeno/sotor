@@ -4,7 +4,7 @@ use crate::{
         FileHead,
     },
     util::bytes::{
-        bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE,
+        bytes_to_sized_bytes, nullpad_string, num_to_dword, IntoByteSlice as _, DWORD_SIZE,
     },
 };
 use ahash::{HashMap, HashMapExt as _};
@@ -123,8 +123,10 @@ impl Writer {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&bytes))
                     }
                     Field::Void(v) => self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(&v)),
-                    Field::Orientation(v) => self.save_bytes([v.w, v.x, v.y, v.z].to_byte_slice()),
-                    Field::Vector(v) => self.save_bytes([v.x, v.y, v.z].to_byte_slice()),
+                    Field::Orientation(v) => {
+                        self.save_bytes([v.w, v.x, v.y, v.z].into_byte_slice())
+                    }
+                    Field::Vector(v) => self.save_bytes([v.x, v.y, v.z].into_byte_slice()),
                     _ => unreachable!(),
                 };
 
@@ -207,7 +209,7 @@ impl Writer {
             for field in group {
                 field_idx += 1;
                 let data = [field.tp, field.label_index, field.content];
-                field_bytes.write_all(data.to_byte_slice()).unwrap();
+                field_bytes.write_all(data.into_byte_slice()).unwrap();
             }
         }
         // header to be filled later
@@ -229,7 +231,7 @@ impl Writer {
                 (index_offset * DWORD_SIZE) as u32
             };
             let data = [s.tp, idx, s.field_count];
-            cursor.write_all(data.to_byte_slice()).unwrap();
+            cursor.write_all(data.into_byte_slice()).unwrap();
         }
         // FIELDS
         let field_offset = cursor.position();
@@ -247,11 +249,13 @@ impl Writer {
         // FIELD INDICES
         let field_indices_offset = cursor.position();
         let field_indices_bytes = field_indices.len() * DWORD_SIZE;
-        cursor.write_all(field_indices.to_byte_slice()).unwrap();
+        cursor.write_all(field_indices.into_byte_slice()).unwrap();
         // LIST INDICES
         let list_indices_offset = cursor.position();
         let list_indices_bytes = self.list_indices.len() * DWORD_SIZE;
-        cursor.write_all(self.list_indices.to_byte_slice()).unwrap();
+        cursor
+            .write_all(self.list_indices.into_byte_slice())
+            .unwrap();
         // HEADER
         cursor.rewind().unwrap();
         cursor.write_all(file_type.as_bytes()).unwrap();
@@ -272,7 +276,7 @@ impl Writer {
                     list_indices_offset as u32,
                     list_indices_bytes as u32,
                 ]
-                .to_byte_slice(),
+                .into_byte_slice(),
             )
             .unwrap();
 

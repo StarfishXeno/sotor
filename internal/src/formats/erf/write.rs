@@ -6,7 +6,7 @@ use crate::{
         },
         FileHead, ResourceKey, ResourceType,
     },
-    util::bytes::{bytes_to_sized_bytes, nullpad_string, ToByteSlice as _, DWORD_SIZE},
+    util::bytes::{bytes_to_sized_bytes, nullpad_string, IntoByteSlice as _, DWORD_SIZE},
 };
 use std::io::{Cursor, Seek, Write};
 use time::{macros::datetime, OffsetDateTime};
@@ -151,7 +151,7 @@ impl Writer {
                     build_day as u32,
                     description_str_ref,
                 ]
-                .to_byte_slice(),
+                .into_byte_slice(),
             )
             .unwrap();
 

@@ -10,8 +10,6 @@ use egui::{panel::Side, Context, Frame, Margin, Ui};
 use internal::{GameData, GameDataMapped};
 use log::error;
 use std::{
-    default,
-    mem::size_of,
     path::PathBuf,
     sync::mpsc::{channel, Receiver, Sender},
 };
@@ -63,12 +61,7 @@ impl SotorApp {
             save_list: [vec![], vec![]],
             latest_save: None,
             game_data: [None, None],
-            default_game_data: get_default_game_data()
-                .into_iter()
-                .map(GameData::into)
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
+            default_game_data: get_default_game_data().map(GameData::into),
 
             prs: cc
                 .storage

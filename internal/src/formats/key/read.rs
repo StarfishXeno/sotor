@@ -6,7 +6,7 @@ use crate::{
     },
     util::{
         bytes::{
-            seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, ToUsizeVec as _,
+            seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, IntoUsizeArray,
             DWORD_SIZE,
         },
         SResult,
@@ -51,9 +51,7 @@ impl<'a> Reader<'a> {
         }
         let [file_count, key_count, file_offset, key_offset] = take::<[u32; 4]>(self.c)
             .ok_or("couldn't read header contents")?
-            .to_usize_vec()
-            .try_into()
-            .unwrap();
+            .into_usize_array();
 
         Ok(Header {
             file_count,

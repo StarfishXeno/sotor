@@ -8,7 +8,7 @@ use crate::{
     util::{
         bytes::{
             seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed,
-            Cursor, ToUsizeVec as _,
+            Cursor, IntoUsizeVec as _,
         },
         SResult,
     },
@@ -54,7 +54,7 @@ impl<'a> Reader<'a> {
         let slice =
             take_slice::<u32>(self.c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
         let [loc_string_count, _, entry_count, loc_string_offset, keys_offset, resources_offset, _, _, description_str_ref] =
-            slice.to_usize_vec().try_into().unwrap();
+            slice.into_usize_vec().try_into().unwrap();
 
         Ok(Header {
             file_head: head,

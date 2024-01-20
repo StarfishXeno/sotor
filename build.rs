@@ -22,11 +22,8 @@ fn main() {
         make_game_dir(&common, "Knights of the Old Republic II"),
     ];
 
-    let mut game_data = vec![];
-    for game in Game::LIST {
-        game_data.push(GameData::read(game, &game_dirs[game.idx()], Some(&steam_dir)).unwrap());
-    }
-    let game_data: [GameData; Game::COUNT] = game_data.try_into().unwrap();
+    let game_data = Game::LIST
+        .map(|game| GameData::read(game, &game_dirs[game.idx()], Some(&steam_dir)).unwrap());
     let out_dir = var("OUT_DIR").unwrap();
     let out = &mut std::fs::File::options()
         .write(true)

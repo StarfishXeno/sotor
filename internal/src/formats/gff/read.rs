@@ -8,7 +8,7 @@ use crate::{
     util::{
         bytes::{
             seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
-            take_string_trimmed, Cursor, ToUsizeVec as _, DWORD_SIZE,
+            take_string_trimmed, Cursor, IntoUsizeArray, IntoUsizeVec, DWORD_SIZE,
         },
         ESResult, SResult,
     },
@@ -91,9 +91,8 @@ impl<'a> Reader<'a> {
 
     fn read_header(&mut self) -> SResult<Header> {
         let file_head = take_head(self.c).ok_or("couldn't read file head")?;
-        let dwords =
-            take_slice::<u32>(self.c, HEADER_SIZE - 2).ok_or("couldn't read header data")?;
-        let mut dwords = dwords.to_usize_vec().into_iter();
+        let dwords = take::<[u32; HEADER_SIZE - 2]>(self.c).ok_or("couldn't read header data")?;
+        let mut dwords = dwords.into_usize_array().into_iter();
 
         Ok(Header {
             file_head,
@@ -130,7 +129,7 @@ impl<'a> Reader<'a> {
                 .ok_or_else(|| format!("couldn't read {size} list indices at {inner_offset}"))?;
 
             self.list_indices
-                .insert(inner_offset, indices.to_usize_vec());
+                .insert(inner_offset, indices.into_usize_vec());
 
             inner_offset = c.position() as usize;
         }
@@ -263,7 +262,7 @@ impl<'a> Reader<'a> {
                     self.field_indices
                         .get(start..start + field_count as usize)
                         .ok_or_else(|| format!("couldn't read struct's {i} field indices"))?
-                        .to_usize_vec()
+                        .into_usize_vec()
                 }
             };
 
