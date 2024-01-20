@@ -106,7 +106,7 @@ impl<'a> Editor<'a> {
             let last = self.journal.last();
             self.journal.push(JournalEntry {
                 id: state.id.trim().to_owned(),
-                state: state.state,
+                stage: state.state,
                 date: last.map_or(0, |e| e.date),
                 time: last.map_or(0, |e| e.time + 1),
             });
@@ -126,7 +126,7 @@ impl<'a> Editor<'a> {
         }
         ui.add(Label::new(color_text(&entry.id, WHITE).text_style(TextStyle::Small)).wrap(true));
         set_drag_value_styles(ui);
-        ui.add(DragValue::new(&mut entry.state));
+        ui.add(DragValue::new(&mut entry.stage));
         ui.s_empty();
     }
 }

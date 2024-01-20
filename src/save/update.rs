@@ -100,7 +100,7 @@ impl<'a> Updater<'a> {
             .map(|e| {
                 Struct::new(vec![
                     ("JNL_PlotID", Field::String(e.id.clone())),
-                    ("JNL_State", Field::Int(e.state)),
+                    ("JNL_State", Field::Int(e.stage)),
                     ("JNL_Time", Field::Dword(e.time)),
                     ("JNL_Date", Field::Dword(e.date)),
                 ])

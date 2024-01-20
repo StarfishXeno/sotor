@@ -88,6 +88,25 @@ pub struct Gff {
     pub content: Struct,
 }
 
+macro_rules! get_field {
+    ($struct:expr, $field:literal, $method:tt) => {
+        $struct
+            .fields
+            .get($field)
+            .ok_or(format!("missing field {}", $field))
+            .and_then(|f| {
+                f.clone()
+                    .$method()
+                    .ok_or(format!("invalid field {}", $field))
+            })
+    };
+    ($struct:expr, $field:literal) => {
+        get_field!($struct, $field, get_byte)
+    };
+}
+
+pub(crate) use get_field;
+
 #[cfg(test)]
 mod tests {
     use crate::formats::{

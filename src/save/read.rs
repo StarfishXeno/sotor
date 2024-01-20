@@ -1,7 +1,7 @@
 use crate::{
     formats::{
         erf::Erf,
-        gff::{Field, Gff, Struct},
+        gff::{get_field, Field, Gff, Struct},
         ReadResourceNoArg as _, ResourceType,
     },
     save::{
@@ -12,21 +12,6 @@ use crate::{
 };
 use ahash::HashMap;
 use egui::TextureHandle;
-
-macro_rules! get_field {
-    ($map:expr, $field:literal, $method:tt) => {
-        $map.get($field)
-            .ok_or(format!("Missing field {}", $field))
-            .and_then(|f| {
-                f.clone()
-                    .$method()
-                    .ok_or(format!("Invalid field {}", $field))
-            })
-    };
-    ($map:expr, $field:literal) => {
-        get_field!($map, $field, get_byte)
-    };
-}
 
 pub struct Reader {
     nfo: Gff,
@@ -102,33 +87,34 @@ impl Reader {
     }
 
     fn read_nfo(&self) -> SResult<Nfo> {
-        let fields = &self.nfo.content.fields;
+        let s = &self.nfo.content;
 
         Ok(Nfo {
-            save_name: fields
+            save_name: s
+                .fields
                 .get("SAVEGAMENAME")
                 .and_then(|f| f.clone().get_string())
                 .unwrap_or_default(), // autosaves don't have this field
-            area_name: get_field!(fields, "AREANAME", get_string)?,
-            last_module: get_field!(fields, "LASTMODULE", get_string)?,
-            cheat_used: get_field!(fields, "CHEATUSED")? != 0,
-            time_played: get_field!(fields, "TIMEPLAYED", get_dword)?,
+            area_name: get_field!(s, "AREANAME", get_string)?,
+            last_module: get_field!(s, "LASTMODULE", get_string)?,
+            cheat_used: get_field!(s, "CHEATUSED")? != 0,
+            time_played: get_field!(s, "TIMEPLAYED", get_dword)?,
         })
     }
 
     fn read_globals(&self) -> SResult<Vec<Global>> {
-        let fields = &self.globals.content.fields;
+        let s = &self.globals.content;
 
         let mut names: Vec<Vec<_>> = Vec::with_capacity(GLOBALS_TYPES.len());
         // Strings are stored as a struct list and go into a separate vector
         let mut values = Vec::with_capacity(GLOBALS_TYPES.len() - 1);
 
         for tp in GLOBALS_TYPES {
-            let Some(Field::List(name_list)) = fields.get(&("Cat".to_owned() + tp)) else {
+            let Some(Field::List(name_list)) = s.fields.get(&("Cat".to_owned() + tp)) else {
                 return Err(format!("Globals: missing or invalid Cat{tp}"));
             };
 
-            let val = fields.get(&("Val".to_owned() + tp));
+            let val = s.fields.get(&("Val".to_owned() + tp));
             if let Some(Field::Void(bytes)) = val {
                 values.push(bytes);
             } else {
@@ -138,7 +124,7 @@ impl Reader {
             names.push(
                 name_list
                     .iter()
-                    .map(|s| get_field!(s.fields, "Name", get_string).unwrap())
+                    .map(|s| get_field!(s, "Name", get_string).unwrap())
                     .collect(),
             );
         }
@@ -179,57 +165,52 @@ impl Reader {
     }
 
     fn read_party_table(&self) -> SResult<PartyTable> {
-        let fields = &self.party_table.content.fields;
-        let journal = get_field!(fields, "JNL_Entries", get_list)?
+        let s = &self.party_table.content;
+        let journal = get_field!(s, "JNL_Entries", get_list)?
             .into_iter()
             .map(|e| {
                 Ok(JournalEntry {
-                    id: get_field!(e.fields, "JNL_PlotID", get_string)?,
-                    state: get_field!(e.fields, "JNL_State", get_int)?,
-                    time: get_field!(e.fields, "JNL_Time", get_dword)?,
-                    date: get_field!(e.fields, "JNL_Date", get_dword)?,
+                    id: get_field!(e, "JNL_PlotID", get_string)?,
+                    stage: get_field!(e, "JNL_State", get_int)?,
+                    time: get_field!(e, "JNL_Time", get_dword)?,
+                    date: get_field!(e, "JNL_Date", get_dword)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let members = get_field!(fields, "PT_MEMBERS", get_list)?
+        let members = get_field!(s, "PT_MEMBERS", get_list)?
             .into_iter()
             .map(|m| {
                 Ok(PartyMember {
-                    idx: get_field!(m.fields, "PT_MEMBER_ID", get_int)? as usize,
-                    leader: get_field!(m.fields, "PT_IS_LEADER")? != 0,
+                    idx: get_field!(m, "PT_MEMBER_ID", get_int)? as usize,
+                    leader: get_field!(m, "PT_IS_LEADER")? != 0,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let available_members = get_field!(fields, "PT_AVAIL_NPCS", get_list)?
+        let available_members = get_field!(s, "PT_AVAIL_NPCS", get_list)?
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
-                    available: get_field!(m.fields, "PT_NPC_AVAIL")? != 0,
-                    selectable: get_field!(m.fields, "PT_NPC_SELECT")? != 0,
+                    available: get_field!(m, "PT_NPC_AVAIL")? != 0,
+                    selectable: get_field!(m, "PT_NPC_SELECT")? != 0,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let party_xp = get_field!(fields, "PT_XP_POOL", get_int)?;
-        let cheat_used = get_field!(fields, "PT_CHEAT_USED")? != 0;
-        let credits = get_field!(fields, "PT_GOLD", get_dword)?;
-        let (components, chemicals, influence) = match self.game {
-            Game::One => (None, None, None),
-            Game::Two => {
-                let influence = get_field!(fields, "PT_INFLUENCE", get_list)?
-                    .into_iter()
-                    .map(|m| get_field!(m.fields, "PT_NPC_INFLUENCE", get_int))
-                    .collect::<SResult<_>>()?;
-
-                (
-                    Some(get_field!(fields, "PT_ITEM_COMPONEN", get_dword)?),
-                    Some(get_field!(fields, "PT_ITEM_CHEMICAL", get_dword)?),
-                    Some(influence),
-                )
-            }
-        };
+        let influence = get_field!(s, "PT_INFLUENCE", get_list)
+            .ok()
+            .map(|i| {
+                i.into_iter()
+                    .map(|m| get_field!(m, "PT_NPC_INFLUENCE", get_int))
+                    .collect::<SResult<_>>()
+            })
+            .transpose()?;
+        let party_xp = get_field!(s, "PT_XP_POOL", get_int)?;
+        let cheat_used = get_field!(s, "PT_CHEAT_USED")? != 0;
+        let credits = get_field!(s, "PT_GOLD", get_dword)?;
+        let components = get_field!(s, "PT_ITEM_COMPONEN", get_dword).ok();
+        let chemicals = get_field!(s, "PT_ITEM_CHEMICAL", get_dword).ok();
 
         Ok(PartyTable {
             journal,
@@ -280,7 +261,7 @@ impl Reader {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
-        let mut player_field = get_field!(last_module.content.fields, "Mod_PlayerList", get_list)?;
+        let mut player_field = get_field!(last_module.content, "Mod_PlayerList", get_list)?;
         if player_field.is_empty() {
             return Err("Couldn't get player character struct".to_string());
         }
@@ -307,9 +288,7 @@ impl Reader {
     }
 
     fn read_character(&self, s: &Struct, idx: usize) -> SResult<Character> {
-        let fields = &s.fields;
-
-        let name = get_field!(fields, "FirstName", get_loc_string)?
+        let name = get_field!(s, "FirstName", get_loc_string)?
             .1
             .first()
             .map_or_else(
@@ -322,70 +301,70 @@ impl Reader {
             );
 
         let attributes = [
-            get_field!(fields, "Str")?,
-            get_field!(fields, "Dex")?,
-            get_field!(fields, "Con")?,
-            get_field!(fields, "Int")?,
-            get_field!(fields, "Wis")?,
-            get_field!(fields, "Cha")?,
+            get_field!(s, "Str")?,
+            get_field!(s, "Dex")?,
+            get_field!(s, "Con")?,
+            get_field!(s, "Int")?,
+            get_field!(s, "Wis")?,
+            get_field!(s, "Cha")?,
         ];
 
-        let skills = get_field!(fields, "SkillList", get_list)?
+        let skills = get_field!(s, "SkillList", get_list)?
             .into_iter()
-            .map(|s| get_field!(s.fields, "Rank"))
+            .map(|s| get_field!(s, "Rank"))
             .collect::<SResult<Vec<_>>>()?
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
-        let feats = get_field!(fields, "FeatList", get_list)?
+        let feats = get_field!(s, "FeatList", get_list)?
             .into_iter()
-            .map(|s| get_field!(s.fields, "Feat", get_word))
+            .map(|s| get_field!(s, "Feat", get_word))
             .collect::<SResult<_>>()?;
 
-        let classes = get_field!(fields, "ClassList", get_list)?
+        let classes = get_field!(s, "ClassList", get_list)?
             .iter()
             .map(Self::read_class)
             .collect::<SResult<Vec<_>>>()?;
 
-        let gender = Gender::try_from(get_field!(fields, "Gender")?)
+        let gender = Gender::try_from(get_field!(s, "Gender")?)
             .map_err(|id| format!("Invalid gender {id}"))?;
 
         Ok(Character {
             idx,
             name,
-            tag: get_field!(fields, "Tag", get_string)?,
-            hp: get_field!(fields, "CurrentHitPoints", get_short)?,
-            hp_max: get_field!(fields, "MaxHitPoints", get_short)?,
-            fp: get_field!(fields, "ForcePoints", get_short)?,
-            fp_max: get_field!(fields, "MaxForcePoints", get_short)?,
-            min_1_hp: get_field!(fields, "Min1HP")? != 0,
-            good_evil: get_field!(fields, "GoodEvil")?,
-            experience: get_field!(fields, "Experience", get_dword)?,
+            tag: get_field!(s, "Tag", get_string)?,
+            hp: get_field!(s, "CurrentHitPoints", get_short)?,
+            hp_max: get_field!(s, "MaxHitPoints", get_short)?,
+            fp: get_field!(s, "ForcePoints", get_short)?,
+            fp_max: get_field!(s, "MaxForcePoints", get_short)?,
+            min_1_hp: get_field!(s, "Min1HP")? != 0,
+            good_evil: get_field!(s, "GoodEvil")?,
+            experience: get_field!(s, "Experience", get_dword)?,
             attributes,
             skills,
             feats,
             classes,
             gender,
-            portrait: get_field!(fields, "PortraitId", get_word)?,
-            appearance: get_field!(fields, "Appearance_Type", get_word)?,
-            soundset: get_field!(fields, "SoundSetFile", get_word)?,
+            portrait: get_field!(s, "PortraitId", get_word)?,
+            appearance: get_field!(s, "Appearance_Type", get_word)?,
+            soundset: get_field!(s, "SoundSetFile", get_word)?,
         })
     }
 
     fn read_class(class: &Struct) -> SResult<Class> {
-        let powers = get_field!(class.fields, "KnownList0", get_list)
+        let powers = get_field!(class, "KnownList0", get_list)
             .ok()
             .map(|list| {
                 list.into_iter()
-                    .map(|s| get_field!(s.fields, "Spell", get_word))
+                    .map(|s| get_field!(s, "Spell", get_word))
                     .collect::<SResult<_>>()
             })
             .transpose()?
             .unwrap_or_default();
 
         Ok(Class {
-            id: get_field!(class.fields, "Class", get_int)?,
-            level: get_field!(class.fields, "ClassLevel", get_short)?,
+            id: get_field!(class, "Class", get_int)?,
+            level: get_field!(class, "ClassLevel", get_short)?,
             powers,
         })
     }

@@ -12,15 +12,15 @@ workspace = true
 
 
 [workspace.lints.clippy]
-pedantic = "warn"
+pedantic = { priority = -1, level = "warn" }
 ignored_unit_patterns = "allow"
 missing_panics_doc = "allow"
-match_on_vec_items = "allow"
 module_name_repetitions = "allow"
 cast_sign_loss = "allow"
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_lossless = "allow"
+unnecessary_box_returns = "allow"            #seems to be bugged, triggers on enum definition and can't be overriden
 
 [dependencies]
 sotor_macros = { path = "./macros" }

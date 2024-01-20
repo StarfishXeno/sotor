@@ -35,7 +35,7 @@ pub struct AvailablePartyMember {
 #[derive(Debug, Clone, PartialEq)]
 pub struct JournalEntry {
     pub id: String,
-    pub state: i32,
+    pub stage: i32,
     pub date: u32,
     pub time: u32,
 }

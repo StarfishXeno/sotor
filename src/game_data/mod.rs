@@ -1,18 +1,54 @@
 use crate::{
-    formats::{gff::Gff, key::Key, twoda::TwoDA, ReadResource, ResourceType},
+    formats::{
+        gff::Gff,
+        key::Key,
+        twoda::{TwoDA, TwoDAType},
+        ReadResource, ResourceType,
+    },
     game_data::read::{
         find_source, find_sources_by_name, find_sources_by_type, get_resource, get_resources,
-        read_feats, read_workshop_dir, TWODAS,
+        read_appearances, read_classes, read_feats, read_items, read_quests, read_workshop_dir,
     },
     util::{read_dir_filemap, read_file, Game, SResult},
 };
 use ahash::HashMap;
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
 
 mod read;
+
+const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
+    (
+        "feat",
+        &[
+            ("label", TwoDAType::String),
+            ("name", TwoDAType::Int),
+            ("description", TwoDAType::Int),
+        ],
+    ),
+    (
+        "spells",
+        &[
+            ("label", TwoDAType::String),
+            ("name", TwoDAType::Int),
+            ("spelldesc", TwoDAType::Int),
+        ],
+    ),
+    (
+        "classes",
+        &[
+            ("name", TwoDAType::Int),
+            ("hitdie", TwoDAType::Int),
+            ("forcedie", TwoDAType::Int),
+        ],
+    ),
+    ("portraits", &[("baseresref", TwoDAType::String)]),
+    ("appearance", &[("label", TwoDAType::String)]),
+    ("soundset", &[("label", TwoDAType::String)]),
+];
 
 #[derive(Debug)]
 pub struct Feat {
@@ -24,32 +60,33 @@ pub type Power = Feat;
 
 #[derive(Debug)]
 pub struct Class {
-    id: i32,
     name: String,
+    hit_die: u8,
+    force_die: u8,
 }
+
 #[derive(Debug)]
-pub struct CreaturePart {
-    id: u16,
+pub struct Appearance {
     name: String,
 }
 
 #[derive(Debug)]
 pub struct QuestStage {
-    id: u32,
-    name: String,
+    description: String,
+    end: bool,
 }
 
 #[derive(Debug)]
 pub struct Quest {
-    id: String,
     name: String,
-    stages: Vec<QuestStage>,
+    stages: BTreeMap<i32, QuestStage>,
 }
 
 #[derive(Debug)]
 pub struct Item {
-    tag: String,
+    res_ref: String,
     name: String,
+    identified: bool,
     description: String,
     stack_size: u16,
 }
@@ -58,12 +95,12 @@ pub struct Item {
 pub struct GameData {
     feats: HashMap<u16, Feat>,
     powers: HashMap<u16, Power>,
-    classes: Vec<Class>,
-    portraits: Vec<CreaturePart>,
-    appearances: Vec<CreaturePart>,
-    soundsets: Vec<CreaturePart>,
-    quests: Vec<Quest>,
-    items: Vec<Item>,
+    classes: HashMap<i32, Class>,
+    portraits: HashMap<u16, Appearance>,
+    appearances: HashMap<u16, Appearance>,
+    soundsets: HashMap<u16, Appearance>,
+    quests: HashMap<String, Quest>,
+    items: HashMap<String, Item>,
 }
 
 impl GameData {
@@ -72,7 +109,7 @@ impl GameData {
         let mut map = read_dir_filemap(&dir)
             .map_err(|err| format!("couldn't read game dir {dir:?}: {err}"))?;
         // updated steam version of TSL stores game data in steamassets dir
-        let steam_assets = map.get("steamssets");
+        let steam_assets = map.get("steamassets");
         if game == Game::Two && steam_assets.is_some() {
             dir.push(steam_assets.unwrap());
             map = read_dir_filemap(&dir)
@@ -109,31 +146,33 @@ impl GameData {
         let [feats, spells, classes, portraits, appearances, soundsets] =
             twodas.try_into().unwrap();
 
-        let item_sources = find_sources_by_type(&overrides, &key, ResourceType::Uti);
-        if item_sources.is_empty() {
-            return Err("no item resources found".to_owned());
-        }
-        let item_count = item_sources.len();
-        let items: Vec<Gff> = get_resources(&dir, item_sources, &[()].repeat(item_count))
-            .map_err(|err| format!("couldn't read item: {err}"))?;
-
         let journal_source = find_source(&overrides, &key, "global", ResourceType::Jrl)
             .ok_or("couldn't find global.jrl")?;
         let journal: Gff = get_resource(&dir, journal_source, ())
             .map_err(|err| format!("couldn't read global.jrl: {err}"))?;
 
+        let item_sources = find_sources_by_type(&overrides, &key, ResourceType::Uti);
+        let item_count = item_sources.len();
+        let items: Vec<Gff> = get_resources(&dir, item_sources, &vec![(); item_count])
+            .map_err(|err| format!("couldn't read item: {err}"))?;
+
         let tlk_bytes =
             fs::read(dialog_path).map_err(|err| format!("couldn't read dialog.tlk: {err}"))?;
 
         Ok(Self {
-            feats: read_feats(feats, &tlk_bytes, "description")?,
-            powers: read_feats(spells, &tlk_bytes, "spelldesc")?,
-            classes: todo!(),
-            portraits: todo!(),
-            appearances: todo!(),
-            soundsets: todo!(),
-            quests: todo!(),
-            items: todo!(),
+            feats: read_feats(feats, &tlk_bytes, "description")
+                .map_err(|err| format!("couldn't read feats: {err}"))?,
+            powers: read_feats(spells, &tlk_bytes, "spelldesc")
+                .map_err(|err| format!("couldn't read powers: {err}"))?,
+            classes: read_classes(classes, &tlk_bytes)
+                .map_err(|err| format!("couldn't read classes: {err}"))?,
+            portraits: read_appearances(portraits, "baseresref"),
+            appearances: read_appearances(appearances, "label"),
+            soundsets: read_appearances(soundsets, "label"),
+            quests: read_quests(&journal, &tlk_bytes)
+                .map_err(|err| format!("couldn't read journal: {err}"))?,
+            items: read_items(&items, &tlk_bytes)
+                .map_err(|err| format!("couldn't read items: {err}"))?,
         })
     }
 }

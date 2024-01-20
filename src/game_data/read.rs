@@ -1,42 +1,20 @@
 use crate::{
     formats::{
         bif::Bif,
+        gff::{get_field, Gff},
         key::Key,
         tlk::Tlk,
-        twoda::{TwoDA, TwoDAType, TwoDAValue},
+        twoda::{TwoDA, TwoDAValue},
         ReadResource, ResourceType,
     },
-    game_data::Feat,
+    game_data::{Appearance, Class, Feat, Item, Quest, QuestStage},
     util::{read_dir_dirs, read_dir_filemap, read_file, SResult},
 };
 use ahash::{HashMap, HashMapExt as _};
 use std::{
-    fs,
+    fs, mem,
     path::{Path, PathBuf},
 };
-
-pub const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
-    (
-        "feat",
-        &[
-            ("label", TwoDAType::String),
-            ("name", TwoDAType::Int),
-            ("description", TwoDAType::Int),
-        ],
-    ),
-    (
-        "spells",
-        &[
-            ("label", TwoDAType::String),
-            ("name", TwoDAType::Int),
-            ("spelldesc", TwoDAType::Int),
-        ],
-    ),
-    ("classes", &[("name", TwoDAType::Int)]),
-    ("portraits", &[("baseresref", TwoDAType::String)]),
-    ("appearance", &[("label", TwoDAType::String)]),
-    ("soundset", &[("label", TwoDAType::String)]),
-];
 
 #[derive(Debug)]
 pub enum ResourceSource {
@@ -221,7 +199,7 @@ pub fn read_feats(
     tlk_bytes: &[u8],
     description_field: &str,
 ) -> SResult<HashMap<u16, Feat>> {
-    let mut feats_tmp = Vec::with_capacity(twoda.0.len());
+    let mut tmp = Vec::with_capacity(twoda.0.len());
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
     for feat in twoda.0 {
@@ -239,25 +217,163 @@ pub fn read_feats(
             continue;
         }
 
-        feats_tmp.push((idx, id as u16, label));
+        tmp.push((idx, id as u16, label));
         str_refs.push(to_str_ref(name_ref));
         str_refs.push(to_str_ref(descr_ref));
         idx += 1;
     }
-    let tlk = Tlk::read(tlk_bytes, &str_refs)
-        .map_err(|err| format!("couldn't read feat strings: {err}"))?;
+    let mut tlk =
+        Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
 
     let mut feats = HashMap::new();
-    for (idx, id, label) in feats_tmp {
-        let name = &tlk.strings[idx * 2];
-        let descr = &tlk.strings[idx * 2 + 1];
+    for (idx, id, label) in tmp {
+        let name = mem::take(&mut tlk.strings[idx * 2]);
+        let descr = mem::take(&mut tlk.strings[idx * 2 + 1]);
         feats.insert(
             id,
             Feat {
-                name: if name.is_empty() { label } else { name.clone() },
-                description: (!descr.is_empty()).then_some(descr.clone()),
+                name: if name.is_empty() { label } else { name },
+                description: (!descr.is_empty()).then_some(descr),
             },
         );
     }
     Ok(feats)
+}
+
+pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<HashMap<i32, Class>> {
+    let mut tmp = Vec::with_capacity(twoda.0.len());
+    let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
+    let mut idx = 0;
+    for class in twoda.0 {
+        let id = class["_idx"].clone().unwrap().unwrap_int();
+        let Some(name_ref) = class["name"].clone().map(TwoDAValue::unwrap_int) else {
+            continue;
+        };
+        let Some(hit_die) = class["hitdie"].clone().map(TwoDAValue::unwrap_int) else {
+            continue;
+        };
+        let Some(force_die) = class["forcedie"].clone().map(TwoDAValue::unwrap_int) else {
+            continue;
+        };
+
+        tmp.push((idx, id, hit_die as u8, force_die as u8));
+        str_refs.push(to_str_ref(name_ref));
+        idx += 1;
+    }
+    let mut tlk =
+        Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
+
+    let mut classes = HashMap::new();
+    for (idx, id, hit_die, force_die) in tmp {
+        classes.insert(
+            id,
+            Class {
+                name: mem::take(&mut tlk.strings[idx]),
+                hit_die,
+                force_die,
+            },
+        );
+    }
+
+    Ok(classes)
+}
+
+pub fn read_appearances(twoda: TwoDA, field: &str) -> HashMap<u16, Appearance> {
+    let mut appearances = HashMap::with_capacity(twoda.0.len());
+    for appearance in twoda.0 {
+        let id = appearance["_idx"].clone().unwrap().unwrap_int();
+        let Some(name) = appearance[field].clone().map(TwoDAValue::unwrap_string) else {
+            continue;
+        };
+
+        appearances.insert(id as u16, Appearance { name });
+    }
+
+    appearances
+}
+
+pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<HashMap<String, Quest>> {
+    let list = get_field!(journal.content, "Categories", get_list)?;
+    let mut tmp = Vec::with_capacity(list.len());
+    let mut str_refs = Vec::with_capacity(list.len() * 10);
+    for quest in list {
+        let id = get_field!(quest, "Tag", get_string)?;
+        let name_ref = get_field!(quest, "Name", get_loc_string)?.0 as usize;
+        let stages_list = get_field!(quest, "EntryList", get_list)?;
+        let mut stages = Vec::with_capacity(stages_list.len());
+        for stage in stages_list {
+            let id = get_field!(stage, "ID", get_dword)? as i32;
+            let end = get_field!(stage, "End", get_word)? != 0;
+            let descr_ref = get_field!(stage, "Text", get_loc_string)?.0 as usize;
+            stages.push((id, end, descr_ref));
+            str_refs.push(descr_ref);
+        }
+        tmp.push((id, name_ref, stages));
+        str_refs.push(name_ref);
+    }
+    let tlk =
+        Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
+    let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
+    let mut quests = HashMap::with_capacity(tmp.len());
+
+    for (id, name_ref, stages) in tmp {
+        let stages = stages
+            .into_iter()
+            .map(|(id, end, descr_ref)| {
+                (
+                    id,
+                    QuestStage {
+                        end,
+                        description: mem::take(map.get_mut(&descr_ref).unwrap()),
+                    },
+                )
+            })
+            .collect();
+        quests.insert(
+            id,
+            Quest {
+                name: mem::take(map.get_mut(&name_ref).unwrap()),
+                stages,
+            },
+        );
+    }
+
+    Ok(quests)
+}
+
+pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<HashMap<String, Item>> {
+    let mut tmp = Vec::with_capacity(items.len());
+    let mut str_refs = Vec::with_capacity(items.len() * 2);
+    for item in items {
+        let s = &item.content;
+        let id = get_field!(s, "Tag", get_string)?;
+        let res_ref = get_field!(s, "TemplateResRef", get_res_ref)?;
+        let identified = get_field!(s, "Identified", get_byte)? != 0;
+        let name_ref = get_field!(s, "LocalizedName", get_loc_string)?.0 as usize;
+        let descr_ref = get_field!(s, "DescIdentified", get_loc_string)?.0 as usize;
+        let stack_size = get_field!(s, "StackSize", get_word)?;
+
+        tmp.push((id, res_ref, identified, name_ref, descr_ref, stack_size));
+        str_refs.push(name_ref);
+        str_refs.push(descr_ref);
+    }
+    let tlk =
+        Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
+    let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
+    let mut items = HashMap::with_capacity(tmp.len());
+
+    for (id, res_ref, identified, name_ref, descr_ref, stack_size) in tmp {
+        items.insert(
+            id,
+            Item {
+                res_ref,
+                identified,
+                stack_size,
+                name: mem::take(map.get_mut(&name_ref).unwrap()),
+                description: mem::take(map.get_mut(&descr_ref).unwrap()),
+            },
+        );
+    }
+
+    Ok(items)
 }
