@@ -1,12 +1,7 @@
 mod save;
 mod ui;
 mod util;
-include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
 fn main() -> eframe::Result<()> {
-    let now = std::time::Instant::now();
-    let a = default_game_data();
-    println!("{:.2?}", now.elapsed());
-    std::process::exit(0);
     #[cfg(target_endian = "big")]
     {
         compile_error!("nope");

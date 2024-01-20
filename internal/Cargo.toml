@@ -1,11 +1,11 @@
 [package]
-name = "sotor_internal"
+name = "internal"
 version = "0.1.0"
 edition = "2021"
 
 
 [dependencies]
-sotor_macros = { workspace = true }
+macros = { workspace = true }
 ahash = { workspace = true }
 serde = { workspace = true }
 bytemuck = "1.14.0"

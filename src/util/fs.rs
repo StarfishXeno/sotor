@@ -1,6 +1,6 @@
 use crate::util::Game;
+pub use internal::util::fs::*;
 use rfd::{AsyncFileDialog, FileHandle};
-pub use sotor_internal::util::fs::*;
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::process::CommandExt;
 use std::{fs, future::Future, io, path::PathBuf, process::Command};

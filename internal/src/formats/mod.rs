@@ -1,6 +1,6 @@
 use crate::util::SResult;
+use macros::{EnumFromInt, EnumToString};
 use serde::{Deserialize, Serialize};
-use sotor_macros::{EnumFromInt, EnumToString};
 
 pub mod bif;
 pub mod erf;

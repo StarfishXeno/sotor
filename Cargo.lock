@@ -138,6 +138,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1020,6 +1029,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "internal"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "bytemuck",
+ "macros",
+ "serde",
+ "time",
+]
+
+[[package]]
 name = "is-terminal"
 version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1135,6 +1155,16 @@ name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+
+[[package]]
+name = "macros"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "malloc_buf"
@@ -1702,6 +1732,7 @@ name = "sotor"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "bincode",
  "dotenv",
  "eframe",
  "egui",
@@ -1710,35 +1741,14 @@ dependencies = [
  "fastrand",
  "futures-lite",
  "image",
+ "internal",
  "log",
+ "macros",
  "proc-macro2",
  "quote",
  "rfd",
  "serde",
- "sotor_internal",
- "sotor_macros",
  "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "sotor_internal"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "bytemuck",
- "serde",
- "sotor_macros",
- "time",
-]
-
-[[package]]
-name = "sotor_macros"
-version = "0.1.0"
-dependencies = [
- "convert_case",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

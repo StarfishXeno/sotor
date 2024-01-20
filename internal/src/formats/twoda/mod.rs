@@ -1,5 +1,5 @@
 use ahash::HashMap;
-use sotor_macros::UnwrapVariant;
+use macros::UnwrapVariant;
 
 mod read;
 pub use read::*;

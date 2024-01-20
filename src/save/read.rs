@@ -7,7 +7,7 @@ use crate::{
 };
 use ahash::HashMap;
 use egui::TextureHandle;
-use sotor_internal::{
+use internal::{
     erf::Erf,
     gff::{get_field, Field, Gff, Struct},
     ReadResourceNoArg as _, ResourceType,

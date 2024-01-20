@@ -9,8 +9,8 @@ use crate::{
 };
 use egui::Layout;
 use emath::Align;
+use macros::{EnumList, EnumToString};
 use serde::{Deserialize, Serialize};
-use sotor_macros::{EnumList, EnumToString};
 
 mod characters;
 mod general;

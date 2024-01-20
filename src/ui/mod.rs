@@ -1,12 +1,13 @@
 use crate::{
     save::Save,
     util::{
-        get_extra_save_directories, read_dir_dirs, ContextExt as _, Directory, Game, Message,
-        CHANNEL_ID,
+        get_default_game_data, get_extra_save_directories, read_dir_dirs, ContextExt as _,
+        Directory, Game, Message, CHANNEL_ID,
     },
 };
 use eframe::APP_KEY;
 use egui::{panel::Side, Context, Frame, Margin, Ui};
+use internal::GameData;
 use log::error;
 use std::{
     path::PathBuf,
@@ -41,6 +42,7 @@ pub struct SotorApp {
     settings_open: bool,
     save_list: [Vec<SaveDirectories>; Game::COUNT],
     latest_save: Option<Directory>,
+    default_game_data: [GameData; Game::COUNT],
 
     prs: PersistentState,
 }
@@ -50,7 +52,6 @@ impl SotorApp {
         styles::set_styles(&cc.egui_ctx);
         let (sender, receiver) = channel();
         cc.egui_ctx.set_data(CHANNEL_ID, sender.clone());
-
         let mut app = Self {
             save: None,
             save_path: None,
@@ -58,6 +59,7 @@ impl SotorApp {
             settings_open: false,
             save_list: [vec![], vec![]],
             latest_save: None,
+            default_game_data: get_default_game_data(),
 
             prs: cc
                 .storage

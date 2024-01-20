@@ -1,6 +1,6 @@
 use super::{FileHead, LocString};
 use ahash::HashMap;
-use sotor_macros::{EnumToInt, EnumToString, UnwrapVariant};
+use macros::{EnumToInt, EnumToString, UnwrapVariant};
 
 mod read;
 mod write;

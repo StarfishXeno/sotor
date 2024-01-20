@@ -15,6 +15,7 @@ use crate::{
     },
 };
 use ahash::HashMap;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs,
@@ -53,7 +54,7 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
     ("soundset", &[("label", TwoDAType::String)]),
 ];
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Feat {
     pub name: String,
     pub description: Option<String>,
@@ -61,31 +62,31 @@ pub struct Feat {
 
 pub type Power = Feat;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Class {
     pub name: String,
     pub hit_die: u8,
     pub force_die: u8,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Appearance {
     pub name: String,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct QuestStage {
     pub description: String,
     pub end: bool,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Quest {
     pub name: String,
     pub stages: BTreeMap<i32, QuestStage>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Item {
     pub tag: String,
     pub name: String,
@@ -94,7 +95,7 @@ pub struct Item {
     pub stack_size: u16,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GameData {
     pub feats: HashMap<u16, Feat>,
     pub powers: HashMap<u16, Power>,

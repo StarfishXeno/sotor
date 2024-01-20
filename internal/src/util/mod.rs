@@ -1,5 +1,5 @@
 use ahash::HashMap;
-use sotor_macros::EnumList;
+use macros::EnumList;
 use std::fmt::{self, Display};
 
 pub mod bytes;

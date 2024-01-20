@@ -2,7 +2,7 @@ use crate::{
     save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX},
     util::string_lowercase_map,
 };
-use sotor_internal::{
+use internal::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
     LocString, ReadResourceNoArg as _, ResourceType,
