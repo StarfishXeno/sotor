@@ -84,7 +84,7 @@ pub struct Quest {
 
 #[derive(Debug)]
 pub struct Item {
-    res_ref: String,
+    tag: String,
     name: String,
     identified: bool,
     description: String,

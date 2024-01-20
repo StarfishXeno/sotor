@@ -346,14 +346,14 @@ pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<HashMap<String, It
     let mut str_refs = Vec::with_capacity(items.len() * 2);
     for item in items {
         let s = &item.content;
-        let id = get_field!(s, "Tag", get_string)?;
+        let tag = get_field!(s, "Tag", get_string)?;
         let res_ref = get_field!(s, "TemplateResRef", get_res_ref)?;
         let identified = get_field!(s, "Identified", get_byte)? != 0;
         let name_ref = get_field!(s, "LocalizedName", get_loc_string)?.0 as usize;
         let descr_ref = get_field!(s, "DescIdentified", get_loc_string)?.0 as usize;
         let stack_size = get_field!(s, "StackSize", get_word)?;
 
-        tmp.push((id, res_ref, identified, name_ref, descr_ref, stack_size));
+        tmp.push((tag, res_ref, identified, name_ref, descr_ref, stack_size));
         str_refs.push(name_ref);
         str_refs.push(descr_ref);
     }
@@ -362,11 +362,11 @@ pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<HashMap<String, It
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
     let mut items = HashMap::with_capacity(tmp.len());
 
-    for (id, res_ref, identified, name_ref, descr_ref, stack_size) in tmp {
+    for (tag, res_ref, identified, name_ref, descr_ref, stack_size) in tmp {
         items.insert(
-            id,
+            res_ref,
             Item {
-                res_ref,
+                tag,
                 identified,
                 stack_size,
                 name: mem::take(map.get_mut(&name_ref).unwrap()),
