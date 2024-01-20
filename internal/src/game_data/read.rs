@@ -167,22 +167,27 @@ pub fn get_resource<'a, T: ReadResource<'a, Arg>, Arg: 'a + Copy>(
     T::read(&bytes, arg)
 }
 
-pub fn read_workshop_dir(steam_dir: &str) -> (Option<PathBuf>, Vec<PathBuf>) {
-    let workshop_dir = PathBuf::from_iter([steam_dir, "workshop", "content", "208580"]);
+pub fn read_workshop_dir(steam_dir: impl AsRef<Path>) -> (Option<PathBuf>, Vec<PathBuf>) {
+    let workshop_dir = PathBuf::from_iter([
+        &steam_dir.as_ref().to_string_lossy(),
+        "workshop",
+        "content",
+        "208580",
+    ]);
     let Ok(mods) = read_dir_dirs(workshop_dir) else {
         return (None, vec![]);
     };
     let mut overrides = vec![];
     let mut dialog_override = None;
     for d in mods {
-        let Ok(map) = read_dir_filemap(&d.path.into()) else {
+        let Ok(map) = read_dir_filemap(&d.path.clone().into()) else {
             continue;
         };
         if let Some(over) = map.get("override") {
             overrides.push(over.into());
         }
         if let Some(dialog) = map.get("dialog.tlk") {
-            dialog_override = Some(dialog.into());
+            dialog_override = Some(PathBuf::from_iter([&d.path, dialog.as_str()]));
         }
     }
 

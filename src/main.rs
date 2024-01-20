@@ -1,15 +1,11 @@
 mod save;
 mod ui;
 mod util;
-
+include!(concat!(env!("OUT_DIR"), "/codegen.rs"));
 fn main() -> eframe::Result<()> {
-    let a = sotor_internal::GameData::read(
-        util::Game::One,
-        "/mnt/media/SteamLibrary/steamapps/common/swkotor",
-        None,
-    )
-    .unwrap();
-    println!("{a:#?}");
+    let now = std::time::Instant::now();
+    let a = default_game_data();
+    println!("{:.2?}", now.elapsed());
     std::process::exit(0);
     #[cfg(target_endian = "big")]
     {

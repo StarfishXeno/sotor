@@ -55,59 +55,59 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
 
 #[derive(Debug)]
 pub struct Feat {
-    name: String,
-    description: Option<String>,
+    pub name: String,
+    pub description: Option<String>,
 }
 
 pub type Power = Feat;
 
 #[derive(Debug)]
 pub struct Class {
-    name: String,
-    hit_die: u8,
-    force_die: u8,
+    pub name: String,
+    pub hit_die: u8,
+    pub force_die: u8,
 }
 
 #[derive(Debug)]
 pub struct Appearance {
-    name: String,
+    pub name: String,
 }
 
 #[derive(Debug)]
 pub struct QuestStage {
-    description: String,
-    end: bool,
+    pub description: String,
+    pub end: bool,
 }
 
 #[derive(Debug)]
 pub struct Quest {
-    name: String,
-    stages: BTreeMap<i32, QuestStage>,
+    pub name: String,
+    pub stages: BTreeMap<i32, QuestStage>,
 }
 
 #[derive(Debug)]
 pub struct Item {
-    tag: String,
-    name: String,
-    identified: bool,
-    description: String,
-    stack_size: u16,
+    pub tag: String,
+    pub name: String,
+    pub identified: bool,
+    pub description: String,
+    pub stack_size: u16,
 }
 
 #[derive(Debug)]
 pub struct GameData {
-    feats: HashMap<u16, Feat>,
-    powers: HashMap<u16, Power>,
-    classes: HashMap<i32, Class>,
-    portraits: HashMap<u16, Appearance>,
-    appearances: HashMap<u16, Appearance>,
-    soundsets: HashMap<u16, Appearance>,
-    quests: HashMap<String, Quest>,
-    items: HashMap<String, Item>,
+    pub feats: HashMap<u16, Feat>,
+    pub powers: HashMap<u16, Power>,
+    pub classes: HashMap<i32, Class>,
+    pub portraits: HashMap<u16, Appearance>,
+    pub appearances: HashMap<u16, Appearance>,
+    pub soundsets: HashMap<u16, Appearance>,
+    pub quests: HashMap<String, Quest>,
+    pub items: HashMap<String, Item>,
 }
 
 impl GameData {
-    pub fn read(game: Game, dir: impl AsRef<Path>, steam_dir: Option<&str>) -> SResult<Self> {
+    pub fn read<P: AsRef<Path>>(game: Game, dir: P, steam_dir: Option<P>) -> SResult<Self> {
         let mut dir: PathBuf = dir.as_ref().into();
         let mut map = read_dir_filemap(&dir)
             .map_err(|err| format!("couldn't read game dir {dir:?}: {err}"))?;
@@ -122,7 +122,7 @@ impl GameData {
         dialog_path.push("dialog.tlk");
 
         let mut overrides = if game == Game::Two && steam_dir.is_some() {
-            let (dialog_override, overrides) = read_workshop_dir(steam_dir.unwrap());
+            let (dialog_override, overrides) = read_workshop_dir(steam_dir.unwrap().as_ref());
             if let Some(dialog) = dialog_override {
                 dialog_path = dialog;
             }
@@ -159,8 +159,8 @@ impl GameData {
         let items: Vec<Gff> = get_resources(&dir, item_sources, &vec![(); item_count])
             .map_err(|err| format!("couldn't read item: {err}"))?;
 
-        let tlk_bytes =
-            fs::read(dialog_path).map_err(|err| format!("couldn't read dialog.tlk: {err}"))?;
+        let tlk_bytes = fs::read(&dialog_path)
+            .map_err(|err| format!("couldn't read {dialog_path:?}: {err}"))?;
 
         Ok(Self {
             feats: read_feats(feats, &tlk_bytes, "description")

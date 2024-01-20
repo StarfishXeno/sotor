@@ -7,6 +7,53 @@ rust-version = "1.74"
 [workspace]
 members = ["macros", "internal"]
 
+[workspace.dependencies]
+sotor_macros = { path = "./macros" }
+sotor_internal = { path = "./internal" }
+ahash = "0.8.7"
+serde = { version = "1.0.193", features = ["derive"] }
+
+[dependencies]
+sotor_macros = { workspace = true }
+sotor_internal = { workspace = true }
+ahash = { workspace = true }
+serde = { workspace = true }
+rfd = { version = "0.12.1" }
+image = { version = "0.24", default-features = false, features = ["tga"] }
+fastrand = "2.0.1"
+futures-lite = "2.1.0"
+log = "0.4"
+egui = "0.25"
+eframe = { version = "0.25", default-features = false, features = [
+    "persistence",
+    "glow",
+] }
+emath = "0.25"
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "0.10"
+
+# web:
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+
+[build-dependencies]
+sotor_internal = { workspace = true }
+ahash = { workspace = true }
+dotenv = "0.15"
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 3
+
 [lints]
 workspace = true
 
@@ -22,45 +69,3 @@ cast_sign_loss = "allow"
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_lossless = "allow"
-
-
-[dependencies]
-sotor_internal = { path = "./internal" }
-sotor_macros = { workspace = true }
-ahash = { workspace = true }
-serde = { workspace = true }
-rfd = { version = "0.12.1" }
-image = { version = "0.24", default-features = false, features = ["tga"] }
-fastrand = "2.0.1"
-futures-lite = "2.1.0"
-log = "0.4"
-egui = "0.25"
-eframe = { version = "0.25", default-features = false, features = [
-    "persistence",
-    "glow",
-] }
-emath = "0.25"
-
-[workspace.dependencies]
-sotor_macros = { path = "./macros" }
-ahash = "0.8.7"
-serde = { version = "1.0.193", features = ["derive"] }
-
-
-# native:
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.10"
-
-# web:
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
-
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-
-# Optimize all dependencies even in debug builds:
-[profile.dev.package."*"]
-opt-level = 3
