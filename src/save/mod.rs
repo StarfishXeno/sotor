@@ -1,12 +1,10 @@
-use crate::{
-    formats::{
-        erf::{self, Erf},
-        gff::{self, Gff, Struct},
-        ReadResourceNoArg as _,
-    },
-    util::{backup_file, load_tga, read_dir_filemap, read_file, ESResult, Game, SResult},
-};
+use crate::util::{backup_file, load_tga, read_dir_filemap, read_file, ESResult, Game, SResult};
 use egui::{Context, TextureHandle, TextureOptions};
+use sotor_internal::{
+    erf::{self, Erf},
+    gff::{self, Gff, Struct},
+    ReadResourceNoArg as _,
+};
 use sotor_macros::{EnumFromInt, EnumToInt};
 use std::{
     collections::VecDeque,

@@ -5,8 +5,11 @@ use crate::{
         ReadResource, ResourceKey, ResourceType,
     },
     util::{
-        seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, SResult,
-        ToUsizeVec as _, DWORD_SIZE,
+        bytes::{
+            seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, ToUsizeVec as _,
+            DWORD_SIZE,
+        },
+        SResult,
     },
 };
 use ahash::{HashMap, HashMapExt as _};

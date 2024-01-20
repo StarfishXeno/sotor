@@ -5,33 +5,34 @@ edition = "2021"
 rust-version = "1.74"
 
 [workspace]
-members = ["macros"]
+members = ["macros", "internal"]
 
 [lints]
 workspace = true
-
 
 [workspace.lints.clippy]
 pedantic = { priority = -1, level = "warn" }
 ignored_unit_patterns = "allow"
 missing_panics_doc = "allow"
+missing_errors_doc = "allow"
 module_name_repetitions = "allow"
+must_use_candidate = "allow"
+unnecessary_box_returns = "allow"            #seems to be bugged, triggers on enum definition and can't be overriden
 cast_sign_loss = "allow"
 cast_possible_truncation = "allow"
 cast_possible_wrap = "allow"
 cast_lossless = "allow"
-unnecessary_box_returns = "allow"            #seems to be bugged, triggers on enum definition and can't be overriden
+
 
 [dependencies]
-sotor_macros = { path = "./macros" }
-ahash = "0.8.7"
-bytemuck = "1.14.0"
+sotor_internal = { path = "./internal" }
+sotor_macros = { workspace = true }
+ahash = { workspace = true }
+serde = { workspace = true }
 rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
-time = { version = "0.3.31", features = ["macros"] }
 fastrand = "2.0.1"
 futures-lite = "2.1.0"
-serde = { version = "1.0.193", features = ["derive"] }
 log = "0.4"
 egui = "0.25"
 eframe = { version = "0.25", default-features = false, features = [
@@ -39,6 +40,12 @@ eframe = { version = "0.25", default-features = false, features = [
     "glow",
 ] }
 emath = "0.25"
+
+[workspace.dependencies]
+sotor_macros = { path = "./macros" }
+ahash = "0.8.7"
+serde = { version = "1.0.193", features = ["derive"] }
+
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -1696,7 +1696,6 @@ name = "sotor"
 version = "0.1.0"
 dependencies = [
  "ahash",
- "bytemuck",
  "eframe",
  "egui",
  "emath",
@@ -1707,9 +1706,20 @@ dependencies = [
  "log",
  "rfd",
  "serde",
+ "sotor_internal",
+ "sotor_macros",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "sotor_internal"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "bytemuck",
+ "serde",
  "sotor_macros",
  "time",
- "wasm-bindgen-futures",
 ]
 
 [[package]]

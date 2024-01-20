@@ -6,7 +6,7 @@ use crate::{
         },
         FileHead, ResourceKey, ResourceType,
     },
-    util::{bytes_to_sized_bytes, nullpad_string, ToByteSlice as _, DWORD_SIZE},
+    util::bytes::{bytes_to_sized_bytes, nullpad_string, ToByteSlice as _, DWORD_SIZE},
 };
 use std::io::{Cursor, Seek, Write};
 use time::{macros::datetime, OffsetDateTime};

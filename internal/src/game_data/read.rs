@@ -8,7 +8,10 @@ use crate::{
         ReadResource, ResourceType,
     },
     game_data::{Appearance, Class, Feat, Item, Quest, QuestStage},
-    util::{read_dir_dirs, read_dir_filemap, read_file, SResult},
+    util::{
+        fs::{read_dir_dirs, read_dir_filemap, read_file},
+        SResult,
+    },
 };
 use ahash::{HashMap, HashMapExt as _};
 use std::{

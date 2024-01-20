@@ -1,0 +1,15 @@
+[package]
+name = "sotor_internal"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+sotor_macros = { workspace = true }
+ahash = { workspace = true }
+serde = { workspace = true }
+bytemuck = "1.14.0"
+time = { version = "0.3.31", features = ["macros"] }
+
+[lints]
+workspace = true

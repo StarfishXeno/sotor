@@ -1,11 +1,11 @@
 use crate::{
-    formats::{
-        erf::{self, Erf},
-        gff::{self, Field, Gff, Struct},
-        LocString, ReadResourceNoArg as _, ResourceType,
-    },
     save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX},
     util::string_lowercase_map,
+};
+use sotor_internal::{
+    erf::{self, Erf},
+    gff::{self, Field, Gff, Struct},
+    LocString, ReadResourceNoArg as _, ResourceType,
 };
 
 pub struct Updater<'a> {

@@ -4,7 +4,10 @@ use crate::{
         twoda::{TwoDA, TwoDAType, TwoDAValue},
         ReadResource, ResourceType,
     },
-    util::{seek_to, take, take_head, take_slice, take_string_until, Cursor, ESResult, SResult},
+    util::{
+        bytes::{seek_to, take, take_head, take_slice, take_string_until, Cursor},
+        ESResult, SResult,
+    },
 };
 use ahash::{HashMap, HashMapExt as _};
 use std::{

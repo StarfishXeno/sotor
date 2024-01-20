@@ -6,8 +6,11 @@ use crate::{
         impl_read_resource, FileHead, LocString, ReadResource, ResourceType,
     },
     util::{
-        seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed, Cursor,
-        SResult, ToUsizeVec as _,
+        bytes::{
+            seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed,
+            Cursor, ToUsizeVec as _,
+        },
+        SResult,
     },
 };
 use std::io::{BufRead, Seek, SeekFrom};

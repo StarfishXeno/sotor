@@ -1,16 +1,15 @@
-mod formats;
-mod game_data;
 mod save;
 mod ui;
 mod util;
 
 fn main() -> eframe::Result<()> {
-    game_data::GameData::read(
+    let a = sotor_internal::GameData::read(
         util::Game::One,
         "/mnt/media/SteamLibrary/steamapps/common/swkotor",
         None,
     )
     .unwrap();
+    println!("{a:#?}");
     std::process::exit(0);
     #[cfg(target_endian = "big")]
     {

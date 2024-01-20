@@ -9,7 +9,10 @@ use crate::{
         find_source, find_sources_by_name, find_sources_by_type, get_resource, get_resources,
         read_appearances, read_classes, read_feats, read_items, read_quests, read_workshop_dir,
     },
-    util::{read_dir_filemap, read_file, Game, SResult},
+    util::{
+        fs::{read_dir_filemap, read_file},
+        Game, SResult,
+    },
 };
 use ahash::HashMap;
 use std::{

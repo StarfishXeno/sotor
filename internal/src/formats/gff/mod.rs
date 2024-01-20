@@ -88,6 +88,7 @@ pub struct Gff {
     pub content: Struct,
 }
 
+#[macro_export]
 macro_rules! get_field {
     ($struct:expr, $field:literal, $method:tt) => {
         $struct
@@ -105,7 +106,7 @@ macro_rules! get_field {
     };
 }
 
-pub(crate) use get_field;
+pub use get_field;
 
 #[cfg(test)]
 mod tests {

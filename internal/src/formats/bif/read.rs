@@ -1,6 +1,9 @@
 use crate::{
     formats::{bif::Bif, impl_read_resource, ReadResource, ResourceType},
-    util::{seek_to, take, take_bytes, take_head, Cursor, SResult, DWORD_SIZE},
+    util::{
+        bytes::{seek_to, take, take_bytes, take_head, Cursor, DWORD_SIZE},
+        SResult,
+    },
 };
 use std::io::{BufRead, Seek, SeekFrom};
 

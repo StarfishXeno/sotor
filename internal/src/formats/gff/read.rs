@@ -6,8 +6,11 @@ use crate::{
         impl_read_resource, FileHead, LocString, ReadResource, ResourceType,
     },
     util::{
-        seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
-        take_string_trimmed, Cursor, ESResult, SResult, ToUsizeVec as _, DWORD_SIZE,
+        bytes::{
+            seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
+            take_string_trimmed, Cursor, ToUsizeVec as _, DWORD_SIZE,
+        },
+        ESResult, SResult,
     },
 };
 use ahash::{HashMap, HashMapExt as _};

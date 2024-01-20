@@ -1,9 +1,4 @@
 use crate::{
-    formats::{
-        erf::Erf,
-        gff::{get_field, Field, Gff, Struct},
-        ReadResourceNoArg as _, ResourceType,
-    },
     save::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
         Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
@@ -12,7 +7,11 @@ use crate::{
 };
 use ahash::HashMap;
 use egui::TextureHandle;
-
+use sotor_internal::{
+    erf::Erf,
+    gff::{get_field, Field, Gff, Struct},
+    ReadResourceNoArg as _, ResourceType,
+};
 pub struct Reader {
     nfo: Gff,
     globals: Gff,

@@ -3,7 +3,9 @@ use crate::{
         gff::{Field, FieldTmp, Gff, Struct, FIELD_SIZE, HEADER_SIZE},
         FileHead,
     },
-    util::{bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE},
+    util::bytes::{
+        bytes_to_sized_bytes, nullpad_string, num_to_dword, ToByteSlice as _, DWORD_SIZE,
+    },
 };
 use ahash::{HashMap, HashMapExt as _};
 use std::io::{Cursor, Seek, Write};
