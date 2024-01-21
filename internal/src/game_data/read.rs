@@ -308,6 +308,7 @@ pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
             let id = get_field!(stage, "ID", get_dword)? as i32;
             let end = get_field!(stage, "End", get_word)? != 0;
             let descr_ref = get_field!(stage, "Text", get_loc_string)?.0 as usize;
+
             stages.push((id, end, descr_ref));
             str_refs.push(descr_ref);
         }

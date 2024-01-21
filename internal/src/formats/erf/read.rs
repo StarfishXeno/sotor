@@ -8,7 +8,7 @@ use crate::{
     util::{
         bytes::{
             seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed,
-            Cursor, IntoUsizeVec as _,
+            Cursor, IntoUsizeArray as _, IntoUsizeVec as _,
         },
         SResult,
     },
@@ -129,11 +129,9 @@ impl<'a> Reader<'a> {
         let resource_dwords =
             take_slice::<[u32; 2]>(self.c, self.h.entry_count).ok_or("couldn't read resources")?;
 
-        for [offset, size] in resource_dwords.iter() {
-            resources.push(ResourceRead {
-                offset: *offset as usize,
-                size: *size as usize,
-            });
+        for dwords in resource_dwords.iter() {
+            let [offset, size] = dwords.into_usize_array();
+            resources.push(ResourceRead { offset, size });
         }
 
         Ok(resources)

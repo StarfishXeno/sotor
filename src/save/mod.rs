@@ -110,6 +110,15 @@ pub struct Character {
     pub appearance: u16,
     pub soundset: u16,
 }
+impl Character {
+    pub fn get_name(&self) -> &str {
+        if self.name.is_empty() {
+            &self.tag
+        } else {
+            &self.name
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 struct SaveInternals {

@@ -199,8 +199,8 @@ macro_rules! impl_game_data_mapped {
         )+
         #[derive(Debug)]
         pub struct GameDataMapped {
-            inner: GameData,
             $($($field: HashMap<$id_type, $s>,)+)+
+            inner: GameData,
         }
         impl From<GameData> for GameDataMapped {
             fn from(inner: GameData) -> GameDataMapped {

@@ -3,7 +3,7 @@ use crate::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
         Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
     },
-    util::{get_party, string_lowercase_map, SResult},
+    util::{string_lowercase_map, SResult},
 };
 use ahash::HashMap;
 use egui::TextureHandle;
@@ -290,14 +290,7 @@ impl Reader {
         let name = get_field!(s, "FirstName", get_loc_string)?
             .1
             .first()
-            .map_or_else(
-                || {
-                    get_party(self.game)
-                        .get(idx)
-                        .map_or("REALLY missing name".to_owned(), ToString::to_string)
-                },
-                |v| v.content.clone(),
-            );
+            .map_or_else(|| String::new(), |v| v.content.clone());
 
         let attributes = [
             get_field!(s, "Str")?,

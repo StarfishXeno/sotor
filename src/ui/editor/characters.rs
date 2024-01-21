@@ -52,12 +52,12 @@ impl<'a> Editor<'a> {
 
         set_combobox_styles(ui);
         ComboBox::from_id_source(self.id.with("selection"))
-            .selected_text(&self.characters[self.selected].name)
+            .selected_text(self.characters[self.selected].get_name())
             .show_ui(ui, |ui| {
                 set_selectable_styles(ui);
                 let mut selected = self.selected;
                 for (idx, char) in self.characters.iter().enumerate() {
-                    ui.selectable_value(&mut selected, idx, &char.name);
+                    ui.selectable_value(&mut selected, idx, char.get_name());
                 }
                 if selected != self.selected {
                     ui.ctx().set_data(self.id.with("selected"), selected);

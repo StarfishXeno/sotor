@@ -13,15 +13,10 @@ fn make_game_dir(common: &Path, name: &str) -> PathBuf {
 
 fn main() {
     dotenv::dotenv().unwrap();
-    let mut steam_dir: PathBuf = var("STEAM_LIBRARY").unwrap().into();
-    steam_dir.push("steamapps");
+    let mut steam_dir: PathBuf = var("STEAM_APPS").unwrap().into();
     let mut common = steam_dir.clone();
     common.push("common");
-    let game_dirs = [
-        make_game_dir(&common, "swkotor"),
-        make_game_dir(&common, "Knights of the Old Republic II"),
-    ];
-
+    let game_dirs = Game::LIST.map(|game| make_game_dir(&common, game.steam_dir()));
     let game_data = Game::LIST
         .map(|game| GameData::read(game, &game_dirs[game.idx()], Some(&steam_dir)).unwrap());
     let out_dir = var("OUT_DIR").unwrap();

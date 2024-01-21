@@ -18,6 +18,12 @@ impl Game {
     pub fn idx(self) -> usize {
         self as usize
     }
+    pub fn steam_dir(self) -> &'static str {
+        match self {
+            Self::One => "swkotor",
+            Self::Two => "Knights of the Old Republic II",
+        }
+    }
 }
 impl Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

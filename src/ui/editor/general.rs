@@ -190,10 +190,11 @@ impl<'a> Editor<'a> {
             }
         }
 
+        let name = char.get_name();
         ui.label(if in_party_idx.is_some() {
-            color_text(&char.name, BLUE)
+            color_text(name, BLUE)
         } else {
-            color_text(&char.name, WHITE)
+            color_text(name, WHITE)
         });
 
         ui.s_checkbox(&mut member.available);
