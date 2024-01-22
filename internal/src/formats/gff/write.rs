@@ -168,7 +168,7 @@ impl Writer {
             let label_idx = self.save_label(label);
 
             match value {
-                Field::Struct(s) => {
+                Field::BStruct(s) => {
                     let struct_idx = self.collect(*s);
                     self.save_field(my_idx, FieldTmp::Struct(struct_idx), label_idx);
                 }

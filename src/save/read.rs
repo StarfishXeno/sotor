@@ -89,11 +89,11 @@ impl Reader {
         let s = &self.nfo.content;
 
         Ok(Nfo {
-            save_name: s.get("SAVEGAMENAME", Field::get_string).unwrap_or_default(), // autosaves don't have this field
-            area_name: s.get("AREANAME", Field::get_string)?,
-            last_module: s.get("LASTMODULE", Field::get_string)?,
-            cheat_used: s.get("CHEATUSED", Field::get_byte)? != 0,
-            time_played: s.get("TIMEPLAYED", Field::get_dword)?,
+            save_name: s.get("SAVEGAMENAME", Field::string).unwrap_or_default(), // autosaves don't have this field
+            area_name: s.get("AREANAME", Field::string)?,
+            last_module: s.get("LASTMODULE", Field::string)?,
+            cheat_used: s.get("CHEATUSED", Field::byte)? != 0,
+            time_played: s.get("TIMEPLAYED", Field::dword)?,
         })
     }
 
@@ -118,7 +118,7 @@ impl Reader {
             names.push(
                 name_list
                     .iter()
-                    .map(|s| s.get("Name", Field::get_string).unwrap())
+                    .map(|s| s.get("Name", Field::string).unwrap())
                     .collect(),
             );
         }
@@ -161,31 +161,31 @@ impl Reader {
     fn read_party_table(&self) -> SResult<PartyTable> {
         let s = &self.party_table.content;
         let journal = s
-            .get("JNL_Entries", Field::get_list)?
+            .get("JNL_Entries", Field::list)?
             .into_iter()
             .map(|e| {
                 Ok(JournalEntry {
-                    id: e.get("JNL_PlotID", Field::get_string)?,
-                    stage: e.get("JNL_State", Field::get_int)?,
-                    time: e.get("JNL_Time", Field::get_dword)?,
-                    date: e.get("JNL_Date", Field::get_dword)?,
+                    id: e.get("JNL_PlotID", Field::string)?,
+                    stage: e.get("JNL_State", Field::int)?,
+                    time: e.get("JNL_Time", Field::dword)?,
+                    date: e.get("JNL_Date", Field::dword)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
         let members = s
-            .get("PT_MEMBERS", Field::get_list)?
+            .get("PT_MEMBERS", Field::list)?
             .into_iter()
             .map(|m| {
                 Ok(PartyMember {
-                    idx: m.get("PT_MEMBER_ID", Field::get_int)? as usize,
+                    idx: m.get("PT_MEMBER_ID", Field::int)? as usize,
                     leader: m.get("PT_IS_LEADER", Field::get_bool)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
         let available_members = s
-            .get("PT_AVAIL_NPCS", Field::get_list)?
+            .get("PT_AVAIL_NPCS", Field::list)?
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
@@ -196,19 +196,19 @@ impl Reader {
             .collect::<SResult<_>>()?;
 
         let influence = s
-            .get("PT_INFLUENCE", Field::get_list)
+            .get("PT_INFLUENCE", Field::list)
             .ok()
             .map(|i| {
                 i.into_iter()
-                    .map(|m| m.get("PT_NPC_INFLUENCE", Field::get_int))
+                    .map(|m| m.get("PT_NPC_INFLUENCE", Field::int))
                     .collect::<SResult<_>>()
             })
             .transpose()?;
-        let party_xp = s.get("PT_XP_POOL", Field::get_int)?;
+        let party_xp = s.get("PT_XP_POOL", Field::int)?;
         let cheat_used = s.get("PT_CHEAT_USED", Field::get_bool)?;
-        let credits = s.get("PT_GOLD", Field::get_dword)?;
-        let components = s.get("PT_ITEM_COMPONEN", Field::get_dword).ok();
-        let chemicals = s.get("PT_ITEM_CHEMICAL", Field::get_dword).ok();
+        let credits = s.get("PT_GOLD", Field::dword)?;
+        let components = s.get("PT_ITEM_COMPONEN", Field::dword).ok();
+        let chemicals = s.get("PT_ITEM_CHEMICAL", Field::dword).ok();
 
         Ok(PartyTable {
             journal,
@@ -259,7 +259,7 @@ impl Reader {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
-        let mut player_field = last_module.get("Mod_PlayerList", Field::get_list)?;
+        let mut player_field = last_module.get("Mod_PlayerList", Field::list)?;
         if player_field.is_empty() {
             return Err("Couldn't get player character struct".to_string());
         }
@@ -287,80 +287,80 @@ impl Reader {
 
     fn read_character(s: &Struct, idx: usize) -> SResult<Character> {
         let name = s
-            .get("FirstName", Field::get_loc_string)?
+            .get("FirstName", Field::loc_string)?
             .1
             .first()
             .map_or_else(String::new, |v| v.content.clone());
 
         let attributes = [
-            s.get("Str", Field::get_byte)?,
-            s.get("Dex", Field::get_byte)?,
-            s.get("Con", Field::get_byte)?,
-            s.get("Int", Field::get_byte)?,
-            s.get("Wis", Field::get_byte)?,
-            s.get("Cha", Field::get_byte)?,
+            s.get("Str", Field::byte)?,
+            s.get("Dex", Field::byte)?,
+            s.get("Con", Field::byte)?,
+            s.get("Int", Field::byte)?,
+            s.get("Wis", Field::byte)?,
+            s.get("Cha", Field::byte)?,
         ];
 
         let skills = s
-            .get("SkillList", Field::get_list)?
+            .get("SkillList", Field::list)?
             .into_iter()
-            .map(|s| s.get("Rank", Field::get_byte))
+            .map(|s| s.get("Rank", Field::byte))
             .collect::<SResult<Vec<_>>>()?
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
         let feats = s
-            .get("FeatList", Field::get_list)?
+            .get("FeatList", Field::list)?
             .into_iter()
-            .map(|s| s.get("Feat", Field::get_word))
+            .map(|s| s.get("Feat", Field::word))
             .collect::<SResult<_>>()?;
 
         let classes = s
-            .get("ClassList", Field::get_list)?
+            .get("ClassList", Field::list)?
             .iter()
             .map(Self::read_class)
             .collect::<SResult<Vec<_>>>()?;
 
-        let gender = Gender::try_from(s.get("Gender", Field::get_byte)?)
+        let gender = Gender::try_from(s.get("Gender", Field::byte)?)
             .map_err(|id| format!("Invalid gender {id}"))?;
 
         Ok(Character {
             idx,
             name,
-            tag: s.get("Tag", Field::get_string)?,
-            hp: s.get("CurrentHitPoints", Field::get_short)?,
-            hp_max: s.get("MaxHitPoints", Field::get_short)?,
-            fp: s.get("ForcePoints", Field::get_short)?,
-            fp_max: s.get("MaxForcePoints", Field::get_short)?,
+            tag: s.get("Tag", Field::string)?,
+            hp: s.get("CurrentHitPoints", Field::short)?,
+            hp_max: s.get("MaxHitPoints", Field::short)?,
+            fp: s.get("ForcePoints", Field::short)?,
+            fp_max: s.get("MaxForcePoints", Field::short)?,
             min_1_hp: s.get("Min1HP", Field::get_bool)?,
-            good_evil: s.get("GoodEvil", Field::get_byte)?,
-            experience: s.get("Experience", Field::get_dword)?,
+            good_evil: s.get("GoodEvil", Field::byte)?,
+            experience: s.get("Experience", Field::dword)?,
             attributes,
             skills,
             feats,
             classes,
             gender,
-            portrait: s.get("PortraitId", Field::get_word)?,
-            appearance: s.get("Appearance_Type", Field::get_word)?,
-            soundset: s.get("SoundSetFile", Field::get_word)?,
+            portrait: s.get("PortraitId", Field::word)?,
+            appearance: s.get("Appearance_Type", Field::word)?,
+            soundset: s.get("SoundSetFile", Field::word)?,
         })
     }
 
     fn read_class(class: &Struct) -> SResult<Class> {
         let powers = class
-            .get("KnownList0", Field::get_list)
+            .get("KnownList0", Field::list)
             .ok()
             .map(|list| {
                 list.into_iter()
-                    .map(|s| s.get("Spell", Field::get_word))
+                    .map(|s| s.get("Spell", Field::word))
                     .collect::<SResult<_>>()
             })
             .transpose()?
             .unwrap_or_default();
 
         Ok(Class {
-            id: class.get("Class", Field::get_int)?,
-            level: class.get("ClassLevel", Field::get_short)?,
+            id: class.get("Class", Field::int)?,
+            level: class.get("ClassLevel", Field::short)?,
             powers,
         })
     }

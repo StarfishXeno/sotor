@@ -207,15 +207,15 @@ pub fn read_feats(twoda: TwoDA, tlk_bytes: &[u8], description_field: &str) -> SR
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
     for feat in twoda.0 {
-        let id = feat["_idx"].clone().unwrap().unwrap_int();
+        let id = feat["_idx"].clone().unwrap().int_unwrap();
         let label = feat["label"]
             .clone()
-            .map(TwoDAValue::unwrap_string)
+            .map(TwoDAValue::string_unwrap)
             .unwrap_or_default();
-        let name_ref = feat["name"].clone().map_or(-1, TwoDAValue::unwrap_int);
+        let name_ref = feat["name"].clone().map_or(-1, TwoDAValue::int_unwrap);
         let descr_ref = feat[description_field]
             .clone()
-            .map_or(-1, TwoDAValue::unwrap_int);
+            .map_or(-1, TwoDAValue::int_unwrap);
         if name_ref == -1 && label.is_empty() {
             // some namesless garbage
             continue;
@@ -249,14 +249,14 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
     for class in twoda.0 {
-        let id = class["_idx"].clone().unwrap().unwrap_int();
-        let Some(name_ref) = class["name"].clone().map(TwoDAValue::unwrap_int) else {
+        let id = class["_idx"].clone().unwrap().int_unwrap();
+        let Some(name_ref) = class["name"].clone().map(TwoDAValue::int_unwrap) else {
             continue;
         };
-        let Some(hit_die) = class["hitdie"].clone().map(TwoDAValue::unwrap_int) else {
+        let Some(hit_die) = class["hitdie"].clone().map(TwoDAValue::int_unwrap) else {
             continue;
         };
-        let Some(force_die) = class["forcedie"].clone().map(TwoDAValue::unwrap_int) else {
+        let Some(force_die) = class["forcedie"].clone().map(TwoDAValue::int_unwrap) else {
             continue;
         };
 
@@ -284,8 +284,8 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
 pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
     let mut appearances = Vec::with_capacity(twoda.0.len());
     for appearance in twoda.0 {
-        let id = appearance["_idx"].clone().unwrap().unwrap_int() as u16;
-        let Some(name) = appearance[field].clone().map(TwoDAValue::unwrap_string) else {
+        let id = appearance["_idx"].clone().unwrap().int_unwrap() as u16;
+        let Some(name) = appearance[field].clone().map(TwoDAValue::string_unwrap) else {
             continue;
         };
 
@@ -296,18 +296,18 @@ pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
 }
 
 pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
-    let list = journal.get("Categories", Field::get_list)?;
+    let list = journal.get("Categories", Field::list)?;
     let mut tmp = Vec::with_capacity(list.len());
     let mut str_refs = Vec::with_capacity(list.len() * 10);
     for quest in list {
-        let id = quest.get("Tag", Field::get_string)?;
-        let name_ref = quest.get("Name", Field::get_loc_string)?.0 as usize;
-        let stages_list = quest.get("EntryList", Field::get_list)?;
+        let id = quest.get("Tag", Field::string)?;
+        let name_ref = quest.get("Name", Field::loc_string)?.0 as usize;
+        let stages_list = quest.get("EntryList", Field::list)?;
         let mut stages = Vec::with_capacity(stages_list.len());
         for stage in stages_list {
-            let id = stage.get("ID", Field::get_dword)? as i32;
-            let end = stage.get("End", Field::get_word)? != 0;
-            let descr_ref = stage.get("Text", Field::get_loc_string)?.0 as usize;
+            let id = stage.get("ID", Field::dword)? as i32;
+            let end = stage.get("End", Field::word)? != 0;
+            let descr_ref = stage.get("Text", Field::loc_string)?.0 as usize;
 
             stages.push((id, end, descr_ref));
             str_refs.push(descr_ref);
@@ -351,12 +351,12 @@ pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut str_refs = Vec::with_capacity(items.len() * 2);
     for item in items {
         let s = &item.content;
-        let tag = s.get("Tag", Field::get_string)?;
-        let res_ref = s.get("TemplateResRef", Field::get_res_ref)?;
+        let tag = s.get("Tag", Field::string)?;
+        let res_ref = s.get("TemplateResRef", Field::res_ref)?;
         let identified = s.get("Identified", Field::get_bool)?;
-        let name_ref = s.get("LocalizedName", Field::get_loc_string)?.0 as usize;
-        let descr_ref = s.get("DescIdentified", Field::get_loc_string)?.0 as usize;
-        let stack_size = s.get("StackSize", Field::get_word)?;
+        let name_ref = s.get("LocalizedName", Field::loc_string)?.0 as usize;
+        let descr_ref = s.get("DescIdentified", Field::loc_string)?.0 as usize;
+        let stack_size = s.get("StackSize", Field::word)?;
 
         tmp.push((tag, res_ref, identified, name_ref, descr_ref, stack_size));
         str_refs.push(name_ref);

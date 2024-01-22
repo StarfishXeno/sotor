@@ -275,7 +275,7 @@ impl<'a> Reader<'a> {
     fn unwrap_tmp_field(&self, f: &FieldTmp) -> Field {
         match f {
             FieldTmp::Simple(value) => value.clone(),
-            FieldTmp::Struct(idx) => Field::Struct(Box::new(self.transform_struct(*idx))),
+            FieldTmp::Struct(idx) => Field::BStruct(Box::new(self.transform_struct(*idx))),
             FieldTmp::List(indices) => {
                 let structs: Vec<Struct> = indices
                     .iter()

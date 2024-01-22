@@ -56,15 +56,15 @@ pub enum Field {
     ResRef(String) = 11,
     LocString(u32, Vec<LocString>) = 12,
     Void(Vec<u8>) = 13,
-    // boxing it cuts FieldValue size in half
-    Struct(Box<Struct>) = 14,
+    // boxing it cuts Field size in half
+    BStruct(Box<Struct>) = 14,
     List(Vec<Struct>) = 15,
     Orientation(Orientation) = 16,
     Vector(Vector) = 17,
 }
 impl Field {
     pub fn get_bool(self) -> Option<bool> {
-        self.get_byte().map(|b| b != 0)
+        self.byte().map(|b| b != 0)
     }
 }
 
@@ -154,7 +154,7 @@ mod tests {
                 ("Void", Field::Void(vec![0, 1, 2, 3])),
                 (
                     "Struct",
-                    Field::Struct(Box::new(Struct {
+                    Field::BStruct(Box::new(Struct {
                         tp: 2,
                         fields: HashMap::from_iter([("NESTED".to_owned(), Field::Byte(0))]),
                     })),
