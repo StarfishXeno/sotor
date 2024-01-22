@@ -5,15 +5,12 @@ use crate::{
         ReadResource, ResourceType,
     },
     util::{
-        bytes::{seek_to, take, take_head, take_slice, take_string_until, Cursor},
+        bytes::{take, take_head, take_slice, take_string_until, Cursor, SeekExt},
         ESResult, SResult,
     },
 };
 use ahash::{HashMap, HashMapExt as _};
-use std::{
-    io::{prelude::*, SeekFrom},
-    usize,
-};
+use std::{io::BufRead as _, usize};
 
 struct TargetColumn {
     name: String,
@@ -166,10 +163,8 @@ impl<'a> Reader<'a> {
         let mut row = HashMap::new();
         row.insert("_idx".to_owned(), Some(TwoDAValue::Int(row_idx as i32)));
         for TargetColumn { name, idx, tp } in target_columns {
-            seek_to!(
-                self.c,
-                data_offset + offsets[row_idx * total_columns + idx] as u64
-            )?;
+            let pos = data_offset + offsets[row_idx * total_columns + idx] as u64;
+            self.c.seek_to(pos)?;
             let value = take_string_until(self.c, b'\0')
                 .ok_or_else(|| format!("couldn't read column {name} in row {row_idx}"))?;
 

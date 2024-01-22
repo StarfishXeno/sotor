@@ -1,11 +1,11 @@
 use crate::{
     formats::{bif::Bif, impl_read_resource, ReadResource, ResourceType},
     util::{
-        bytes::{seek_to, take, take_bytes, take_head, Cursor, DWORD_SIZE},
+        bytes::{take, take_bytes, take_head, Cursor, SeekExt as _, DWORD_SIZE},
         SResult,
     },
 };
-use std::io::{BufRead, Seek, SeekFrom};
+use std::io::BufRead;
 
 struct Reader<'a> {
     c: &'a mut Cursor<'a>,
@@ -44,12 +44,12 @@ impl<'a> Reader<'a> {
         let mut resources = Vec::with_capacity(self.required_indices.len());
 
         for idx in self.required_indices {
-            seek_to!(self.c, offset + idx * RESOURCE_SIZE * DWORD_SIZE)?;
+            self.c.seek_to(offset + idx * RESOURCE_SIZE * DWORD_SIZE)?;
             // skip the id
             self.c.consume(DWORD_SIZE);
             let [offset, size] = take::<[u32; 2]>(self.c)
                 .ok_or_else(|| format!("couldn't read resource {idx} offset"))?;
-            seek_to!(self.c, offset)?;
+            self.c.seek_to(offset)?;
             let content = take_bytes(self.c, size as usize)
                 .ok_or_else(|| format!("couldn't read resource {idx} content at offset {offset}"))?
                 .to_vec();

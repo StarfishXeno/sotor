@@ -1,11 +1,11 @@
 use crate::{
     formats::{impl_read_resource, tlk::Tlk, ReadResource, ResourceType},
     util::{
-        bytes::{seek_to, take, take_head, take_string, Cursor, DWORD_SIZE},
+        bytes::{take, take_head, take_string, Cursor, SeekExt as _, DWORD_SIZE},
         SResult,
     },
 };
-use std::io::{BufRead, Seek, SeekFrom};
+use std::io::BufRead as _;
 
 struct Reader<'a> {
     c: &'a mut Cursor<'a>,
@@ -52,7 +52,8 @@ impl<'a> Reader<'a> {
                     "TLK contains {count} strings but index {idx} is requested"
                 ));
             }
-            seek_to!(self.c, HEADER_SIZE_BYTES + idx * STRING_DATA_SIZE_BYTES)?;
+            self.c
+                .seek_to(HEADER_SIZE_BYTES + idx * STRING_DATA_SIZE_BYTES)?;
             let flags =
                 take::<u32>(self.c).ok_or_else(|| format!("couldn't read string {idx} flags"))?;
             // this entry has no string, meant to return an empty one
@@ -63,7 +64,7 @@ impl<'a> Reader<'a> {
             self.c.consume(6 * DWORD_SIZE);
             let [str_offset, len] = take::<[u32; 2]>(self.c)
                 .ok_or_else(|| format!("couldn't read string {idx} offset and size"))?;
-            seek_to!(self.c, offset + str_offset as usize)?;
+            self.c.seek_to(offset + str_offset as usize)?;
             let content = take_string(self.c, len as usize)
                 .ok_or_else(|| format!("couldn't read string {idx} content at offset {offset}"))?;
 

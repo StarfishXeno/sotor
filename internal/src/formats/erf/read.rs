@@ -1,5 +1,3 @@
-use ahash::{HashMap, HashMapExt as _};
-
 use crate::{
     formats::{
         erf::{Erf, Resource, HEADER_SIZE, KEY_NAME_LEN, KEY_SIZE_BYTES},
@@ -7,13 +5,14 @@ use crate::{
     },
     util::{
         bytes::{
-            seek_to, take, take_bytes, take_head, take_slice, take_string, take_string_trimmed,
-            Cursor, IntoUsizeArray as _, IntoUsizeVec as _,
+            take, take_bytes, take_head, take_slice, take_string, take_string_trimmed, Cursor,
+            IntoUsizeArray as _, IntoUsizeVec as _, SeekExt as _,
         },
         SResult,
     },
 };
-use std::io::{BufRead, Seek, SeekFrom};
+use ahash::{HashMap, HashMapExt as _};
+use std::io::BufRead;
 
 #[derive(Debug, Default)]
 struct Header {
@@ -78,7 +77,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_loc_strings(&mut self) -> SResult<Vec<LocString>> {
-        seek_to!(self.c, self.h.loc_string_offset)?;
+        self.c.seek_to(self.h.loc_string_offset)?;
         let target_count = self.h.loc_string_count;
         let mut loc_strings = Vec::with_capacity(target_count);
 
@@ -98,7 +97,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_key_list(&mut self) -> SResult<Vec<KeyRead>> {
-        seek_to!(self.c, self.h.keys_offset)?;
+        self.c.seek_to(self.h.keys_offset)?;
         let mut keys = Vec::with_capacity(self.h.entry_count);
         let bytes = take_bytes(self.c, self.h.entry_count * KEY_SIZE_BYTES)
             .ok_or("couldn't read key list")?;
@@ -124,7 +123,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_resources(&mut self) -> SResult<Vec<ResourceRead>> {
-        seek_to!(self.c, self.h.resources_offset)?;
+        self.c.seek_to(self.h.resources_offset)?;
         let mut resources = Vec::with_capacity(self.h.entry_count);
         let resource_dwords =
             take_slice::<[u32; 2]>(self.c, self.h.entry_count).ok_or("couldn't read resources")?;
@@ -147,7 +146,7 @@ impl<'a> Reader<'a> {
 
         for (idx, key) in keys.into_iter().enumerate() {
             let res = &resources[idx];
-            seek_to!(self.c, res.offset)?;
+            self.c.seek_to(res.offset)?;
             let content = take_bytes(self.c, res.size)
                 .ok_or_else(|| format!("Couldn't read resource content {idx} at {}", res.offset))?
                 .to_vec();

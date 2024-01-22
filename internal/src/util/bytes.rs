@@ -1,9 +1,14 @@
-use crate::formats::FileHead;
+use crate::{formats::FileHead, util::ESResult};
 use bytemuck::{
     bytes_of, cast_slice, checked::try_cast_slice, try_pod_read_unaligned, AnyBitPattern, NoUninit,
     Pod,
 };
-use std::{borrow::Cow, fmt::Debug, io::prelude::*, mem::size_of};
+use std::{
+    borrow::Cow,
+    fmt::Debug,
+    io::{prelude::*, SeekFrom},
+    mem::size_of,
+};
 
 pub const DWORD_SIZE: usize = 4;
 
@@ -67,14 +72,15 @@ impl<'a, T: NoUninit> IntoByteSlice<'a> for &'a [T] {
     }
 }
 
-macro_rules! seek_to {
-    ($reader:expr, $pos:expr) => {
-        $reader
-            .seek(SeekFrom::Start($pos as u64))
-            .map_err(|_| format!("couldn't seek to {}", $pos))
-    };
+pub trait SeekExt: Seek {
+    fn seek_to<E: Debug>(&mut self, pos: impl TryInto<u64, Error = E>) -> ESResult {
+        let pos = pos.try_into().unwrap();
+        self.seek(SeekFrom::Start(pos))
+            .map(|_| ())
+            .map_err(|_| format!("couldn't seek to {pos}"))
+    }
 }
-pub(crate) use seek_to;
+impl<T: Seek> SeekExt for T {}
 
 pub fn nullpad_string(mut str: String, to_len: usize) -> String {
     let len = str.len();

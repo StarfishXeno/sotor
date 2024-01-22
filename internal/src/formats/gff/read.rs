@@ -7,15 +7,15 @@ use crate::{
     },
     util::{
         bytes::{
-            seek_to, take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
-            take_string_trimmed, Cursor, IntoUsizeArray, IntoUsizeVec, DWORD_SIZE,
+            take, take_bytes, take_head, take_slice, take_slice_sized, take_string_sized,
+            take_string_trimmed, Cursor, IntoUsizeArray, IntoUsizeVec, SeekExt as _, DWORD_SIZE,
         },
         ESResult, SResult,
     },
 };
 use ahash::{HashMap, HashMapExt as _};
 use bytemuck::cast;
-use std::io::{prelude::*, SeekFrom};
+use std::io::BufRead as _;
 
 #[derive(Debug)]
 struct FieldReadTmp {
@@ -114,7 +114,7 @@ impl<'a> Reader<'a> {
 
     fn read_list_indices(&mut self) -> ESResult {
         let offset = self.h.list_indices_offset;
-        seek_to!(self.c, offset)?;
+        self.c.seek_to(offset)?;
         self.list_indices = HashMap::new();
 
         let bytes = take_bytes(self.c, self.h.list_indices_bytes)
@@ -138,7 +138,7 @@ impl<'a> Reader<'a> {
 
     fn read_field_indices(&mut self) -> ESResult {
         let offset = self.h.field_indices_offset;
-        seek_to!(self.c, offset)?;
+        self.c.seek_to(offset)?;
 
         self.field_indices = take_slice::<u32>(self.c, self.h.field_indices_bytes / DWORD_SIZE)
             .ok_or_else(|| format!("Couldn't read field indices, starting offset {offset}"))?
@@ -148,7 +148,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_field_data(&mut self) -> ESResult {
-        seek_to!(self.c, self.h.field_data_offset)?;
+        self.c.seek_to(self.h.field_data_offset)?;
         self.field_data =
             take_bytes(self.c, self.h.field_data_bytes).ok_or("couldn't read field data")?;
 
@@ -156,7 +156,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_labels(&mut self) -> ESResult {
-        seek_to!(self.c, self.h.label_offset)?;
+        self.c.seek_to(self.h.label_offset)?;
         self.labels = Vec::with_capacity(self.h.label_count);
 
         for idx in 0..self.h.label_count {
@@ -169,7 +169,7 @@ impl<'a> Reader<'a> {
     }
 
     fn read_fields(&mut self) -> ESResult {
-        seek_to!(self.c, self.h.field_offset)?;
+        self.c.seek_to(self.h.field_offset)?;
         self.fields = Vec::with_capacity(self.h.field_count);
         let field_data = self.field_data;
         let fields = take_slice::<[u32; FIELD_SIZE]>(self.c, self.h.field_count)
@@ -246,7 +246,7 @@ impl<'a> Reader<'a> {
 
     fn read_structs(&mut self) -> ESResult {
         let offset = self.h.struct_offset;
-        seek_to!(self.c, offset)?;
+        self.c.seek_to(offset)?;
         self.structs = Vec::with_capacity(self.h.struct_count);
 
         for i in 0..self.h.struct_count {

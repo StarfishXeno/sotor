@@ -6,14 +6,14 @@ use crate::{
     },
     util::{
         bytes::{
-            seek_to, take, take_bytes, take_head, take_string_trimmed, Cursor, IntoUsizeArray,
+            take, take_bytes, take_head, take_string_trimmed, Cursor, IntoUsizeArray, SeekExt as _,
             DWORD_SIZE,
         },
         SResult,
     },
 };
 use ahash::{HashMap, HashMapExt as _};
-use std::io::{BufRead, Seek, SeekFrom};
+use std::io::BufRead as _;
 
 struct Header {
     file_count: usize,
@@ -64,7 +64,7 @@ impl<'a> Reader<'a> {
     fn read_file_data(&mut self, count: usize, offset: usize) -> SResult<Vec<(u32, u16)>> {
         // 2 dwords, 2 words
         const FILE_SIZE_BYTES: usize = DWORD_SIZE * 2 + 2 * 2;
-        seek_to!(self.c, offset)?;
+        self.c.seek_to(offset)?;
         let file_bytes =
             take_bytes(self.c, count * FILE_SIZE_BYTES).ok_or("couldn't read file table")?;
         let c = &mut Cursor::new(file_bytes);
@@ -86,7 +86,7 @@ impl<'a> Reader<'a> {
     fn read_file_names(&mut self, data: Vec<(u32, u16)>) -> SResult<Vec<String>> {
         let mut names = Vec::with_capacity(data.len());
         for (offset, size) in data {
-            seek_to!(self.c, offset)?;
+            self.c.seek_to(offset)?;
             // they appear to be null-terminated
             let name = take_string_trimmed(self.c, size as usize)
                 .ok_or_else(|| format!("couldn't read file name of size {size} at {offset}"))?;
@@ -102,7 +102,7 @@ impl<'a> Reader<'a> {
         file_names: &[String],
     ) -> SResult<HashMap<ResourceKey, KeyResRef>> {
         const RESOURCE_SIZE_BYTES: usize = 22;
-        seek_to!(self.c, offset)?;
+        self.c.seek_to(offset)?;
         let bytes =
             take_bytes(self.c, count * RESOURCE_SIZE_BYTES).ok_or("couldn't read key table")?;
         let c = &mut Cursor::new(bytes);
