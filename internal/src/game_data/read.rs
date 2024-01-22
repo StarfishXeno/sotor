@@ -1,7 +1,7 @@
 use crate::{
     formats::{
         bif::Bif,
-        gff::{get_field, Gff},
+        gff::{Field, Gff},
         key::Key,
         tlk::Tlk,
         twoda::{TwoDA, TwoDAValue},
@@ -296,18 +296,18 @@ pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
 }
 
 pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
-    let list = get_field!(journal.content, "Categories", get_list)?;
+    let list = journal.get("Categories", Field::get_list)?;
     let mut tmp = Vec::with_capacity(list.len());
     let mut str_refs = Vec::with_capacity(list.len() * 10);
     for quest in list {
-        let id = get_field!(quest, "Tag", get_string)?;
-        let name_ref = get_field!(quest, "Name", get_loc_string)?.0 as usize;
-        let stages_list = get_field!(quest, "EntryList", get_list)?;
+        let id = quest.get("Tag", Field::get_string)?;
+        let name_ref = quest.get("Name", Field::get_loc_string)?.0 as usize;
+        let stages_list = quest.get("EntryList", Field::get_list)?;
         let mut stages = Vec::with_capacity(stages_list.len());
         for stage in stages_list {
-            let id = get_field!(stage, "ID", get_dword)? as i32;
-            let end = get_field!(stage, "End", get_word)? != 0;
-            let descr_ref = get_field!(stage, "Text", get_loc_string)?.0 as usize;
+            let id = stage.get("ID", Field::get_dword)? as i32;
+            let end = stage.get("End", Field::get_word)? != 0;
+            let descr_ref = stage.get("Text", Field::get_loc_string)?.0 as usize;
 
             stages.push((id, end, descr_ref));
             str_refs.push(descr_ref);
@@ -351,12 +351,12 @@ pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut str_refs = Vec::with_capacity(items.len() * 2);
     for item in items {
         let s = &item.content;
-        let tag = get_field!(s, "Tag", get_string)?;
-        let res_ref = get_field!(s, "TemplateResRef", get_res_ref)?;
-        let identified = get_field!(s, "Identified", get_byte)? != 0;
-        let name_ref = get_field!(s, "LocalizedName", get_loc_string)?.0 as usize;
-        let descr_ref = get_field!(s, "DescIdentified", get_loc_string)?.0 as usize;
-        let stack_size = get_field!(s, "StackSize", get_word)?;
+        let tag = s.get("Tag", Field::get_string)?;
+        let res_ref = s.get("TemplateResRef", Field::get_res_ref)?;
+        let identified = s.get("Identified", Field::get_bool)?;
+        let name_ref = s.get("LocalizedName", Field::get_loc_string)?.0 as usize;
+        let descr_ref = s.get("DescIdentified", Field::get_loc_string)?.0 as usize;
+        let stack_size = s.get("StackSize", Field::get_word)?;
 
         tmp.push((tag, res_ref, identified, name_ref, descr_ref, stack_size));
         str_refs.push(name_ref);

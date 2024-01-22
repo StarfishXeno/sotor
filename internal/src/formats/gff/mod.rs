@@ -1,6 +1,8 @@
 use super::{FileHead, LocString};
+use crate::util::SResult;
 use ahash::HashMap;
 use macros::{EnumToInt, EnumToString, UnwrapVariant};
+use std::ops::Deref;
 
 mod read;
 mod write;
@@ -60,6 +62,11 @@ pub enum Field {
     Orientation(Orientation) = 16,
     Vector(Vector) = 17,
 }
+impl Field {
+    pub fn get_bool(self) -> Option<bool> {
+        self.get_byte().map(|b| b != 0)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Struct {
@@ -80,6 +87,13 @@ impl Struct {
                 .collect(),
         }
     }
+
+    pub fn get<T>(&self, field: &str, method: impl Fn(Field) -> Option<T>) -> SResult<T> {
+        self.fields
+            .get(field)
+            .ok_or_else(|| format!("missing field {field}"))
+            .and_then(|f| method(f.clone()).ok_or_else(|| format!("invalid field {field}")))
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -88,25 +102,12 @@ pub struct Gff {
     pub content: Struct,
 }
 
-#[macro_export]
-macro_rules! get_field {
-    ($struct:expr, $field:literal, $method:tt) => {
-        $struct
-            .fields
-            .get($field)
-            .ok_or(format!("missing field {}", $field))
-            .and_then(|f| {
-                f.clone()
-                    .$method()
-                    .ok_or(format!("invalid field {}", $field))
-            })
-    };
-    ($struct:expr, $field:literal) => {
-        get_field!($struct, $field, get_byte)
-    };
+impl Deref for Gff {
+    type Target = Struct;
+    fn deref(&self) -> &Self::Target {
+        &self.content
+    }
 }
-
-pub use get_field;
 
 #[cfg(test)]
 mod tests {

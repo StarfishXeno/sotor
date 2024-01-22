@@ -9,7 +9,7 @@ use ahash::HashMap;
 use egui::TextureHandle;
 use internal::{
     erf::Erf,
-    gff::{get_field, Field, Gff, Struct},
+    gff::{Field, Gff, Struct},
     ReadResourceNoArg as _, ResourceType,
 };
 pub struct Reader {
@@ -89,15 +89,11 @@ impl Reader {
         let s = &self.nfo.content;
 
         Ok(Nfo {
-            save_name: s
-                .fields
-                .get("SAVEGAMENAME")
-                .and_then(|f| f.clone().get_string())
-                .unwrap_or_default(), // autosaves don't have this field
-            area_name: get_field!(s, "AREANAME", get_string)?,
-            last_module: get_field!(s, "LASTMODULE", get_string)?,
-            cheat_used: get_field!(s, "CHEATUSED")? != 0,
-            time_played: get_field!(s, "TIMEPLAYED", get_dword)?,
+            save_name: s.get("SAVEGAMENAME", Field::get_string).unwrap_or_default(), // autosaves don't have this field
+            area_name: s.get("AREANAME", Field::get_string)?,
+            last_module: s.get("LASTMODULE", Field::get_string)?,
+            cheat_used: s.get("CHEATUSED", Field::get_byte)? != 0,
+            time_played: s.get("TIMEPLAYED", Field::get_dword)?,
         })
     }
 
@@ -105,8 +101,7 @@ impl Reader {
         let s = &self.globals.content;
 
         let mut names: Vec<Vec<_>> = Vec::with_capacity(GLOBALS_TYPES.len());
-        // Strings are stored as a struct list and go into a separate vector
-        let mut values = Vec::with_capacity(GLOBALS_TYPES.len() - 1);
+        let mut values = Vec::with_capacity(GLOBALS_TYPES.len());
 
         for tp in GLOBALS_TYPES {
             let Some(Field::List(name_list)) = s.fields.get(&("Cat".to_owned() + tp)) else {
@@ -123,7 +118,7 @@ impl Reader {
             names.push(
                 name_list
                     .iter()
-                    .map(|s| get_field!(s, "Name", get_string).unwrap())
+                    .map(|s| s.get("Name", Field::get_string).unwrap())
                     .collect(),
             );
         }
@@ -165,51 +160,55 @@ impl Reader {
 
     fn read_party_table(&self) -> SResult<PartyTable> {
         let s = &self.party_table.content;
-        let journal = get_field!(s, "JNL_Entries", get_list)?
+        let journal = s
+            .get("JNL_Entries", Field::get_list)?
             .into_iter()
             .map(|e| {
                 Ok(JournalEntry {
-                    id: get_field!(e, "JNL_PlotID", get_string)?,
-                    stage: get_field!(e, "JNL_State", get_int)?,
-                    time: get_field!(e, "JNL_Time", get_dword)?,
-                    date: get_field!(e, "JNL_Date", get_dword)?,
+                    id: e.get("JNL_PlotID", Field::get_string)?,
+                    stage: e.get("JNL_State", Field::get_int)?,
+                    time: e.get("JNL_Time", Field::get_dword)?,
+                    date: e.get("JNL_Date", Field::get_dword)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let members = get_field!(s, "PT_MEMBERS", get_list)?
+        let members = s
+            .get("PT_MEMBERS", Field::get_list)?
             .into_iter()
             .map(|m| {
                 Ok(PartyMember {
-                    idx: get_field!(m, "PT_MEMBER_ID", get_int)? as usize,
-                    leader: get_field!(m, "PT_IS_LEADER")? != 0,
+                    idx: m.get("PT_MEMBER_ID", Field::get_int)? as usize,
+                    leader: m.get("PT_IS_LEADER", Field::get_bool)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let available_members = get_field!(s, "PT_AVAIL_NPCS", get_list)?
+        let available_members = s
+            .get("PT_AVAIL_NPCS", Field::get_list)?
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
-                    available: get_field!(m, "PT_NPC_AVAIL")? != 0,
-                    selectable: get_field!(m, "PT_NPC_SELECT")? != 0,
+                    available: m.get("PT_NPC_AVAIL", Field::get_bool)?,
+                    selectable: m.get("PT_NPC_SELECT", Field::get_bool)?,
                 })
             })
             .collect::<SResult<_>>()?;
 
-        let influence = get_field!(s, "PT_INFLUENCE", get_list)
+        let influence = s
+            .get("PT_INFLUENCE", Field::get_list)
             .ok()
             .map(|i| {
                 i.into_iter()
-                    .map(|m| get_field!(m, "PT_NPC_INFLUENCE", get_int))
+                    .map(|m| m.get("PT_NPC_INFLUENCE", Field::get_int))
                     .collect::<SResult<_>>()
             })
             .transpose()?;
-        let party_xp = get_field!(s, "PT_XP_POOL", get_int)?;
-        let cheat_used = get_field!(s, "PT_CHEAT_USED")? != 0;
-        let credits = get_field!(s, "PT_GOLD", get_dword)?;
-        let components = get_field!(s, "PT_ITEM_COMPONEN", get_dword).ok();
-        let chemicals = get_field!(s, "PT_ITEM_CHEMICAL", get_dword).ok();
+        let party_xp = s.get("PT_XP_POOL", Field::get_int)?;
+        let cheat_used = s.get("PT_CHEAT_USED", Field::get_bool)?;
+        let credits = s.get("PT_GOLD", Field::get_dword)?;
+        let components = s.get("PT_ITEM_COMPONEN", Field::get_dword).ok();
+        let chemicals = s.get("PT_ITEM_CHEMICAL", Field::get_dword).ok();
 
         Ok(PartyTable {
             journal,
@@ -260,13 +259,13 @@ impl Reader {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
-        let mut player_field = get_field!(last_module.content, "Mod_PlayerList", get_list)?;
+        let mut player_field = last_module.get("Mod_PlayerList", Field::get_list)?;
         if player_field.is_empty() {
             return Err("Couldn't get player character struct".to_string());
         }
         let player = player_field.remove(0);
 
-        characters.push(self.read_character(&player, count)?);
+        characters.push(Self::read_character(&player, count)?);
         structs.push(player);
 
         for idx in 0..count {
@@ -277,7 +276,7 @@ impl Reader {
                 .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
 
             characters.push(
-                self.read_character(&gff.content, idx)
+                Self::read_character(&gff.content, idx)
                     .map_err(|err| format!("Error parsing character {idx}: {err}"))?,
             );
             structs.push(gff.content);
@@ -286,77 +285,82 @@ impl Reader {
         Ok((characters, structs))
     }
 
-    fn read_character(&self, s: &Struct, idx: usize) -> SResult<Character> {
-        let name = get_field!(s, "FirstName", get_loc_string)?
+    fn read_character(s: &Struct, idx: usize) -> SResult<Character> {
+        let name = s
+            .get("FirstName", Field::get_loc_string)?
             .1
             .first()
-            .map_or_else(|| String::new(), |v| v.content.clone());
+            .map_or_else(String::new, |v| v.content.clone());
 
         let attributes = [
-            get_field!(s, "Str")?,
-            get_field!(s, "Dex")?,
-            get_field!(s, "Con")?,
-            get_field!(s, "Int")?,
-            get_field!(s, "Wis")?,
-            get_field!(s, "Cha")?,
+            s.get("Str", Field::get_byte)?,
+            s.get("Dex", Field::get_byte)?,
+            s.get("Con", Field::get_byte)?,
+            s.get("Int", Field::get_byte)?,
+            s.get("Wis", Field::get_byte)?,
+            s.get("Cha", Field::get_byte)?,
         ];
 
-        let skills = get_field!(s, "SkillList", get_list)?
+        let skills = s
+            .get("SkillList", Field::get_list)?
             .into_iter()
-            .map(|s| get_field!(s, "Rank"))
+            .map(|s| s.get("Rank", Field::get_byte))
             .collect::<SResult<Vec<_>>>()?
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
-        let feats = get_field!(s, "FeatList", get_list)?
+        let feats = s
+            .get("FeatList", Field::get_list)?
             .into_iter()
-            .map(|s| get_field!(s, "Feat", get_word))
+            .map(|s| s.get("Feat", Field::get_word))
             .collect::<SResult<_>>()?;
 
-        let classes = get_field!(s, "ClassList", get_list)?
+        let classes = s
+            .get("ClassList", Field::get_list)?
             .iter()
             .map(Self::read_class)
             .collect::<SResult<Vec<_>>>()?;
 
-        let gender = Gender::try_from(get_field!(s, "Gender")?)
+        let gender = Gender::try_from(s.get("Gender", Field::get_byte)?)
             .map_err(|id| format!("Invalid gender {id}"))?;
 
         Ok(Character {
             idx,
             name,
-            tag: get_field!(s, "Tag", get_string)?,
-            hp: get_field!(s, "CurrentHitPoints", get_short)?,
-            hp_max: get_field!(s, "MaxHitPoints", get_short)?,
-            fp: get_field!(s, "ForcePoints", get_short)?,
-            fp_max: get_field!(s, "MaxForcePoints", get_short)?,
-            min_1_hp: get_field!(s, "Min1HP")? != 0,
-            good_evil: get_field!(s, "GoodEvil")?,
-            experience: get_field!(s, "Experience", get_dword)?,
+            tag: s.get("Tag", Field::get_string)?,
+            hp: s.get("CurrentHitPoints", Field::get_short)?,
+            hp_max: s.get("MaxHitPoints", Field::get_short)?,
+            fp: s.get("ForcePoints", Field::get_short)?,
+            fp_max: s.get("MaxForcePoints", Field::get_short)?,
+            min_1_hp: s.get("Min1HP", Field::get_bool)?,
+            good_evil: s.get("GoodEvil", Field::get_byte)?,
+            experience: s.get("Experience", Field::get_dword)?,
             attributes,
             skills,
             feats,
             classes,
             gender,
-            portrait: get_field!(s, "PortraitId", get_word)?,
-            appearance: get_field!(s, "Appearance_Type", get_word)?,
-            soundset: get_field!(s, "SoundSetFile", get_word)?,
+            portrait: s.get("PortraitId", Field::get_word)?,
+            appearance: s.get("Appearance_Type", Field::get_word)?,
+            soundset: s.get("SoundSetFile", Field::get_word)?,
         })
     }
 
     fn read_class(class: &Struct) -> SResult<Class> {
-        let powers = get_field!(class, "KnownList0", get_list)
+        let powers = class
+            .get("KnownList0", Field::get_list)
             .ok()
             .map(|list| {
                 list.into_iter()
-                    .map(|s| get_field!(s, "Spell", get_word))
+                    .map(|s| s.get("Spell", Field::get_word))
                     .collect::<SResult<_>>()
             })
             .transpose()?
             .unwrap_or_default();
 
         Ok(Class {
-            id: get_field!(class, "Class", get_int)?,
-            level: get_field!(class, "ClassLevel", get_short)?,
+            id: class.get("Class", Field::get_int)?,
+            level: class.get("ClassLevel", Field::get_short)?,
             powers,
         })
     }

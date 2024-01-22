@@ -13,7 +13,7 @@ fn make_game_dir(common: &Path, name: &str) -> PathBuf {
 
 fn main() {
     dotenv::dotenv().unwrap();
-    let mut steam_dir: PathBuf = var("STEAM_APPS").unwrap().into();
+    let steam_dir: PathBuf = var("STEAM_APPS").unwrap().into();
     let mut common = steam_dir.clone();
     common.push("common");
     let game_dirs = Game::LIST.map(|game| make_game_dir(&common, game.steam_dir()));
