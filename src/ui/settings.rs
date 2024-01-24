@@ -14,14 +14,23 @@ use std::path::PathBuf;
 
 pub struct Settings<'a> {
     open: &'a mut bool,
-    paths: &'a mut [Option<String>; 2],
+    steam_path: &'a Option<String>,
+    game_paths: &'a [Option<String>; 2],
 }
 
 const WINDOW_SIZE: [f32; 2] = [400., 200.];
 
 impl<'a> Settings<'a> {
-    pub fn new(open: &'a mut bool, paths: &'a mut [Option<String>; 2]) -> Self {
-        Self { open, paths }
+    pub fn new(
+        open: &'a mut bool,
+        steam_path: &'a Option<String>,
+        game_paths: &'a [Option<String>; 2],
+    ) -> Self {
+        Self {
+            open,
+            steam_path,
+            game_paths,
+        }
     }
 
     pub fn show(&mut self, ctx: &Context) {
@@ -68,7 +77,7 @@ impl<'a> Settings<'a> {
                             ui.set_height(ui.available_height());
 
                             Self::title_bar(ui, self.open);
-                            Self::game_paths(ui, self.paths);
+                            Self::paths(ui, self.steam_path, self.game_paths);
                         });
                 });
             });
@@ -88,42 +97,45 @@ impl<'a> Settings<'a> {
         ui.separator();
     }
 
-    fn game_path(ui: UiRef, paths: &mut [Option<String>; 2], game: Game) {
-        let exe_name = match game {
-            Game::One => "swkotor.exe".to_owned(),
-            Game::Two => "swkotor2.exe".to_owned(),
-        };
+    fn path(
+        ui: UiRef,
+        path: &Option<String>,
+        label: &str,
+        picker_title: String,
+        empty_text: Option<String>,
+        set_path: impl Fn(UiRef, Option<String>),
+    ) {
         ui.horizontal(|ui| {
             set_button_styles(ui);
+
+            if path.is_some() && ui.s_icon_button(Icon::Remove, "Remove").clicked() {
+                set_path(ui, None);
+            }
             let btn = ui.s_button_basic("Select");
-            ui.label(format!("KotOR {game} path:"));
+            ui.label(label);
 
             if btn.clicked() {
-                let dir = select_directory(format!("Select the directory containing {exe_name}",));
+                let dir = select_directory(picker_title);
 
                 if let Some(handle) = dir {
                     let path = handle.path().to_str().unwrap().to_owned();
-
-                    ui.ctx().send_message(Message::SetGamePath(game, path));
+                    set_path(ui, Some(path));
                 }
             }
         });
         ui.end_row();
 
-        let path = paths[game.idx()].as_deref().unwrap_or("None selected");
+        let path = path.as_ref().map_or("None selected", String::as_str);
         ui.add(Label::new(color_text(path, WHITE)).wrap(true));
         ui.end_row();
 
-        if !PathBuf::from_iter([path, &exe_name]).exists() {
-            ui.label(color_text(
-                &format!("{exe_name} isn't present in the selected directory"),
-                RED,
-            ));
+        if let Some(empty_text) = empty_text {
+            ui.label(color_text(&empty_text, RED));
+            ui.end_row();
         }
-        ui.end_row();
     }
 
-    fn game_paths(ui: UiRef, paths: &mut [Option<String>; 2]) {
+    fn paths(ui: UiRef, steam_path: &Option<String>, game_paths: &[Option<String>; 2]) {
         set_striped_styles(ui);
         Grid::new("settings_paths_grid")
             .spacing([0., 5.])
@@ -131,7 +143,42 @@ impl<'a> Settings<'a> {
             .num_columns(1)
             .striped(true)
             .show(ui, |ui| {
-                Game::LIST.map(|game| Self::game_path(ui, paths, game));
+                let empty_text = steam_path.as_ref().and_then(|p| {
+                    (!PathBuf::from_iter([p.as_str(), "common"]).exists()).then(|| {
+                        "Directory \"common\" isn't present in the selected directory".to_owned()
+                    })
+                });
+
+                Self::path(
+                    ui,
+                    steam_path,
+                    "Steam library path",
+                    "Select the steamapps directory".to_owned(),
+                    empty_text,
+                    |ui, path| ui.ctx().send_message(Message::SetSteamPath(path)),
+                );
+
+                Game::LIST.map(|game| {
+                    let exe_name = match game {
+                        Game::One => "swkotor.exe",
+                        Game::Two => "swkotor2.exe",
+                    };
+                    let path = &game_paths[game.idx()];
+                    let empty_text = path.as_ref().and_then(|p| {
+                        (!PathBuf::from_iter([p.as_str(), exe_name]).exists()).then(|| {
+                            format!("File \"{exe_name}\" isn't present in the selected directory")
+                        })
+                    });
+
+                    Self::path(
+                        ui,
+                        path,
+                        &format!("KotOR {game} path:"),
+                        format!("Select the directory containing \"{exe_name}\""),
+                        empty_text,
+                        |ui, path| ui.ctx().send_message(Message::SetGamePath(game, path)),
+                    );
+                });
             });
     }
 }

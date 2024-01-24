@@ -179,7 +179,7 @@ impl Reader {
             .map(|m| {
                 Ok(PartyMember {
                     idx: m.get("PT_MEMBER_ID", Field::int)? as usize,
-                    leader: m.get("PT_IS_LEADER", Field::get_bool)?,
+                    leader: m.get("PT_IS_LEADER", Field::bool)?,
                 })
             })
             .collect::<SResult<_>>()?;
@@ -189,8 +189,8 @@ impl Reader {
             .into_iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
-                    available: m.get("PT_NPC_AVAIL", Field::get_bool)?,
-                    selectable: m.get("PT_NPC_SELECT", Field::get_bool)?,
+                    available: m.get("PT_NPC_AVAIL", Field::bool)?,
+                    selectable: m.get("PT_NPC_SELECT", Field::bool)?,
                 })
             })
             .collect::<SResult<_>>()?;
@@ -205,7 +205,7 @@ impl Reader {
             })
             .transpose()?;
         let party_xp = s.get("PT_XP_POOL", Field::int)?;
-        let cheat_used = s.get("PT_CHEAT_USED", Field::get_bool)?;
+        let cheat_used = s.get("PT_CHEAT_USED", Field::bool)?;
         let credits = s.get("PT_GOLD", Field::dword)?;
         let components = s.get("PT_ITEM_COMPONEN", Field::dword).ok();
         let chemicals = s.get("PT_ITEM_CHEMICAL", Field::dword).ok();
@@ -332,7 +332,7 @@ impl Reader {
             hp_max: s.get("MaxHitPoints", Field::short)?,
             fp: s.get("ForcePoints", Field::short)?,
             fp_max: s.get("MaxForcePoints", Field::short)?,
-            min_1_hp: s.get("Min1HP", Field::get_bool)?,
+            min_1_hp: s.get("Min1HP", Field::bool)?,
             good_evil: s.get("GoodEvil", Field::byte)?,
             experience: s.get("Experience", Field::dword)?,
             attributes,

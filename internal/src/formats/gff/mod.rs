@@ -63,7 +63,7 @@ pub enum Field {
     Vector(Vector) = 17,
 }
 impl Field {
-    pub fn get_bool(self) -> Option<bool> {
+    pub fn bool(self) -> Option<bool> {
         self.byte().map(|b| b != 0)
     }
 }

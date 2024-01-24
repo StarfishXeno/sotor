@@ -31,6 +31,7 @@ struct SaveDirectories {
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 struct PersistentState {
+    steam_path: Option<String>,
     game_paths: [Option<String>; Game::COUNT],
 }
 
@@ -185,15 +186,47 @@ impl SotorApp {
         }
     }
 
-    #[allow(clippy::unused_self, unused_variables)]
-    fn load_game_data(&mut self, game: Game) {}
+    fn load_game_data(&mut self, game: Game) {
+        let idx = game.idx();
+        let Some(game_path) = self.prs.game_paths[idx].as_ref() else {
+            self.game_data[idx] = None;
+            return;
+        };
+        let game_data = GameData::read(game, game_path, self.prs.steam_path.as_ref());
+        if let Ok(data) = game_data {
+            self.game_data[idx] = Some(data.into());
+        } else {
+            error!("couldn't load game data for game {game}: {game_data:?}");
+        }
+    }
 
     fn reload_game_data(&mut self) {
         Game::LIST.map(|game| self.load_game_data(game));
     }
 
-    fn set_game_path(&mut self, game: Game, path: String, ctx: &Context) {
-        self.prs.game_paths[game.idx()] = Some(path);
+    fn set_steam_path(&mut self, path: Option<String>, ctx: &Context) {
+        self.prs.steam_path = path;
+        let Some(path) = self.prs.steam_path.clone() else {
+            return;
+        };
+        // set game paths if they aren't selected yet
+        for game in Game::LIST {
+            let game_path = &mut self.prs.game_paths[game.idx()];
+            if game_path.is_some() {
+                continue;
+            };
+            let game_dir = game.steam_dir();
+            let new_path = PathBuf::from_iter([path.as_str(), "common", game_dir]);
+            if new_path.exists() {
+                *game_path = Some(new_path.to_str().unwrap().to_owned());
+            }
+            self.load_save_list(game);
+            self.load_game_data(game);
+        }
+        self.load_latest_save(ctx);
+    }
+    fn set_game_path(&mut self, game: Game, path: Option<String>, ctx: &Context) {
+        self.prs.game_paths[game.idx()] = path;
         self.load_save_list(game);
         self.load_game_data(game);
         self.load_latest_save(ctx);
@@ -213,6 +246,7 @@ impl eframe::App for SotorApp {
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
                 Message::LoadSaveFromDir(path) => self.load_save(path.to_string(), ctx, false),
                 Message::OpenSettings => self.settings_open = true,
+                Message::SetSteamPath(path) => self.set_steam_path(path, ctx),
                 Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
                 Message::ReloadSaveList => self.reload_save_list(ctx),
                 Message::ReloadGameData => self.reload_game_data(),
@@ -220,7 +254,12 @@ impl eframe::App for SotorApp {
         }
 
         if self.settings_open {
-            settings::Settings::new(&mut self.settings_open, &mut self.prs.game_paths).show(ctx);
+            settings::Settings::new(
+                &mut self.settings_open,
+                &self.prs.steam_path,
+                &self.prs.game_paths,
+            )
+            .show(ctx);
         }
 
         egui::SidePanel::new(Side::Left, "save_select")
@@ -229,7 +268,7 @@ impl eframe::App for SotorApp {
             .min_width(150.)
             .max_width(ctx.screen_rect().width() - 700.)
             .show(ctx, |ui| {
-                side_panel::SidePanel::new(&self.save_path, &self.prs.game_paths, &self.save_list)
+                side_panel::SidePanel::new(&self.save_path, &self.game_data, &self.save_list)
                     .show(ui);
             });
 

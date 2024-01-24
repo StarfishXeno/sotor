@@ -7,17 +7,18 @@ use crate::{
     util::{open_file_manager, ContextExt, Game, Message},
 };
 use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, PointerButton, ScrollArea};
+use internal::GameDataMapped;
 
 pub struct SidePanel<'a> {
     current_save: &'a Option<String>,
-    game_data: &'a [Option<String>; Game::COUNT],
+    game_data: &'a [Option<GameDataMapped>; Game::COUNT],
     save_list: &'a [Vec<SaveDirectories>; Game::COUNT],
 }
 
 impl<'a> SidePanel<'a> {
     pub fn new(
         current_save: &'a Option<String>,
-        game_data: &'a [Option<String>; Game::COUNT],
+        game_data: &'a [Option<GameDataMapped>; Game::COUNT],
         save_list: &'a [Vec<SaveDirectories>; Game::COUNT],
     ) -> Self {
         Self {
@@ -42,7 +43,7 @@ impl<'a> SidePanel<'a> {
         } else {
             (
                 RED,
-                "Game data missing, select a valid game path in the settings",
+                "Game data not loaded, select a valid game path in the settings",
             )
         };
         ui.vertical(|ui| {

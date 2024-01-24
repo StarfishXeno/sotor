@@ -353,7 +353,7 @@ pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
         let s = &item.content;
         let tag = s.get("Tag", Field::string)?;
         let res_ref = s.get("TemplateResRef", Field::res_ref)?;
-        let identified = s.get("Identified", Field::get_bool)?;
+        let identified = s.get("Identified", Field::bool)?;
         let name_ref = s.get("LocalizedName", Field::loc_string)?.0 as usize;
         let descr_ref = s.get("DescIdentified", Field::loc_string)?.0 as usize;
         let stack_size = s.get("StackSize", Field::word)?;

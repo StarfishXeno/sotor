@@ -9,7 +9,8 @@ pub enum Message {
     ReloadSave,
     LoadSaveFromDir(String),
     OpenSettings,
-    SetGamePath(Game, String),
+    SetSteamPath(Option<String>),
+    SetGamePath(Game, Option<String>),
     ReloadSaveList,
     ReloadGameData,
 }
