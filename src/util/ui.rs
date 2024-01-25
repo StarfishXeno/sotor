@@ -1,6 +1,10 @@
-use crate::util::{Game, SResult};
+use crate::{
+    save::Save,
+    util::{Game, SResult},
+};
 use egui::{util::id_type_map::SerializableAny, ColorImage, Context, IconData, Id, Ui};
 use image::io::Reader as ImageReader;
+use internal::GameDataMapped;
 use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
 
 pub enum Message {
@@ -8,7 +12,7 @@ pub enum Message {
     CloseSave,
     ReloadSave,
     LoadSaveFromDir(String),
-    OpenSettings,
+    ToggleSettingsOpen,
     SetSteamPath(Option<String>),
     SetGamePath(Game, Option<String>),
     ReloadSaveList,
@@ -16,10 +20,15 @@ pub enum Message {
 }
 
 pub trait ContextExt {
+    fn set_channel(&self, sender: Sender<Message>);
     fn send_message(&self, message: Message);
+    fn set_meta_id(&self, game_data: &GameDataMapped, save: &Save);
+
+    fn set_data_raw<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T);
+    fn get_data_raw<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T>;
     fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T>;
-    fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T);
+    fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T>;
     fn set_data_prs<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
         &self,
         id: impl Into<Id>,
@@ -27,24 +36,57 @@ pub trait ContextExt {
     );
 }
 
-pub const CHANNEL_ID: &str = "sotor_channel";
+const CHANNEL_ID: &str = "m_channel";
+pub const META_ID_ID: &str = "m_id";
+
+fn get_meta_id(ctx: &Context) -> Id {
+    ctx.get_data_raw(META_ID_ID).unwrap()
+}
 
 impl ContextExt for Context {
+    fn set_channel(&self, sender: Sender<Message>) {
+        self.set_data_raw(CHANNEL_ID, sender);
+    }
+
     fn send_message(&self, message: Message) {
-        let channel: Sender<_> = self.get_data(CHANNEL_ID).unwrap();
+        let channel: Sender<_> = self.get_data_raw(CHANNEL_ID).unwrap();
         channel.send(message).unwrap();
     }
 
-    fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T> {
+    fn set_meta_id(&self, game_data: &GameDataMapped, save: &Save) {
+        self.set_data_raw(META_ID_ID, Id::new(game_data.inner.id).with(save.id));
+    }
+
+    fn get_data_raw<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T> {
         self.data(|data| data.get_temp(id.into()))
+    }
+
+    fn set_data_raw<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T) {
+        self.data_mut(|data| data.insert_temp(id.into(), value));
+    }
+
+    // data is automatically invalidated when meta_id (i.e. game data or loaded save) changes
+    fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T> {
+        let current_meta_id = get_meta_id(self);
+        if let Some((meta_id, data)) = self.get_data_raw::<(Id, T)>(id) {
+            if meta_id == current_meta_id {
+                Some(data)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T) {
+        let current_meta_id = get_meta_id(self);
+
+        self.set_data_raw(id, (current_meta_id, value));
     }
 
     fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T> {
         self.data_mut(|data| data.get_persisted(id.into()))
-    }
-
-    fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T) {
-        self.data_mut(|data| data.insert_temp(id.into(), value));
     }
 
     fn set_data_prs<T: 'static + Any + Clone + Send + Sync + SerializableAny>(

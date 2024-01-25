@@ -11,12 +11,13 @@ use crate::{
     util::ContextExt,
 };
 use egui::{ComboBox, DragValue, Grid, Id};
+use internal::GameDataMapped;
 
 pub struct Editor<'a> {
-    id: Id,
     selected: usize,
     party_table: &'a mut PartyTable,
     characters: &'a mut Vec<Character>,
+    data: &'a GameDataMapped,
 }
 
 macro_rules! char {
@@ -24,19 +25,20 @@ macro_rules! char {
         &mut $self.characters[$self.selected]
     };
 }
+const SELECTED_ID: &str = "ec_selected";
 
 impl<'a> Editor<'a> {
-    pub fn new(save: &'a mut Save) -> Self {
+    pub fn new(save: &'a mut Save, data: &'a GameDataMapped) -> Self {
         Self {
-            id: Id::new(save.id).with("chars"),
             selected: 0,
             party_table: &mut save.party_table,
             characters: &mut save.characters,
+            data,
         }
     }
 
     pub fn show(&mut self, ui: UiRef) {
-        self.selected = ui.ctx().get_data(self.id.with("selected")).unwrap_or(0);
+        self.selected = ui.ctx().get_data(SELECTED_ID).unwrap_or(0);
 
         ui.horizontal(|ui| self.header(ui));
         ui.separator();
@@ -46,12 +48,12 @@ impl<'a> Editor<'a> {
 
     fn header(&mut self, ui: UiRef) {
         ui.vertical(|ui| {
-            ui.s_offset(0., 0.);
+            ui.s_empty();
             ui.label("Character: ");
         });
 
         set_combobox_styles(ui);
-        ComboBox::from_id_source(self.id.with("selection"))
+        ComboBox::from_id_source("ec_selection")
             .selected_text(self.characters[self.selected].get_name())
             .show_ui(ui, |ui| {
                 set_selectable_styles(ui);
@@ -60,7 +62,7 @@ impl<'a> Editor<'a> {
                     ui.selectable_value(&mut selected, idx, char.get_name());
                 }
                 if selected != self.selected {
-                    ui.ctx().set_data(self.id.with("selected"), selected);
+                    ui.ctx().set_data(SELECTED_ID, selected);
                 }
             });
 
@@ -76,7 +78,7 @@ impl<'a> Editor<'a> {
         set_striped_styles(ui);
         set_drag_value_styles(ui);
 
-        Self::grid(self.id.with("general"), ui, |ui| {
+        Self::grid("ec_general".into(), ui, |ui| {
             ui.label(color_text("Tag: ", GREEN));
             ui.s_text(if char.tag.is_empty() {
                 "Player character"
@@ -125,7 +127,7 @@ impl<'a> Editor<'a> {
             }
         });
 
-        Self::grid(self.id.with("skills"), ui, |ui| {
+        Self::grid("ec_skills".into(), ui, |ui| {
             let labels = [
                 "Computer Use: ",
                 "Demolitions: ",
@@ -143,7 +145,7 @@ impl<'a> Editor<'a> {
             }
         });
 
-        Self::grid(self.id.with("attributes"), ui, |ui| {
+        Self::grid("ec_attributes".into(), ui, |ui| {
             let labels = [
                 "Strength: ",
                 "Dexterity: ",

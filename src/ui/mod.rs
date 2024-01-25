@@ -1,8 +1,8 @@
 use crate::{
     save::Save,
     util::{
-        get_default_game_data, get_extra_save_directories, read_dir_dirs, ContextExt as _,
-        Directory, Game, Message, CHANNEL_ID,
+        get_extra_save_directories, load_default_game_data, read_dir_dirs, ContextExt as _,
+        Directory, Game, Message,
     },
 };
 use eframe::APP_KEY;
@@ -53,7 +53,7 @@ impl SotorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         styles::set_styles(&cc.egui_ctx);
         let (sender, receiver) = channel();
-        cc.egui_ctx.set_data(CHANNEL_ID, sender.clone());
+        cc.egui_ctx.set_channel(sender.clone());
         let mut app = Self {
             save: None,
             save_path: None,
@@ -62,7 +62,7 @@ impl SotorApp {
             save_list: [vec![], vec![]],
             latest_save: None,
             game_data: [None, None],
-            default_game_data: get_default_game_data().map(GameData::into),
+            default_game_data: load_default_game_data().map(GameData::into),
 
             prs: cc
                 .storage
@@ -71,7 +71,7 @@ impl SotorApp {
         };
 
         app.reload_save_list(&cc.egui_ctx);
-        app.reload_game_data();
+        app.reload_game_data(&cc.egui_ctx);
 
         app
     }
@@ -90,6 +90,18 @@ impl SotorApp {
         self.save_path = None;
     }
 
+    fn set_meta_id(&self, ctx: &Context) {
+        let Some(save) = &self.save else {
+            return;
+        };
+        let game_data = if let Some(data) = &self.game_data[save.game.idx()] {
+            data
+        } else {
+            &self.default_game_data[save.game.idx()]
+        };
+        ctx.set_meta_id(game_data, save);
+    }
+
     fn load_save(&mut self, path: String, ctx: &Context, silent: bool) {
         match Save::read_from_directory(&path, ctx) {
             Ok(save) => {
@@ -102,6 +114,7 @@ impl SotorApp {
                 }
             }
         }
+        self.set_meta_id(ctx);
     }
 
     fn load_latest_save(&mut self, ctx: &Context) {
@@ -186,22 +199,24 @@ impl SotorApp {
         }
     }
 
-    fn load_game_data(&mut self, game: Game) {
+    fn load_game_data(&mut self, game: Game, ctx: &Context) {
         let idx = game.idx();
-        let Some(game_path) = self.prs.game_paths[idx].as_ref() else {
-            self.game_data[idx] = None;
-            return;
-        };
-        let game_data = GameData::read(game, game_path, self.prs.steam_path.as_ref());
-        if let Ok(data) = game_data {
-            self.game_data[idx] = Some(data.into());
+        if let Some(game_path) = self.prs.game_paths[idx].as_ref() {
+            let game_data = GameData::read(game, game_path, self.prs.steam_path.as_ref());
+            if let Ok(data) = game_data {
+                self.game_data[idx] = Some(data.into());
+            } else {
+                self.game_data[idx] = None;
+                error!("couldn't load game data for game {game}: {game_data:?}");
+            }
         } else {
-            error!("couldn't load game data for game {game}: {game_data:?}");
-        }
+            self.game_data[idx] = None;
+        };
+        self.set_meta_id(ctx);
     }
 
-    fn reload_game_data(&mut self) {
-        Game::LIST.map(|game| self.load_game_data(game));
+    fn reload_game_data(&mut self, ctx: &Context) {
+        Game::LIST.map(|game| self.load_game_data(game, ctx));
     }
 
     fn set_steam_path(&mut self, path: Option<String>, ctx: &Context) {
@@ -221,15 +236,20 @@ impl SotorApp {
                 *game_path = Some(new_path.to_str().unwrap().to_owned());
             }
             self.load_save_list(game);
-            self.load_game_data(game);
+            self.load_game_data(game, ctx);
         }
         self.load_latest_save(ctx);
     }
+
     fn set_game_path(&mut self, game: Game, path: Option<String>, ctx: &Context) {
         self.prs.game_paths[game.idx()] = path;
         self.load_save_list(game);
-        self.load_game_data(game);
+        self.load_game_data(game, ctx);
         self.load_latest_save(ctx);
+    }
+
+    fn toggle_settings_open(&mut self) {
+        self.settings_open = !self.settings_open;
     }
 }
 
@@ -245,17 +265,17 @@ impl eframe::App for SotorApp {
                 Message::CloseSave => self.close_save(),
                 Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
                 Message::LoadSaveFromDir(path) => self.load_save(path.to_string(), ctx, false),
-                Message::OpenSettings => self.settings_open = true,
+                Message::ToggleSettingsOpen => self.toggle_settings_open(),
                 Message::SetSteamPath(path) => self.set_steam_path(path, ctx),
                 Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
                 Message::ReloadSaveList => self.reload_save_list(ctx),
-                Message::ReloadGameData => self.reload_game_data(),
+                Message::ReloadGameData => self.reload_game_data(ctx),
             }
         }
 
         if self.settings_open {
             settings::Settings::new(
-                &mut self.settings_open,
+                || self.channel.0.send(Message::ToggleSettingsOpen).unwrap(),
                 &self.prs.steam_path,
                 &self.prs.game_paths,
             )
@@ -274,7 +294,12 @@ impl eframe::App for SotorApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(save) = &mut self.save {
-                editor::Editor::new(save).show(ui);
+                let current_data = if let Some(data) = &self.game_data[save.game.idx()] {
+                    data
+                } else {
+                    &self.default_game_data[save.game.idx()]
+                };
+                editor::Editor::new(save, current_data).show(ui);
             } else {
                 editor::editor_placeholder(ui);
             }

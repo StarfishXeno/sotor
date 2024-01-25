@@ -21,6 +21,7 @@ pub fn set_selectable_styles(ui: UiRef) {
     visuals.override_text_color = Some(WHITE);
     visuals.selection.bg_fill = GREY_DARK;
     visuals.widgets.hovered.weak_bg_fill = GREY_DARK;
+    visuals.widgets.active.weak_bg_fill = GREEN_DARK;
 }
 
 pub fn set_combobox_styles(ui: UiRef) {

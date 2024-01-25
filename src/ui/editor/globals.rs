@@ -1,13 +1,13 @@
 use crate::{
     save::{Global, GlobalValue, Save},
     ui::{
-        styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles, WHITE},
-        widgets::{color_text, UiExt},
+        styles::{set_checkbox_styles, set_drag_value_styles, set_striped_styles},
+        widgets::UiExt,
         UiRef,
     },
     util::ColumnCounter,
 };
-use egui::{DragValue, Grid, ScrollArea, TextStyle};
+use egui::{DragValue, Grid, ScrollArea};
 
 pub struct Editor<'a> {
     globals: &'a mut Vec<Global>,
@@ -26,11 +26,11 @@ impl<'a> Editor<'a> {
         self.width = ui.available_width();
 
         ScrollArea::vertical()
-            .id_source("editor_globals_scroll")
+            .id_source("eg_scroll")
             .show(ui, |ui| {
                 set_striped_styles(ui);
 
-                Grid::new("editor_globals_grid")
+                Grid::new("eg_grid")
                     .spacing([5., 5.])
                     .striped(true)
                     .show(ui, |ui| self.globals(ui));
@@ -53,13 +53,13 @@ impl<'a> Editor<'a> {
     fn number(ui: UiRef, name: &str, value: &mut u8) {
         set_drag_value_styles(ui);
 
-        ui.label(color_text(name, WHITE).text_style(TextStyle::Small));
+        ui.s_text(name);
         ui.add(DragValue::new(value));
     }
 
     fn boolean(ui: UiRef, name: &str, value: &mut bool) {
         set_checkbox_styles(ui);
-        ui.label(color_text(name, WHITE).text_style(TextStyle::Small));
+        ui.s_text(name);
         ui.s_checkbox(value);
     }
 }

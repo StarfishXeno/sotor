@@ -11,7 +11,7 @@ use crate::{
     },
     util::{
         fs::{read_dir_filemap, read_file},
-        Game, SResult,
+        shorten_string, Game, SResult,
     },
 };
 use ahash::HashMap;
@@ -81,12 +81,35 @@ pub struct QuestStage {
     pub description: String,
     pub end: bool,
 }
+impl QuestStage {
+    pub fn get_name(&self, max_len: usize) -> String {
+        let id_str = self.id.to_string();
+        let prefix_len = id_str.len() + 2;
+        id_str + ") " + &shorten_string(&self.description, max_len - prefix_len).replace('\n', " ")
+    }
+
+    pub fn get_description(&self) -> String {
+        shorten_string(&self.description, 700)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Quest {
     pub id: String,
     pub name: String,
     pub stages: BTreeMap<i32, QuestStage>,
+}
+
+impl Quest {
+    pub fn get_first_stage_id(&self) -> i32 {
+        *self.stages.first_key_value().unwrap().0
+    }
+}
+
+impl PartialEq for Quest {
+    fn eq(&self, other: &Self) -> bool {
+        self.id.cmp(&other.id).is_eq()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -101,6 +124,7 @@ pub struct Item {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {
+    pub id: u64,
     pub feats: Vec<Feat>,
     pub powers: Vec<Feat>,
     pub classes: Vec<Class>,
@@ -168,6 +192,7 @@ impl GameData {
             .map_err(|err| format!("couldn't read {dialog_path:?}: {err}"))?;
 
         Ok(Self {
+            id: fastrand::u64(..),
             feats: read_feats(feats, &tlk_bytes, "description")
                 .map_err(|err| format!("couldn't read feats: {err}"))?,
             powers: read_feats(spells, &tlk_bytes, "spelldesc")
@@ -190,23 +215,16 @@ impl GameData {
 // costs a couple MB of RAM though
 macro_rules! impl_game_data_mapped {
     ($([$s:ident, $id_type:ident, $id_field:tt, [$($field:tt,)+]],)+) => {
-        $(
-        impl $s {
-            pub fn mapped(vec: Vec<$s>) -> HashMap<$id_type, $s> {
-                vec.into_iter().map(|s| (s.$id_field.clone(), s)).collect()
-            }
-        }
-        )+
         #[derive(Debug)]
         pub struct GameDataMapped {
-            $($($field: HashMap<$id_type, $s>,)+)+
-            inner: GameData,
+            $($(pub $field: HashMap<$id_type, $s>,)+)+
+            pub inner: GameData,
         }
         impl From<GameData> for GameDataMapped {
             fn from(inner: GameData) -> GameDataMapped {
                 GameDataMapped {
-                    $($($field: $s::mapped(inner.$field.clone()),)+)+
-                    inner
+                    $($($field: inner.$field.clone().into_iter().map(|s| (s.$id_field.clone(), s)).collect(),)+)+
+                    inner,
                 }
             }
         }

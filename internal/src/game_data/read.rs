@@ -184,7 +184,7 @@ pub fn read_workshop_dir(steam_dir: impl AsRef<Path>) -> (Option<PathBuf>, Vec<P
             continue;
         };
         if let Some(over) = map.get("override") {
-            overrides.push(over.into());
+            overrides.push(PathBuf::from_iter([&d.path, over.as_str()]));
         }
         if let Some(dialog) = map.get("dialog.tlk") {
             dialog_override = Some(PathBuf::from_iter([&d.path, dialog.as_str()]));
@@ -312,7 +312,7 @@ pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
             stages.push((id, end, descr_ref));
             str_refs.push(descr_ref);
         }
-        tmp.push((id, name_ref, stages));
+        tmp.push((id.to_lowercase(), name_ref, stages));
         str_refs.push(name_ref);
     }
     let tlk =

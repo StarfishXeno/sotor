@@ -59,7 +59,7 @@ impl<'a> SidePanel<'a> {
         ui.with_layout(Layout::right_to_left(emath::Align::Center), |ui| {
             let settings_btn = ui.s_icon_button(Icon::Gear, "Settings");
             if settings_btn.clicked() {
-                ui.ctx().send_message(Message::OpenSettings);
+                ui.ctx().send_message(Message::ToggleSettingsOpen);
             }
 
             let reload_game_btn = ui.s_icon_button(Icon::Reload, "Reload game data");
@@ -77,7 +77,7 @@ impl<'a> SidePanel<'a> {
     fn lists(&self, ui: UiRef) {
         ui.set_width(ui.available_width());
         ScrollArea::vertical()
-            .id_source("side_panel_scroll")
+            .id_source("sp_scroll")
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 Game::LIST.map(|game| self.list(ui, game));
@@ -85,7 +85,7 @@ impl<'a> SidePanel<'a> {
     }
 
     fn list(&self, ui: UiRef, game: Game) {
-        CollapsingState::load_with_default_open(ui.ctx(), format!("save_list_{game}").into(), true)
+        CollapsingState::load_with_default_open(ui.ctx(), format!("sp_game_{game}").into(), true)
             .show_header(ui, |ui| {
                 ui.label(format!("KotOR {game}"));
             })
@@ -131,11 +131,11 @@ impl<'a> SidePanel<'a> {
 
     fn padding_frame(ui: UiRef, add_contents: impl FnOnce(UiRef)) {
         Frame::default()
-            .inner_margin({
-                let mut m = Margin::symmetric(8., 2.);
-                m.top += 6.;
-                m.right += 2.;
-                m
+            .inner_margin(Margin {
+                top: 8.,
+                right: 10.,
+                bottom: 2.,
+                left: 8.,
             })
             .show(ui, add_contents);
     }

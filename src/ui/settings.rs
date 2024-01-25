@@ -12,22 +12,22 @@ use egui::{Area, Context, Frame, Grid, Label, Layout, Margin, Rounding, Sense, W
 use emath::{Align2, Pos2, Vec2};
 use std::path::PathBuf;
 
-pub struct Settings<'a> {
-    open: &'a mut bool,
+pub struct Settings<'a, F: Fn()> {
+    toggle_open: F,
     steam_path: &'a Option<String>,
     game_paths: &'a [Option<String>; 2],
 }
 
 const WINDOW_SIZE: [f32; 2] = [400., 200.];
 
-impl<'a> Settings<'a> {
+impl<'a, F: Fn()> Settings<'a, F> {
     pub fn new(
-        open: &'a mut bool,
+        toggle_open: F,
         steam_path: &'a Option<String>,
         game_paths: &'a [Option<String>; 2],
     ) -> Self {
         Self {
-            open,
+            toggle_open,
             steam_path,
             game_paths,
         }
@@ -39,10 +39,9 @@ impl<'a> Settings<'a> {
             .interactable(true)
             .show(ctx, |ui| {
                 let rect = ctx.screen_rect();
-                let res = ui.allocate_response(rect.size(), Sense::click());
 
-                if res.clicked() {
-                    *self.open = false;
+                if ui.allocate_response(rect.size(), Sense::click()).clicked() {
+                    (self.toggle_open)();
                 }
 
                 ui.painter()
@@ -51,7 +50,7 @@ impl<'a> Settings<'a> {
 
         ctx.move_to_top(res.response.layer_id);
 
-        Window::new("settings")
+        Window::new("Settings")
             .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
             .fixed_size(WINDOW_SIZE)
             .collapsible(false)
@@ -76,21 +75,19 @@ impl<'a> Settings<'a> {
                             ui.set_width(ui.available_width());
                             ui.set_height(ui.available_height());
 
-                            Self::title_bar(ui, self.open);
+                            Self::title_bar(ui, &self.toggle_open);
                             Self::paths(ui, self.steam_path, self.game_paths);
                         });
                 });
             });
     }
 
-    fn title_bar(ui: UiRef, open: &mut bool) {
+    fn title_bar(ui: UiRef, toggle_open: &impl Fn()) {
         ui.horizontal(|ui| {
             ui.heading("Settings");
             ui.with_layout(Layout::right_to_left(emath::Align::Center), |ui| {
-                let btn = ui.add(IconButton::new(Icon::Close).size(28.));
-
-                if btn.clicked() {
-                    *open = false;
+                if ui.add(IconButton::new(Icon::Close).size(28.)).clicked() {
+                    toggle_open();
                 }
             });
         });
@@ -111,10 +108,7 @@ impl<'a> Settings<'a> {
             if path.is_some() && ui.s_icon_button(Icon::Remove, "Remove").clicked() {
                 set_path(ui, None);
             }
-            let btn = ui.s_button_basic("Select");
-            ui.label(label);
-
-            if btn.clicked() {
+            if ui.s_button_basic("Select").clicked() {
                 let dir = select_directory(picker_title);
 
                 if let Some(handle) = dir {
@@ -122,6 +116,7 @@ impl<'a> Settings<'a> {
                     set_path(ui, Some(path));
                 }
             }
+            ui.label(label);
         });
         ui.end_row();
 
@@ -137,7 +132,7 @@ impl<'a> Settings<'a> {
 
     fn paths(ui: UiRef, steam_path: &Option<String>, game_paths: &[Option<String>; 2]) {
         set_striped_styles(ui);
-        Grid::new("settings_paths_grid")
+        Grid::new("s_grid")
             .spacing([0., 5.])
             .min_col_width(ui.available_width())
             .num_columns(1)

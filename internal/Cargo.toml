@@ -8,6 +8,7 @@ edition = "2021"
 macros = { workspace = true }
 ahash = { workspace = true }
 serde = { workspace = true }
+fastrand = { workspace = true }
 bytemuck = "1.14.0"
 time = { version = "0.3.31", features = ["macros"] }
 

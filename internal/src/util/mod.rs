@@ -37,3 +37,18 @@ pub fn string_lowercase_map(strings: &[String]) -> HashMap<String, String> {
         .map(|s| (s.to_lowercase(), s.to_string()))
         .collect()
 }
+
+pub fn shorten_string(str: &str, max_len: usize) -> String {
+    let str = str.to_owned();
+    let len = str.len();
+    let (final_len, elipses) = if len > max_len {
+        (max_len - 3, true)
+    } else {
+        (len, false)
+    };
+    let mut str = str.chars().take(final_len).collect();
+    if elipses {
+        str += "...";
+    }
+    str
+}

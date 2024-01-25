@@ -9,6 +9,7 @@ use crate::{
 };
 use egui::Layout;
 use emath::Align;
+use internal::GameDataMapped;
 use macros::{EnumList, EnumToString};
 use serde::{Deserialize, Serialize};
 
@@ -50,15 +51,16 @@ pub enum Tab {
     Quests,
 }
 
-static TAB_ID: &str = "editor_tab_id";
+static TAB_ID: &str = "e_id";
 
 pub struct Editor<'a> {
     save: &'a mut Save,
+    data: &'a GameDataMapped,
 }
 
 impl<'a> Editor<'a> {
-    pub fn new(save: &'a mut Save) -> Self {
-        Self { save }
+    pub fn new(save: &'a mut Save, data: &'a GameDataMapped) -> Self {
+        Self { save, data }
     }
 
     pub fn show(&mut self, ui: UiRef) {
@@ -97,8 +99,8 @@ impl<'a> Editor<'a> {
         match current_tab {
             Tab::General => general::Editor::new(self.save).show(ui),
             Tab::Globals => globals::Editor::new(self.save).show(ui),
-            Tab::Characters => characters::Editor::new(self.save).show(ui),
-            Tab::Quests => quests::Editor::new(self.save).show(ui),
+            Tab::Characters => characters::Editor::new(self.save, self.data).show(ui),
+            Tab::Quests => quests::Editor::new(self.save, self.data).show(ui),
             Tab::Inventory => {}
         }
     }
