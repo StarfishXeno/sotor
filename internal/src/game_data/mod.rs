@@ -58,6 +58,7 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
 pub struct Feat {
     pub id: u16,
     pub name: String,
+    pub sorting_name: String,
     pub description: Option<String>,
 }
 

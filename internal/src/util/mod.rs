@@ -51,3 +51,12 @@ pub fn shorten_string(str: &str, max_len: usize) -> String {
     }
     string
 }
+
+pub fn prefix_to_sort_suffix<'a>(str: &'a str, prefixes: &'a [&'a str]) -> String {
+    for (idx, prefix) in prefixes.iter().enumerate() {
+        if let Some(str) = str.strip_prefix(prefix) {
+            return str.to_owned() + " " + &(idx + 1).to_string();
+        }
+    }
+    str.to_owned()
+}

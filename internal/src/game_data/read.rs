@@ -10,7 +10,7 @@ use crate::{
     game_data::{Appearance, Class, Feat, Item, Quest, QuestStage},
     util::{
         fs::{read_dir_dirs, read_dir_filemap, read_file},
-        SResult,
+        prefix_to_sort_suffix, SResult,
     },
 };
 use ahash::{HashMap, HashMapExt as _};
@@ -233,13 +233,16 @@ pub fn read_feats(twoda: TwoDA, tlk_bytes: &[u8], description_field: &str) -> SR
     for (idx, id, label) in tmp {
         let name = mem::take(&mut tlk.strings[idx * 2]);
         let descr = mem::take(&mut tlk.strings[idx * 2 + 1]);
+        let name = if name.is_empty() { label } else { name };
+        let sorting_name = prefix_to_sort_suffix(&name, &["Improved ", "Master "]);
         feats.push(Feat {
             id,
-            name: if name.is_empty() { label } else { name },
+            sorting_name,
+            name,
             description: (!descr.is_empty()).then_some(descr),
         });
     }
-    feats.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    feats.sort_unstable_by(|a, b| a.sorting_name.cmp(&b.sorting_name));
 
     Ok(feats)
 }
