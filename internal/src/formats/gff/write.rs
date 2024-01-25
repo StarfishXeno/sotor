@@ -132,7 +132,7 @@ impl Writer {
 
                 (tp as u32, value)
             }
-            FieldTmp::Struct(idx) => (Field::str_to_int("Struct") as u32, idx as u32),
+            FieldTmp::Struct(idx) => (Field::str_to_int("BStruct") as u32, idx as u32),
             FieldTmp::List(indices) => (
                 Field::str_to_int("List") as u32,
                 self.save_list_indices(&indices),

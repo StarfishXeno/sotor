@@ -87,10 +87,6 @@ impl QuestStage {
         let prefix_len = id_str.len() + 2;
         id_str + ") " + &shorten_string(&self.description, max_len - prefix_len).replace('\n', " ")
     }
-
-    pub fn get_description(&self) -> String {
-        shorten_string(&self.description, 700)
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

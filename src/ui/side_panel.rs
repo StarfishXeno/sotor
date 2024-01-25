@@ -98,7 +98,7 @@ impl<'a> SidePanel<'a> {
             ui.horizontal(|ui| {
                 ui.s_offset(2., 0.);
                 ui.label(color_text("://", GREY))
-                    .on_hover_text(&group.base_dir);
+                    .on_hover_text(color_text(&group.base_dir, WHITE));
                 if group.cloud {
                     ui.label(
                         color_text(Icon::Cloud.symbol(), GREY)

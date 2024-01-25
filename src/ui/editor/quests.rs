@@ -11,16 +11,13 @@ use crate::{
     util::ContextExt as _,
 };
 use egui::{
-    epaint::{Shadow, TextShape},
-    Area, ComboBox, DragValue, FontSelection, Frame, Grid, Label, Order, RichText, ScrollArea,
-    Sense, WidgetText,
+    epaint::TextShape, Area, ComboBox, DragValue, FontSelection, Frame, Grid, Label, Order,
+    RichText, ScrollArea, Sense, WidgetText,
 };
 use emath::{pos2, vec2, Align, Rect};
 use internal::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use std::{
-    cmp::Ordering,
     collections::HashSet,
-    ops::Add,
     sync::{Arc, Mutex},
 };
 
@@ -70,7 +67,7 @@ impl<'a> Editor<'a> {
     fn table(&mut self, ui: UiRef) {
         ui.s_empty();
         ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("State").underline());
+        ui.label(RichText::new("Stage").underline());
         ui.end_row();
         set_combobox_styles(ui);
 
@@ -86,10 +83,9 @@ impl<'a> Editor<'a> {
         // sort them by completeness -> name
         quests.sort_unstable_by(|a, b| {
             let completed_eq = a.0.cmp(&b.0);
-            match completed_eq {
-                Ordering::Equal => {}
-                _ => return completed_eq,
-            };
+            if completed_eq.is_ne() {
+                return completed_eq;
+            }
             a.1.cmp(&b.1)
         });
 
@@ -119,7 +115,8 @@ impl<'a> Editor<'a> {
         if let Some(quest) = quest {
             let name_color = if completed { GREY } else { WHITE };
             let name_text = Label::new(color_text(name, name_color).small());
-            ui.add(name_text).on_hover_text(&quest.id);
+            ui.add(name_text)
+                .on_hover_text(color_text(&quest.id, WHITE));
             let stage_name =
                 stage.map_or_else(|| entry.stage.to_string() + ") UNKNOWN", |s| s.get_name(60));
 
@@ -241,7 +238,7 @@ impl<'a> Editor<'a> {
     // this is a mess, but it's better than normal .on_hover_text
     // TODO simplify, somehow
     fn show_description(ui: UiRef, rect: Rect, stage: &QuestStage) {
-        let description = &stage.get_description();
+        let description = shorten_string(&stage.description, 1000);
         if description.is_empty() {
             return;
         }
@@ -249,48 +246,38 @@ impl<'a> Editor<'a> {
         let ctx = ui.ctx();
         let style = ui.style();
         let screen_rect = ctx.screen_rect();
-        let mut layout_job = WidgetText::RichText(color_text(description, WHITE)).into_layout_job(
+        let mut layout_job = WidgetText::RichText(color_text(&description, WHITE)).into_layout_job(
             ui.style(),
             FontSelection::Default,
             Align::Min,
         );
         layout_job.wrap.max_width = anchor.x - 50.;
-        layout_job.halign = Align::Min;
-        layout_job.justify = false;
 
-        let left_offset = 10.;
         let galley = ui.fonts(|f| f.layout_job(layout_job));
-        let margins = style.spacing.menu_margin;
-        let size = galley.size() + vec2(margins.left + margins.right, margins.top + margins.bottom);
-        let y_offset = (|| {
-            let top = rect.left_top().y;
-            if top + size.y < screen_rect.max.y {
-                return top;
+        let size = galley.size() + style.spacing.menu_margin.sum();
+        let y_offset = 'b: {
+            let below = rect.left_top().y;
+            if below + size.y < screen_rect.max.y {
+                break 'b below;
             }
             let above = anchor.y - size.y;
             if above > 0. {
-                return above;
+                break 'b above;
             }
-            screen_rect.height() / 2. - size.y / 2.
-        })();
-        let pos = screen_rect
-            .left_top()
-            .add(vec2(anchor.x - left_offset - size.x, y_offset));
-        let bounds = Rect::from_min_max(pos, pos2(anchor.x - left_offset, screen_rect.max.y));
+            screen_rect.max.y / 2. - size.y / 2.
+        };
+        let pos = screen_rect.left_top() + vec2(anchor.x - 10. - size.x, y_offset);
 
         Area::new("eq_descr")
             .order(Order::Tooltip)
             .fixed_pos(pos)
-            .constrain_to(bounds)
             .interactable(false)
             .show(ctx, |ui| {
                 Frame::popup(style)
                     .stroke((2.0, GREEN_DARK))
-                    .shadow(Shadow::NONE)
                     .show(ui, |ui| {
                         ui.set_max_width(ui.max_rect().width());
                         let pos = pos2(ui.max_rect().left(), ui.cursor().top());
-                        // collect a response from many rows:
                         for row in &galley.rows {
                             let rect = row.rect.translate(vec2(pos.x, pos.y));
                             ui.allocate_rect(rect, Sense::hover());
