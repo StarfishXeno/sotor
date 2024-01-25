@@ -3,14 +3,18 @@ use crate::{
     ui::{
         styles::{
             set_combobox_styles, set_drag_value_styles, set_selectable_styles, set_striped_styles,
-            GREEN, GREY, WHITE,
+            GREEN, GREEN_DARK, GREY, WHITE,
         },
         widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
     util::ContextExt as _,
 };
-use egui::{ComboBox, DragValue, Grid, Label, RichText, ScrollArea};
+use egui::{
+    Area, ComboBox, DragValue, FontSelection, Frame, Grid, Label, Order, RichText, ScrollArea,
+    WidgetText,
+};
+use emath::{Align, Pos2, Rect};
 use internal::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use std::{
     cmp::Ordering,
@@ -126,12 +130,16 @@ impl<'a> Editor<'a> {
                     for (id, stage) in &quest.stages {
                         let name = RichText::new(stage.get_name(60)).small();
                         let r = ui.selectable_value(&mut selected, *id, name);
-                        r.on_hover_text(&stage.get_description());
+                        if r.hovered() {
+                            Self::show_description(ui, r.rect.left_top(), stage);
+                        }
                     }
                     entry.stage = selected;
                 });
             if let Some(stage) = stage {
-                r.response.on_hover_text(stage.get_description());
+                if r.response.hovered() {
+                    Self::show_description(ui, r.response.rect.left_top(), stage);
+                }
             }
         } else {
             ui.add(Label::new(color_text(name, WHITE).small()).wrap(true));
@@ -202,12 +210,16 @@ impl<'a> Editor<'a> {
                 let mut selected = state.stage;
                 for (id, stage) in stages {
                     let r = ui.selectable_value(&mut selected, *id, stage.get_name(40));
-                    r.on_hover_text(&stage.get_description());
+                    if r.hovered() {
+                        Self::show_description(ui, r.rect.left_top(), stage);
+                    }
                 }
                 state.stage = selected;
             });
         if let Some(stage) = current_stage {
-            r.response.on_hover_text(stage.get_description());
+            if r.response.hovered() {
+                Self::show_description(ui, r.response.rect.left_top(), stage);
+            }
         }
         let btn = ui.add_enabled(!state.id.trim().is_empty(), IconButton::new(Icon::Plus));
 
@@ -222,5 +234,50 @@ impl<'a> Editor<'a> {
             state.id = String::new();
             state.stage = 0;
         }
+    }
+
+    // this is a mess, but it's better than normal .on_hover_text
+    // TODO unfuck positioning, reuse galley for actual display
+    fn show_description(ui: UiRef, anchor: Pos2, stage: &QuestStage) {
+        let description = &stage.get_description();
+        let mut layout_job = WidgetText::RichText(color_text(description, WHITE)).into_layout_job(
+            ui.style(),
+            FontSelection::Default,
+            emath::Align::Min,
+        );
+        layout_job.wrap.max_width = anchor.x - 50.;
+        layout_job.halign = Align::Min;
+        layout_job.justify = false;
+
+        let text_galley = ui.fonts(|f| f.layout_job(layout_job));
+        let size = text_galley.size();
+        let screen_rect = ui.ctx().screen_rect();
+        let pos = screen_rect.left_top()
+            + [
+                anchor.x - 10. - size.x,
+                screen_rect.height() / 2. - size.y / 2.,
+            ]
+            .into();
+        let rect = Rect::from_min_max(
+            pos,
+            Pos2 {
+                x: anchor.x - 10.,
+                y: screen_rect.bottom(),
+            },
+        );
+
+        Area::new("descr_area")
+            .order(Order::Tooltip)
+            .fixed_pos(pos)
+            .constrain_to(rect)
+            .interactable(false)
+            .show(ui.ctx(), |ui| {
+                Frame::popup(&ui.ctx().style())
+                    .stroke((2.0, GREEN_DARK))
+                    .show(ui, |ui| {
+                        ui.set_max_width(ui.max_rect().width());
+                        ui.label(description)
+                    });
+            });
     }
 }

@@ -80,9 +80,7 @@ impl ContextExt for Context {
     }
 
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T) {
-        let current_meta_id = get_meta_id(self);
-
-        self.set_data_raw(id, (current_meta_id, value));
+        self.set_data_raw(id, (get_meta_id(self), value));
     }
 
     fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T> {
