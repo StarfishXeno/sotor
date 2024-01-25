@@ -11,14 +11,16 @@ use crate::{
     util::ContextExt as _,
 };
 use egui::{
+    epaint::{Shadow, TextShape},
     Area, ComboBox, DragValue, FontSelection, Frame, Grid, Label, Order, RichText, ScrollArea,
-    WidgetText,
+    Sense, WidgetText,
 };
-use emath::{Align, Pos2, Rect};
+use emath::{pos2, vec2, Align, Rect};
 use internal::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use std::{
     cmp::Ordering,
     collections::HashSet,
+    ops::Add,
     sync::{Arc, Mutex},
 };
 
@@ -131,14 +133,14 @@ impl<'a> Editor<'a> {
                         let name = RichText::new(stage.get_name(60)).small();
                         let r = ui.selectable_value(&mut selected, *id, name);
                         if r.hovered() {
-                            Self::show_description(ui, r.rect.left_top(), stage);
+                            Self::show_description(ui, r.rect, stage);
                         }
                     }
                     entry.stage = selected;
                 });
             if let Some(stage) = stage {
                 if r.response.hovered() {
-                    Self::show_description(ui, r.response.rect.left_top(), stage);
+                    Self::show_description(ui, r.response.rect, stage);
                 }
             }
         } else {
@@ -211,14 +213,14 @@ impl<'a> Editor<'a> {
                 for (id, stage) in stages {
                     let r = ui.selectable_value(&mut selected, *id, stage.get_name(40));
                     if r.hovered() {
-                        Self::show_description(ui, r.rect.left_top(), stage);
+                        Self::show_description(ui, r.rect, stage);
                     }
                 }
                 state.stage = selected;
             });
         if let Some(stage) = current_stage {
             if r.response.hovered() {
-                Self::show_description(ui, r.response.rect.left_top(), stage);
+                Self::show_description(ui, r.response.rect, stage);
             }
         }
         let btn = ui.add_enabled(!state.id.trim().is_empty(), IconButton::new(Icon::Plus));
@@ -237,46 +239,63 @@ impl<'a> Editor<'a> {
     }
 
     // this is a mess, but it's better than normal .on_hover_text
-    // TODO unfuck positioning, reuse galley for actual display
-    fn show_description(ui: UiRef, anchor: Pos2, stage: &QuestStage) {
+    // TODO simplify, somehow
+    fn show_description(ui: UiRef, rect: Rect, stage: &QuestStage) {
         let description = &stage.get_description();
+        if description.is_empty() {
+            return;
+        }
+        let anchor = rect.left_bottom();
+        let ctx = ui.ctx();
+        let style = ui.style();
+        let screen_rect = ctx.screen_rect();
         let mut layout_job = WidgetText::RichText(color_text(description, WHITE)).into_layout_job(
             ui.style(),
             FontSelection::Default,
-            emath::Align::Min,
+            Align::Min,
         );
         layout_job.wrap.max_width = anchor.x - 50.;
         layout_job.halign = Align::Min;
         layout_job.justify = false;
 
-        let text_galley = ui.fonts(|f| f.layout_job(layout_job));
-        let size = text_galley.size();
-        let screen_rect = ui.ctx().screen_rect();
-        let pos = screen_rect.left_top()
-            + [
-                anchor.x - 10. - size.x,
-                screen_rect.height() / 2. - size.y / 2.,
-            ]
-            .into();
-        let rect = Rect::from_min_max(
-            pos,
-            Pos2 {
-                x: anchor.x - 10.,
-                y: screen_rect.bottom(),
-            },
-        );
+        let left_offset = 10.;
+        let galley = ui.fonts(|f| f.layout_job(layout_job));
+        let margins = style.spacing.menu_margin;
+        let size = galley.size() + vec2(margins.left + margins.right, margins.top + margins.bottom);
+        let y_offset = (|| {
+            let top = rect.left_top().y;
+            if top + size.y < screen_rect.max.y {
+                return top;
+            }
+            let above = anchor.y - size.y;
+            if above > 0. {
+                return above;
+            }
+            screen_rect.height() / 2. - size.y / 2.
+        })();
+        let pos = screen_rect
+            .left_top()
+            .add(vec2(anchor.x - left_offset - size.x, y_offset));
+        let bounds = Rect::from_min_max(pos, pos2(anchor.x - left_offset, screen_rect.max.y));
 
-        Area::new("descr_area")
+        Area::new("eq_descr")
             .order(Order::Tooltip)
             .fixed_pos(pos)
-            .constrain_to(rect)
+            .constrain_to(bounds)
             .interactable(false)
-            .show(ui.ctx(), |ui| {
-                Frame::popup(&ui.ctx().style())
+            .show(ctx, |ui| {
+                Frame::popup(style)
                     .stroke((2.0, GREEN_DARK))
+                    .shadow(Shadow::NONE)
                     .show(ui, |ui| {
                         ui.set_max_width(ui.max_rect().width());
-                        ui.label(description)
+                        let pos = pos2(ui.max_rect().left(), ui.cursor().top());
+                        // collect a response from many rows:
+                        for row in &galley.rows {
+                            let rect = row.rect.translate(vec2(pos.x, pos.y));
+                            ui.allocate_rect(rect, Sense::hover());
+                        }
+                        ui.painter().add(TextShape::new(pos, galley, GREEN));
                     });
             });
     }
