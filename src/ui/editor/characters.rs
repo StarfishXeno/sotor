@@ -1,24 +1,24 @@
-use std::collections::HashSet;
-
 use crate::{
-    save::{Character, PartyTable, Save},
+    save::{Character, Class, PartyTable, Save},
     ui::{
         styles::{
             set_checkbox_styles, set_combobox_styles, set_drag_value_styles, set_selectable_styles,
-            set_striped_styles, BLACK, GREEN, GREEN_DARK, RED, WHITE,
+            set_slider_styles, set_striped_styles, BLACK, GREEN, GREEN_DARK, RED, WHITE,
         },
-        widgets::{color_text, Icon, IconButton, UiExt},
+        widgets::{color_text, Icon, UiExt},
         UiRef,
     },
     util::ContextExt,
 };
 use ahash::HashMap;
 use egui::{
-    Color32, ComboBox, CursorIcon, DragValue, FontSelection, Grid, Rounding, ScrollArea, Sense,
-    WidgetText,
+    Color32, ComboBox, CursorIcon, DragValue, FontSelection, Frame, Grid, Id, Margin, Rounding,
+    ScrollArea, Sense, WidgetText,
 };
 use emath::{vec2, Align};
-use internal::{Feat, GameDataMapped};
+use internal::{Data, Feat, GameDataMapped};
+use std::collections::HashSet;
+use std::hash::Hash;
 
 pub struct Editor<'a> {
     selected: usize,
@@ -59,6 +59,8 @@ impl<'a> Editor<'a> {
                 ui.separator();
                 self.feats(ui);
                 ui.separator();
+                self.classes(ui);
+                ui.separator();
             });
     }
 
@@ -71,6 +73,7 @@ impl<'a> Editor<'a> {
         set_combobox_styles(ui);
         ComboBox::from_id_source("ec_selection")
             .selected_text(self.characters[self.selected].get_name())
+            .width(120.)
             .show_ui(ui, |ui| {
                 set_selectable_styles(ui);
                 let mut selected = self.selected;
@@ -186,19 +189,48 @@ impl<'a> Editor<'a> {
     }
 
     fn feats(&mut self, ui: UiRef) {
-        ui.label("Feats:");
         let list = &mut char!(self).feats;
-        let data = &self.data.feats;
-        Self::feat_list(ui, list, data);
-        ui.s_empty();
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.s_empty();
-                ui.label("Add feat: ");
+                ui.label("Feats: ");
             });
-            Self::feat_selection(ui, list, data, &self.data.inner.feats);
+            Self::selection("feats", ui, list, &self.data.inner.feats);
         });
+        if list.is_empty() {
+            return;
+        }
+        ui.s_empty();
+        Self::feat_list(ui, list, &self.data.feats);
     }
+
+    fn classes(&mut self, ui: UiRef) {
+        let char = char!(self);
+        ui.horizontal(|ui| {
+            ui.label("Classes: ");
+            let class_ids = &mut char.classes.iter().map(|c| c.id).collect();
+            Self::selection("class", ui, class_ids, &self.data.inner.classes);
+            if class_ids.len() > char.classes.len() {
+                let id = class_ids.pop().unwrap();
+                let force_user = self.data.classes.get(&id).unwrap().force_user;
+                char.classes.push(Class {
+                    id,
+                    level: 1,
+                    powers: force_user.then_some(vec![]),
+                });
+            }
+        });
+
+        let mut removed = None;
+        for (idx, class) in char.classes.iter_mut().enumerate() {
+            ui.s_empty();
+            Self::class(ui, class, self.data, || removed = Some(idx));
+        }
+        if let Some(idx) = removed {
+            char.classes.remove(idx);
+        }
+    }
+
     fn feat_list(ui: UiRef, list: &mut Vec<u16>, data: &HashMap<u16, Feat>) {
         let mut named_list: Vec<_> = list
             .iter()
@@ -253,40 +285,85 @@ impl<'a> Editor<'a> {
         });
     }
 
-    fn feat_selection(
+    fn selection<I: Copy + Eq + Hash, E: Data<I>>(
+        id: &str,
         ui: UiRef,
-        list: &mut Vec<u16>,
-        data: &HashMap<u16, Feat>,
-        data_list: &[Feat],
+        list: &mut Vec<I>,
+        data_list: &[E],
     ) {
+        let id = Id::new("ec_add_").with(id);
         let present: HashSet<_> = list.iter().copied().collect();
         let available: Vec<_> = data_list
             .iter()
-            .filter(|f| !present.contains(&f.id))
+            .filter(|f| !present.contains(&f.get_id()))
             .collect();
-        let selected = ui.ctx().get_data("eq_add_feat").flatten();
-        let selected_name = selected
-            .and_then(|id| data.get(&id))
-            .map_or("", |f| &f.name);
-        set_combobox_styles(ui);
-        ComboBox::from_id_source("ec_add_feat")
-            .width(240.)
-            .selected_text(selected_name)
-            .show_ui(ui, |ui| {
-                set_selectable_styles(ui);
-                let mut selected_tmp = selected;
-                for feat in available {
-                    ui.selectable_value(&mut selected_tmp, Some(feat.id), &feat.name);
-                }
-                if selected_tmp != selected {
-                    ui.ctx().set_data("eq_add_feat", selected_tmp);
-                }
-            });
 
-        let btn = ui.add_enabled(selected.is_some(), IconButton::new(Icon::Plus));
-        if btn.clicked() {
-            list.push(selected.unwrap());
-            ui.ctx().set_data::<Option<u16>>("eq_add_feat", None);
+        set_combobox_styles(ui);
+        let popup_id = ui.make_persistent_id(id).with("popup");
+        let mut added = false;
+        ComboBox::from_id_source(id).width(240.).show_ui(ui, |ui| {
+            set_selectable_styles(ui);
+            let mut selected = None;
+            for item in available {
+                ui.selectable_value(&mut selected, Some(item.get_id()), item.get_name());
+            }
+            if let Some(id) = selected {
+                list.push(id);
+                added = true;
+            }
+        });
+
+        // don't close the box after adding a feat
+        if added {
+            ui.memory_mut(|m| m.open_popup(popup_id));
         }
+    }
+
+    fn class(ui: UiRef, class: &mut Class, data: &GameDataMapped, mut remove: impl FnMut()) {
+        let id = class.id;
+        let class_data = data.classes.get(&class.id);
+        let name = class_data.map_or_else(|| format!("UNKNOWN {id}"), |c| c.name.clone());
+        let force_user = class_data.map_or(false, |c| c.force_user);
+        Frame::default()
+            .rounding(2.)
+            .stroke((2., GREEN_DARK))
+            .outer_margin(Margin::ZERO)
+            .inner_margin(Margin::same(6.))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    if ui.s_icon_button(Icon::Remove, "Remove class").clicked() {
+                        remove();
+                    }
+                    ui.s_text(&name);
+                });
+                let list = &mut class.powers;
+
+                Grid::new(format!("ec_class_{id}"))
+                    .spacing([20., 6.])
+                    .show(ui, |ui| {
+                        ui.label("Level: ");
+                        set_slider_styles(ui);
+                        ui.s_slider(&mut class.level, 0..=40, false);
+                        ui.end_row();
+                        if !force_user {
+                            return;
+                        }
+                        ui.label(color_text("Powers: ", GREEN));
+                        Self::selection(
+                            &format!("class_{id}"),
+                            ui,
+                            list.as_mut().unwrap(),
+                            &data.inner.powers,
+                        );
+                    });
+
+                if !force_user || list.is_none() || list.as_ref().unwrap().is_empty() {
+                    return;
+                }
+
+                ui.s_empty();
+                Self::feat_list(ui, list.as_mut().unwrap(), &data.powers);
+            });
     }
 }

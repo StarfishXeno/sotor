@@ -226,9 +226,8 @@ impl<'a> Updater<'a> {
             ],
         );
 
-        if !class.powers.is_empty() {
-            let powers = class
-                .powers
+        if let Some(powers) = &class.powers {
+            let powers = powers
                 .iter()
                 .map(|p| Struct::with_type(3, vec![("Spell", Field::Word(*p))]))
                 .collect();

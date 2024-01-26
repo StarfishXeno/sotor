@@ -86,7 +86,7 @@ pub enum Gender {
 pub struct Class {
     pub id: i32,
     pub level: i16,
-    pub powers: Vec<u16>, // IDs
+    pub powers: Option<Vec<u16>>, // IDs
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -23,7 +23,6 @@ serde = { workspace = true }
 bincode = { workspace = true }
 rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
-futures-lite = "2.1.0"
 fastrand = { workspace = true }
 log = "0.4"
 egui = "0.25"
@@ -36,6 +35,7 @@ emath = "0.25"
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10"
+futures-lite = "2.1.0"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]

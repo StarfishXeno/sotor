@@ -45,6 +45,7 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
         "classes",
         &[
             ("name", TwoDAType::Int),
+            ("spellgaintable", TwoDAType::String),
             ("hitdie", TwoDAType::Int),
             ("forcedie", TwoDAType::Int),
         ],
@@ -54,6 +55,24 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
     ("soundset", &[("label", TwoDAType::String)]),
 ];
 
+pub trait Data<I> {
+    fn get_id(&self) -> I;
+    fn get_name(&self) -> &str;
+}
+
+macro_rules! impl_data {
+    ($type:ident, $id_type:ident) => {
+        impl Data<$id_type> for $type {
+            fn get_id(&self) -> $id_type {
+                self.id
+            }
+            fn get_name(&self) -> &str {
+                &self.name
+            }
+        }
+    };
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Feat {
     pub id: u16,
@@ -61,14 +80,17 @@ pub struct Feat {
     pub sorting_name: String,
     pub description: Option<String>,
 }
+impl_data!(Feat, u16);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Class {
     pub id: i32,
     pub name: String,
+    pub force_user: bool,
     pub hit_die: u8,
     pub force_die: u8,
 }
+impl_data!(Class, i32);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Appearance {
@@ -190,10 +212,15 @@ impl GameData {
 
         Ok(Self {
             id: fastrand::u64(..),
-            feats: read_feats(feats, &tlk_bytes, "description")
+            feats: read_feats(feats, &tlk_bytes, "description", None)
                 .map_err(|err| format!("couldn't read feats: {err}"))?,
-            powers: read_feats(spells, &tlk_bytes, "spelldesc")
-                .map_err(|err| format!("couldn't read powers: {err}"))?,
+            powers: read_feats(
+                spells,
+                &tlk_bytes,
+                "spelldesc",
+                Some(&["FORCE_POWER", "FORM_FORCE", "FORM_SABER"]),
+            )
+            .map_err(|err| format!("couldn't read powers: {err}"))?,
             classes: read_classes(classes, &tlk_bytes)
                 .map_err(|err| format!("couldn't read classes: {err}"))?,
             portraits: read_appearances(portraits, "baseresref"),

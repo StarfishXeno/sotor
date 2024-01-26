@@ -80,9 +80,9 @@ pub fn find_sources_by_type(
     }
 
     // search loose files in override
+    let mut ext = tp.to_extension();
+    ext.insert(0, '.');
     for over in overrides {
-        let mut ext = tp.to_extension();
-        ext.insert(0, '.');
         let files = read_dir_filemap(over).unwrap_or_default();
 
         for (_, v) in files.iter().filter(|(k, _)| k.ends_with(&ext)) {
@@ -202,7 +202,12 @@ fn to_str_ref(v: i32) -> usize {
     }
 }
 
-pub fn read_feats(twoda: TwoDA, tlk_bytes: &[u8], description_field: &str) -> SResult<Vec<Feat>> {
+pub fn read_feats(
+    twoda: TwoDA,
+    tlk_bytes: &[u8],
+    description_field: &str,
+    prefix_filter: Option<&[&str]>,
+) -> SResult<Vec<Feat>> {
     let mut tmp = Vec::with_capacity(twoda.0.len());
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
@@ -217,8 +222,13 @@ pub fn read_feats(twoda: TwoDA, tlk_bytes: &[u8], description_field: &str) -> SR
             .clone()
             .map_or(-1, TwoDAValue::int_unwrap);
         if name_ref == -1 && label.is_empty() {
-            // some namesless garbage
+            // some nameless garbage
             continue;
+        }
+        if let Some(prefixes) = prefix_filter {
+            if !prefixes.iter().any(|p| label.starts_with(p)) {
+                continue;
+            }
         }
 
         tmp.push((idx, id as u16, label));
@@ -234,7 +244,8 @@ pub fn read_feats(twoda: TwoDA, tlk_bytes: &[u8], description_field: &str) -> SR
         let name = mem::take(&mut tlk.strings[idx * 2]);
         let descr = mem::take(&mut tlk.strings[idx * 2 + 1]);
         let name = if name.is_empty() { label } else { name };
-        let sorting_name = prefix_to_sort_suffix(&name, &["Improved ", "Master "]);
+        // so that Flurry and Improved Flurry go after each other instead of strictly alphabetically
+        let sorting_name = prefix_to_sort_suffix(&name, &["Improved ", "Advanced ", "Master "]);
         feats.push(Feat {
             id,
             sorting_name,
@@ -253,6 +264,7 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
     let mut idx = 0;
     for class in twoda.0 {
         let id = class["_idx"].clone().unwrap().int_unwrap();
+        let force_user = class["spellgaintable"].is_some();
         let Some(name_ref) = class["name"].clone().map(TwoDAValue::int_unwrap) else {
             continue;
         };
@@ -263,7 +275,7 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
             continue;
         };
 
-        tmp.push((idx, id, hit_die as u8, force_die as u8));
+        tmp.push((idx, id, force_user, hit_die as u8, force_die as u8));
         str_refs.push(to_str_ref(name_ref));
         idx += 1;
     }
@@ -271,9 +283,10 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
         Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
 
     let mut classes = Vec::with_capacity(tmp.len());
-    for (idx, id, hit_die, force_die) in tmp {
+    for (idx, id, force_user, hit_die, force_die) in tmp {
         classes.push(Class {
             id,
+            force_user,
             name: mem::take(&mut tlk.strings[idx]),
             hit_die,
             force_die,

@@ -355,8 +355,7 @@ impl Reader {
                     .map(|s| s.get("Spell", Field::word))
                     .collect::<SResult<_>>()
             })
-            .transpose()?
-            .unwrap_or_default();
+            .transpose()?;
 
         Ok(Class {
             id: class.get("Class", Field::int)?,
