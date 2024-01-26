@@ -307,7 +307,7 @@ pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
 
         appearances.push(Appearance { id, name });
     }
-
+    appearances.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     appearances
 }
 

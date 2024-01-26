@@ -97,6 +97,7 @@ pub struct Appearance {
     pub id: u16,
     pub name: String,
 }
+impl_data!(Appearance, u16);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct QuestStage {
@@ -210,6 +211,18 @@ impl GameData {
         let tlk_bytes = fs::read(&dialog_path)
             .map_err(|err| format!("couldn't read {dialog_path:?}: {err}"))?;
 
+        let mut soundsets = read_appearances(soundsets, "label");
+        if game == Game::Two && !soundsets.iter().any(|s| s.id == 85) {
+            // for some reason they aren't in the 2da, the rest seems to be fine
+            // TODO figure out why
+            for (id, name) in [(85, "Player male"), (83, "Player female")] {
+                soundsets.push(Appearance {
+                    id,
+                    name: name.to_owned(),
+                });
+            }
+            soundsets.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+        }
         Ok(Self {
             id: fastrand::u64(..),
             feats: read_feats(feats, &tlk_bytes, "description", None)
@@ -225,7 +238,7 @@ impl GameData {
                 .map_err(|err| format!("couldn't read classes: {err}"))?,
             portraits: read_appearances(portraits, "baseresref"),
             appearances: read_appearances(appearances, "label"),
-            soundsets: read_appearances(soundsets, "label"),
+            soundsets,
             quests: read_quests(&journal, &tlk_bytes)
                 .map_err(|err| format!("couldn't read journal: {err}"))?,
             items: read_items(&items, &tlk_bytes)

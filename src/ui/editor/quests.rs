@@ -235,7 +235,7 @@ impl<'a> Editor<'a> {
         }
     }
 
-    // this is a mess, but it's better than normal .on_hover_text
+    // this is messy, but it's better than normal .on_hover_text
     // TODO simplify, somehow
     fn show_description(ui: UiRef, rect: Rect, stage: &QuestStage) {
         let description = shorten_string(&stage.description, 1000);

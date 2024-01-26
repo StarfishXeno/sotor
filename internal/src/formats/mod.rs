@@ -35,6 +35,7 @@ pub enum ResourceType {
     Are = 2012,
     Ifo = 2014,
     Twoda = 2017,
+    Txi = 2022,
     Git = 2023,
     Uti = 2025,
     Utc = 2027,

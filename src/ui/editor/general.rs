@@ -25,6 +25,7 @@ impl<'a> Editor<'a> {
             image: &save.image,
         }
     }
+
     pub fn show(&mut self, ui: UiRef) {
         ui.horizontal_top(|ui| {
             egui::Grid::new("save_general")

@@ -16,7 +16,7 @@ use egui::{
     ScrollArea, Sense, WidgetText,
 };
 use emath::{vec2, Align};
-use internal::{Data, Feat, GameDataMapped};
+use internal::{Appearance, Data, Feat, GameDataMapped};
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -51,11 +51,12 @@ impl<'a> Editor<'a> {
             .id_source("ec_scroll")
             .stick_to_bottom(true)
             .show(ui, |ui| {
-                ui.horizontal(|ui| self.header(ui));
+                ui.horizontal_top(|ui| self.header(ui));
                 ui.separator();
-                ui.s_offset(0., 5.);
                 ui.horizontal_top(|ui| self.main_stats(ui));
-                ui.s_offset(0., 5.);
+                ui.s_empty();
+                ui.separator();
+                ui.horizontal_top(|ui| self.appearance(ui));
                 ui.separator();
                 self.feats(ui);
                 ui.separator();
@@ -188,6 +189,63 @@ impl<'a> Editor<'a> {
             .show(ui, add_contents);
     }
 
+    fn appearance(&mut self, ui: UiRef) {
+        let char = char!(self);
+        set_striped_styles(ui);
+        Self::grid("ec_appearance", ui, |ui| {
+            ui.label("Portrait:");
+            ui.label("Appearance:");
+            ui.label("Soundset:");
+            ui.end_row();
+
+            set_combobox_styles(ui);
+            Self::appearance_selection(
+                ui,
+                "ec_portrait",
+                &mut char.portrait,
+                &self.data.portraits,
+                &self.data.inner.portraits,
+            );
+            Self::appearance_selection(
+                ui,
+                "ec_appearance",
+                &mut char.appearance,
+                &self.data.appearances,
+                &self.data.inner.appearances,
+            );
+            Self::appearance_selection(
+                ui,
+                "ec_soundset",
+                &mut char.soundset,
+                &self.data.soundsets,
+                &self.data.inner.soundsets,
+            );
+        });
+    }
+
+    fn appearance_selection(
+        ui: UiRef,
+        id: &str,
+        current: &mut u16,
+        data: &HashMap<u16, Appearance>,
+        data_list: &[Appearance],
+    ) {
+        let name = data
+            .get(current)
+            .map_or_else(|| format!("UNKNOWN {current}"), |a| a.name.clone());
+        ComboBox::from_id_source(id)
+            .width(200.)
+            .selected_text(name)
+            .show_ui(ui, |ui| {
+                set_selectable_styles(ui);
+                let mut selected = *current;
+                for item in data_list {
+                    ui.selectable_value(&mut selected, item.id, &item.name);
+                }
+                *current = selected;
+            });
+    }
+
     fn feats(&mut self, ui: UiRef) {
         let list = &mut char!(self).feats;
         ui.horizontal(|ui| {
@@ -216,7 +274,7 @@ impl<'a> Editor<'a> {
                 char.classes.push(Class {
                     id,
                     level: 1,
-                    powers: force_user.then_some(vec![]),
+                    powers: force_user.then(Vec::new),
                 });
             }
         });
@@ -346,7 +404,7 @@ impl<'a> Editor<'a> {
                         set_slider_styles(ui);
                         ui.s_slider(&mut class.level, 0..=40, false);
                         ui.end_row();
-                        if !force_user {
+                        if list.is_none() {
                             return;
                         }
                         ui.label(color_text("Powers: ", GREEN));
