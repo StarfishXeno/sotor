@@ -1,8 +1,9 @@
-# Saves of the Old Republic
+# SotOR: Saves of the Old Republic
 
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
 A new save editor for KotOR 1 and 2
+
 ![](assets/screenshot.png)
 
 # Warning
@@ -16,9 +17,9 @@ May or may not work with saves from non-English versions of the game. Use at you
 # Differences from KSE
 
 - Aims to provide the same and more features. Currently WIP.
-- Runs natively on Windows, Linux and in the browser (experimental).
+- Runs natively on Windows, Linux and in the browser (experimental). Mac version possible if someone else wishes to build and distribute releases for it since it's hard to cross-compile.
 - Uses a built-in game database, allowing it to work wihout the game installed. Still capable of loading provided game files for your modding needs. Provided releases assume KotOR 1 Community patch and KotOR2 TSLRCM.
-- Proper support for the updated steam version of TSL, including workshop.
+- Support for the updated steam version of TSL, including workshop.
 - Does NOT support xbox and switch saves. See "Contributing" section.
 
 # Contributing
@@ -31,7 +32,7 @@ I would like to add support for the console versions, but I don't own any of the
 
 To build SotOR yourself you need to have the [rust toolchain](https://www.rust-lang.org/learn/get-started), platform-specific dependencies for [egui](https://github.com/emilk/egui/tree/3b19303e02bd2d386cf8b85b248388a25bfe9e26/crates/egui_glow) and [rfd](https://docs.rs/rfd/0.13.0/rfd/index.html#gtk-backend) and both games installed.
 
-Set the `STEAM_APPS` environment variable to your steamapps directory or use a `.env` file. If you are not using steam it should still work if the provided directory has the correct structure. See `build.rs` for details.
+Set environment variable `STEAM_APPS` to your steamapps directory or use a `.env` file. If you are not using steam it should still work if the provided directory has the correct structure. See `build.rs` for details.
 
 Example:
 
