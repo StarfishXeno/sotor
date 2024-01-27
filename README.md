@@ -41,6 +41,10 @@ cargo run #run a debug build
 cargo build --release #build a release version
 ```
 
+To build for other targets you also need to install [cross](https://github.com/cross-rs/cross) and [trunk](https://trunkrs.dev/).
+
+`build-all.sh` calls both and places output into `./target/build`
+
 # Thanks
 
 Thanks to [KSE](https://github.com/nadrino/kotor-savegame-editor), [NWN Wiki](https://nwn.wiki), [KotOR.js](https://github.com/KobaltBlu/KotOR.js) and [xoreos](https://github.com/xoreos/xoreos) projects for providing references on where and how to get the required game data.

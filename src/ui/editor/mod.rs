@@ -5,7 +5,7 @@ use crate::{
         widgets::{Icon, UiExt as _},
         UiRef,
     },
-    util::{select_directory, ContextExt, Message},
+    util::{ContextExt, Message},
 };
 use egui::Layout;
 use emath::Align;
@@ -29,7 +29,9 @@ pub fn editor_placeholder(ui: UiRef) {
         let btn = ui.s_button_basic("Select");
         let ctx = ui.ctx().clone();
         if btn.clicked() {
-            if let Some(path) = select_directory("Select a save directory".to_owned()) {
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Some(path) = crate::util::select_directory("Select a save directory".to_owned())
+            {
                 ctx.send_message(Message::LoadSaveFromDir(path));
             }
         }

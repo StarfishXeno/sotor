@@ -1,27 +1,29 @@
+#[cfg(not(target_arch = "wasm32"))]
+use crate::util::{get_extra_save_directories, read_dir_dirs, Directory};
 use crate::{
     save::Save,
-    util::{
-        get_extra_save_directories, load_default_game_data, read_dir_dirs, ContextExt as _,
-        Directory, Game, Message,
-    },
+    util::{load_default_game_data, ContextExt as _, Game, Message},
 };
+#[cfg(not(target_arch = "wasm32"))]
 use eframe::APP_KEY;
-use egui::{panel::Side, Context, Frame, Margin, Ui};
+use egui::{Context, Ui};
 use internal::{GameData, GameDataMapped};
 use log::error;
-use std::{
-    path::PathBuf,
-    sync::mpsc::{channel, Receiver, Sender},
-};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 mod editor;
+#[cfg(not(target_arch = "wasm32"))]
 mod settings;
+#[cfg(not(target_arch = "wasm32"))]
 mod side_panel;
 mod styles;
 mod widgets;
 
 type UiRef<'a> = &'a mut Ui;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug)]
 struct SaveDirectories {
     cloud: bool,
@@ -29,24 +31,32 @@ struct SaveDirectories {
     dirs: Vec<Directory>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 struct PersistentState {
     steam_path: Option<String>,
     game_paths: [Option<String>; Game::COUNT],
 }
-
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug)]
 pub struct SotorApp {
     save: Option<Save>,
-    save_path: Option<String>,
     channel: (Sender<Message>, Receiver<Message>),
+    default_game_data: [GameDataMapped; Game::COUNT],
+    save_path: Option<String>,
     settings_open: bool,
     save_list: [Vec<SaveDirectories>; Game::COUNT],
     latest_save: Option<Directory>,
     game_data: [Option<GameDataMapped>; Game::COUNT],
-    default_game_data: [GameDataMapped; Game::COUNT],
-
     prs: PersistentState,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug)]
+pub struct SotorApp {
+    save: Option<Save>,
+    channel: (Sender<Message>, Receiver<Message>),
+    default_game_data: [GameDataMapped; Game::COUNT],
 }
 
 impl SotorApp {
@@ -54,42 +64,68 @@ impl SotorApp {
         styles::set_styles(&cc.egui_ctx);
         let (sender, receiver) = channel();
         cc.egui_ctx.set_channel(sender.clone());
-        let mut app = Self {
-            save: None,
-            save_path: None,
-            channel: (sender, receiver),
-            settings_open: false,
-            save_list: [vec![], vec![]],
-            latest_save: None,
-            game_data: [None, None],
-            default_game_data: load_default_game_data().map(GameData::into),
+        let default_game_data = load_default_game_data().map(GameData::into);
 
-            prs: cc
-                .storage
-                .and_then(|s| eframe::get_value(s, APP_KEY))
-                .unwrap_or_default(),
-        };
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut app = Self {
+                save: None,
+                save_path: None,
+                channel: (sender, receiver),
+                default_game_data,
+                settings_open: false,
+                save_list: [vec![], vec![]],
+                latest_save: None,
+                game_data: [None, None],
+                prs: cc
+                    .storage
+                    .and_then(|s| eframe::get_value(s, APP_KEY))
+                    .unwrap_or_default(),
+            };
 
-        app.reload_save_list(&cc.egui_ctx);
-        app.reload_game_data(&cc.egui_ctx);
+            app.reload_save_list(&cc.egui_ctx);
+            app.reload_game_data(&cc.egui_ctx);
 
-        app
-    }
+            app
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut app = Self {
+                save: None,
+                channel: (sender, receiver),
+                default_game_data,
+            };
 
-    fn save(&mut self) {
-        if let Err(err) = Save::save_to_directory(
-            self.save_path.as_ref().unwrap(),
-            self.save.as_mut().unwrap(),
-        ) {
-            error!("{err}");
+            app
         }
     }
 
     fn close_save(&mut self) {
         self.save = None;
-        self.save_path = None;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.save_path = None;
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl SotorApp {
+    fn set_meta_id(&self, ctx: &Context) {
+        let Some(save) = &self.save else {
+            return;
+        };
+
+        ctx.set_meta_id(&self.default_game_data[save.game.idx()], save);
     }
 
+    fn save(&mut self) {}
+
+    fn reload_save(&mut self) {}
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl SotorApp {
     fn set_meta_id(&self, ctx: &Context) {
         let Some(save) = &self.save else {
             return;
@@ -100,6 +136,15 @@ impl SotorApp {
             &self.default_game_data[save.game.idx()]
         };
         ctx.set_meta_id(game_data, save);
+    }
+
+    fn save(&mut self) {
+        if let Err(err) = Save::save_to_directory(
+            self.save_path.as_ref().unwrap(),
+            self.save.as_mut().unwrap(),
+        ) {
+            error!("{err}");
+        }
     }
 
     fn load_save(&mut self, path: String, ctx: &Context, silent: bool) {
@@ -254,12 +299,14 @@ impl SotorApp {
 }
 
 impl eframe::App for SotorApp {
+    #[cfg(not(target_arch = "wasm32"))]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, &self.prs);
     }
 
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         while let Ok(message) = self.channel.1.try_recv() {
+            #[cfg(not(target_arch = "wasm32"))]
             match message {
                 Message::Save => self.save(),
                 Message::CloseSave => self.close_save(),
@@ -271,8 +318,16 @@ impl eframe::App for SotorApp {
                 Message::ReloadSaveList => self.reload_save_list(ctx),
                 Message::ReloadGameData => self.reload_game_data(ctx),
             }
+            #[cfg(target_arch = "wasm32")]
+            match message {
+                Message::Save => self.save(),
+                Message::CloseSave => self.close_save(),
+                Message::ReloadSave => self.reload_save(),
+                _ => {}
+            }
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         if self.settings_open {
             settings::Settings::new(
                 || self.channel.0.send(Message::ToggleSettingsOpen).unwrap(),
@@ -282,8 +337,9 @@ impl eframe::App for SotorApp {
             .show(ctx);
         }
 
-        egui::SidePanel::new(Side::Left, "save_select")
-            .frame(Frame::side_top_panel(&ctx.style()).inner_margin(Margin::ZERO))
+        #[cfg(not(target_arch = "wasm32"))]
+        egui::SidePanel::new(egui::panel::Side::Left, "save_select")
+            .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::ZERO))
             .resizable(true)
             .min_width(150.)
             .max_width(ctx.screen_rect().width() - 700.)
@@ -294,11 +350,14 @@ impl eframe::App for SotorApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(save) = &mut self.save {
+                #[cfg(not(target_arch = "wasm32"))]
                 let current_data = if let Some(data) = &self.game_data[save.game.idx()] {
                     data
                 } else {
                     &self.default_game_data[save.game.idx()]
                 };
+                #[cfg(target_arch = "wasm32")]
+                let current_data = &self.default_game_data[save.game.idx()];
                 editor::Editor::new(save, current_data).show(ui);
             } else {
                 editor::editor_placeholder(ui);

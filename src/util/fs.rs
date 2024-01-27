@@ -90,9 +90,14 @@ pub fn select_directory(title: String) -> Option<String> {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn select_files(title: String) -> Option<Vec<rfd::FileHandle>> {
-    rfd::AsyncFileDialog::new().set_title(title).pick_files()
+    rfd::AsyncFileDialog::new()
+        .set_title(title)
+        .pick_files()
+        .await
 }
 
+#[cfg(target_arch = "wasm32")]
+use std::future::Future;
 #[cfg(target_arch = "wasm32")]
 pub fn execute<F: Future<Output = ()> + Send + 'static>(f: F) {
     wasm_bindgen_futures::spawn_local(f);

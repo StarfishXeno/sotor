@@ -3,9 +3,9 @@ use crate::{
     util::{Game, SResult},
 };
 use egui::{util::id_type_map::SerializableAny, ColorImage, Context, IconData, Id, Ui};
-use image::io::Reader as ImageReader;
-use internal::GameDataMapped;
-use std::{any::Any, path::PathBuf, sync::mpsc::Sender};
+use image::{io::Reader as ImageReader, ImageFormat};
+use internal::{util::bytes::Cursor, GameDataMapped};
+use std::{any::Any, sync::mpsc::Sender};
 
 pub enum Message {
     Save,
@@ -112,12 +112,10 @@ pub fn format_seconds(secs: u32) -> String {
 }
 
 // something is wrong with either egui or kotor's TGAs as the normal loader fails, so have to do it this way
-pub fn load_tga(path: PathBuf) -> SResult<ColorImage> {
-    let img = ImageReader::open(path)
-        .map_err(|err| err.to_string())?
-        .decode()
-        .map_err(|err| err.to_string())?
-        .brighten(20); // they're also too dark for some reason
+pub fn load_tga(bytes: &[u8]) -> SResult<ColorImage> {
+    let mut reader = ImageReader::new(Cursor::new(bytes));
+    reader.set_format(ImageFormat::Tga);
+    let img = reader.decode().map_err(|err| err.to_string())?.brighten(20); // they're also too dark for some reason
 
     let size = [img.width() as _, img.height() as _];
     let rgba = img.into_rgba8();
