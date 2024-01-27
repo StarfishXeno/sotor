@@ -100,20 +100,18 @@ impl<'a, F: Fn()> Settings<'a, F> {
         label: &str,
         picker_title: String,
         empty_text: Option<String>,
-        set_path: impl Fn(UiRef, Option<String>),
+        make_message: impl Fn(Option<String>) -> Message,
     ) {
         ui.horizontal(|ui| {
             set_button_styles(ui);
+            let ctx = ui.ctx().clone();
 
             if path.is_some() && ui.s_icon_button(Icon::Remove, "Remove").clicked() {
-                set_path(ui, None);
+                ctx.send_message(make_message(None));
             }
             if ui.s_button_basic("Select").clicked() {
-                let dir = select_directory(picker_title);
-
-                if let Some(handle) = dir {
-                    let path = handle.path().to_str().unwrap().to_owned();
-                    set_path(ui, Some(path));
+                if let Some(path) = select_directory(picker_title) {
+                    ctx.send_message(make_message(Some(path)));
                 }
             }
             ui.label(label);
@@ -150,7 +148,7 @@ impl<'a, F: Fn()> Settings<'a, F> {
                     "Steam library path",
                     "Select the steamapps directory".to_owned(),
                     empty_text,
-                    |ui, path| ui.ctx().send_message(Message::SetSteamPath(path)),
+                    Message::SetSteamPath,
                 );
 
                 Game::LIST.map(|game| {
@@ -171,7 +169,7 @@ impl<'a, F: Fn()> Settings<'a, F> {
                         &format!("KotOR {game} path:"),
                         format!("Select the directory containing \"{exe_name}\""),
                         empty_text,
-                        |ui, path| ui.ctx().send_message(Message::SetGamePath(game, path)),
+                        move |path| Message::SetGamePath(game, path),
                     );
                 });
             });

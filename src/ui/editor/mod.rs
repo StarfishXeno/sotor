@@ -27,12 +27,10 @@ pub fn editor_placeholder(ui: UiRef) {
 
         set_button_styles(ui);
         let btn = ui.s_button_basic("Select");
+        let ctx = ui.ctx().clone();
         if btn.clicked() {
-            let dir = select_directory("Select a save directory".to_owned());
-            if let Some(handle) = dir {
-                let path = handle.path().to_str().unwrap().to_owned();
-
-                ui.ctx().send_message(Message::LoadSaveFromDir(path));
+            if let Some(path) = select_directory("Select a save directory".to_owned()) {
+                ctx.send_message(Message::LoadSaveFromDir(path));
             }
         }
 

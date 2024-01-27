@@ -379,9 +379,11 @@ impl<'a> Editor<'a> {
 
     fn class(ui: UiRef, class: &mut Class, data: &GameDataMapped, mut remove: impl FnMut()) {
         let id = class.id;
-        let class_data = data.classes.get(&class.id);
-        let name = class_data.map_or_else(|| format!("UNKNOWN {id}"), |c| c.name.clone());
-        let force_user = class_data.map_or(false, |c| c.force_user);
+        let name = data
+            .classes
+            .get(&class.id)
+            .map_or_else(|| format!("UNKNOWN {id}"), |c| c.name.clone());
+
         Frame::default()
             .rounding(2.)
             .stroke((2., GREEN_DARK))
@@ -416,7 +418,7 @@ impl<'a> Editor<'a> {
                         );
                     });
 
-                if !force_user || list.is_none() || list.as_ref().unwrap().is_empty() {
+                if list.is_none() || list.as_ref().unwrap().is_empty() {
                     return;
                 }
 

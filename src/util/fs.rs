@@ -1,11 +1,11 @@
 use crate::util::Game;
 pub use internal::util::fs::*;
-use rfd::{AsyncFileDialog, FileHandle};
-#[cfg(not(target_os = "windows"))]
-use std::os::unix::process::CommandExt;
-use std::{fs, future::Future, io, path::PathBuf, process::Command};
+use std::{fs, io, path::PathBuf, process::Command};
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn open_file_manager(path: &str) {
+    #[cfg(unix)]
+    use std::os::unix::process::CommandExt;
     let program = if cfg!(target_os = "windows") {
         "explorer"
     } else if cfg!(target_os = "linux") {
@@ -18,7 +18,7 @@ pub fn open_file_manager(path: &str) {
 
     let mut command = Command::new(program);
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(unix)]
     {
         command.process_group(0);
     }
@@ -26,6 +26,7 @@ pub fn open_file_manager(path: &str) {
     command.arg(path).spawn().unwrap();
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn backup_file(path: &PathBuf) -> io::Result<()> {
     if !path.exists() {
         return Ok(());
@@ -44,6 +45,7 @@ pub fn backup_file(path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
     let mut paths = vec![];
 
@@ -78,15 +80,20 @@ pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
     paths
 }
 
-pub fn select_directory(title: String) -> Option<FileHandle> {
-    execute(async move { AsyncFileDialog::new().set_title(title).pick_folder().await })
+#[cfg(not(target_arch = "wasm32"))]
+pub fn select_directory(title: String) -> Option<String> {
+    rfd::FileDialog::new()
+        .set_title(title)
+        .pick_folder()
+        .map(|pb| pb.to_str().unwrap().to_owned())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-fn execute<T: 'static + Send, F: Future<Output = T> + Send + 'static>(f: F) -> T {
-    futures_lite::future::block_on(f)
-}
 #[cfg(target_arch = "wasm32")]
-fn execute<T: 'static + Send, F: Future<Output = T> + Send + 'static>(f: F) -> T {
+pub async fn select_files(title: String) -> Option<Vec<rfd::FileHandle>> {
+    rfd::AsyncFileDialog::new().set_title(title).pick_files()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn execute<F: Future<Output = ()> + Send + 'static>(f: F) {
     wasm_bindgen_futures::spawn_local(f);
 }

@@ -171,6 +171,7 @@ macro_rules! sf {
 }
 
 impl Save {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn read_from_directory(path: &str, ctx: &Context) -> SResult<Self> {
         // first let's find the files and map names to lowercase
         let file_names =
@@ -217,6 +218,7 @@ impl Save {
             .map_err(|err| format!("Save::read| {err}"))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn save_to_directory(path: &str, save: &mut Save) -> ESResult {
         update::Updater::new(save).update();
         let file_names =
