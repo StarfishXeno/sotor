@@ -111,11 +111,14 @@ impl UiExt for Ui {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Icon {
     Close,
+    #[cfg(not(target_arch = "wasm32"))]
     Cloud,
+    #[cfg(not(target_arch = "wasm32"))]
     Gear,
     Leave,
     Plus,
     Refresh,
+    #[cfg(not(target_arch = "wasm32"))]
     Reload,
     Remove,
     Save,
@@ -127,11 +130,14 @@ impl Icon {
     pub fn symbol(self) -> &'static str {
         match self {
             Self::Close => "\u{f00d}",
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Cloud => "\u{f0c2}",
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Gear => "\u{f013}",
             Self::Leave => "\u{f2f5}",
             Self::Plus => "\u{002b}",
             Self::Refresh => "\u{f021}",
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Reload => "\u{f079}",
             Self::Remove => "\u{f2ed}",
             Self::Save => "\u{f0c7}",
@@ -173,6 +179,7 @@ impl<'a> IconButton<'a> {
         self
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
         self

@@ -30,6 +30,6 @@ for i in "${!targets[@]}"; do
 done
 
 clean
-echo Building for wasm;
+echo Building for web;
 trunk build --release   
-echo Done with wasm;
+echo Done with web;

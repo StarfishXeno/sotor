@@ -34,6 +34,23 @@ pub fn editor_placeholder(ui: UiRef) {
             {
                 ctx.send_message(Message::LoadSaveFromDir(path));
             }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                use crate::util::{execute, select_save};
+                use ahash::{HashMap, HashMapExt as _};
+
+                execute(async move {
+                    if let Some(handles) = select_save().await {
+                        let mut files = HashMap::with_capacity(handles.len());
+                        for h in handles {
+                            files.insert(h.file_name().to_lowercase(), h.read().await);
+                        }
+
+                        ctx.send_message(Message::LoadSaveFromFiles(files));
+                    }
+                });
+            }
         }
 
         ui.label("a save");

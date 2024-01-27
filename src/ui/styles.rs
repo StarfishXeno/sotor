@@ -14,6 +14,7 @@ pub const RED: Color32 = Color32::from_rgb(183, 26, 0);
 pub const GREY: Color32 = Color32::from_rgb(131, 131, 106);
 pub const GREY_DARK: Color32 = Color32::from_rgb(52, 52, 52);
 pub const BLACK: Color32 = Color32::from_rgb(26, 26, 26);
+#[cfg(not(target_arch = "wasm32"))]
 pub const BLACK_TRANSPARENT: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 100);
 
 pub fn set_selectable_styles(ui: UiRef) {

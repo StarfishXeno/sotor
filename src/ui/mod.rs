@@ -4,6 +4,8 @@ use crate::{
     save::Save,
     util::{load_default_game_data, ContextExt as _, Game, Message},
 };
+#[cfg(target_arch = "wasm32")]
+use ahash::HashMap;
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::APP_KEY;
 use egui::{Context, Ui};
@@ -90,13 +92,11 @@ impl SotorApp {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            let mut app = Self {
+            Self {
                 save: None,
                 channel: (sender, receiver),
                 default_game_data,
-            };
-
-            app
+            }
         }
     }
 
@@ -119,7 +119,22 @@ impl SotorApp {
         ctx.set_meta_id(&self.default_game_data[save.game.idx()], save);
     }
 
-    fn save(&mut self) {}
+    fn load_save(&mut self, files: &HashMap<String, Vec<u8>>, ctx: &Context) {
+        match Save::read_from_files(files, ctx) {
+            Ok(save) => {
+                self.save = Some(save);
+            }
+            Err(err) => {
+                error!("{err}");
+            }
+        }
+        self.set_meta_id(ctx);
+    }
+
+    fn save(&mut self) {
+        let bytes = Save::save_to_zip(self.save.as_mut().unwrap());
+        crate::util::download_save(bytes);
+    }
 
     fn reload_save(&mut self) {}
 }
@@ -323,7 +338,7 @@ impl eframe::App for SotorApp {
                 Message::Save => self.save(),
                 Message::CloseSave => self.close_save(),
                 Message::ReloadSave => self.reload_save(),
-                _ => {}
+                Message::LoadSaveFromFiles(files) => self.load_save(&files, ctx),
             }
         }
 

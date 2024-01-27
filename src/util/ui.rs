@@ -1,8 +1,7 @@
-use crate::{
-    save::Save,
-    util::{Game, SResult},
-};
-use egui::{util::id_type_map::SerializableAny, ColorImage, Context, IconData, Id, Ui};
+use crate::{save::Save, util::SResult};
+#[cfg(target_arch = "wasm32")]
+use ahash::HashMap;
+use egui::{util::id_type_map::SerializableAny, ColorImage, Context, Id, Ui};
 use image::{io::Reader as ImageReader, ImageFormat};
 use internal::{util::bytes::Cursor, GameDataMapped};
 use std::{any::Any, sync::mpsc::Sender};
@@ -11,11 +10,19 @@ pub enum Message {
     Save,
     CloseSave,
     ReloadSave,
+    #[cfg(target_arch = "wasm32")]
+    LoadSaveFromFiles(HashMap<String, Vec<u8>>),
+    #[cfg(not(target_arch = "wasm32"))]
     LoadSaveFromDir(String),
+    #[cfg(not(target_arch = "wasm32"))]
     ToggleSettingsOpen,
+    #[cfg(not(target_arch = "wasm32"))]
     SetSteamPath(Option<String>),
-    SetGamePath(Game, Option<String>),
+    #[cfg(not(target_arch = "wasm32"))]
+    SetGamePath(super::Game, Option<String>),
+    #[cfg(not(target_arch = "wasm32"))]
     ReloadSaveList,
+    #[cfg(not(target_arch = "wasm32"))]
     ReloadGameData,
 }
 
@@ -143,12 +150,13 @@ impl ColumnCounter {
     }
 }
 
-pub fn load_icon() -> IconData {
+#[cfg(not(target_arch = "wasm32"))]
+pub fn load_icon() -> egui::IconData {
     let rgba = image::load_from_memory(include_bytes!("../../assets/hand.png"))
         .unwrap()
         .to_rgba8();
     let (width, height) = rgba.dimensions();
-    IconData {
+    egui::IconData {
         rgba: rgba.to_vec(),
         width,
         height,

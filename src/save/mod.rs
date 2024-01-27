@@ -1,4 +1,9 @@
-use crate::util::{load_tga, ESResult, Game, SResult};
+use crate::{
+    save::update::Updater,
+    util::{load_tga, Game, SResult},
+};
+#[cfg(target_arch = "wasm32")]
+use ahash::HashMap;
 use egui::{Context, TextureHandle, TextureOptions};
 use internal::{
     erf::{self, Erf},
@@ -9,9 +14,9 @@ use macros::{EnumFromInt, EnumToInt};
 use std::{
     collections::VecDeque,
     fmt::{self},
-    fs,
-    path::PathBuf,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use std::{fs, path::PathBuf};
 
 mod read;
 mod update;
@@ -164,6 +169,23 @@ const GFFS: &[(bool, &str)] = &[
 const ERF_NAME: &str = "savegame.sav";
 const IMAGE_NAME: &str = "screen.tga";
 
+impl Save {
+    fn read(mut gffs: VecDeque<Gff>, erf: Erf, image: Option<TextureHandle>) -> SResult<Save> {
+        let reader = read::Reader::new(
+            gffs.pop_front().unwrap(),
+            gffs.pop_front().unwrap(),
+            gffs.pop_front().unwrap(),
+            erf,
+            gffs.pop_front(),
+            image,
+        );
+
+        reader
+            .into_save()
+            .map_err(|err| format!("Save::read| {err}"))
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 impl Save {
     pub fn read_from_directory(path: &str, ctx: &Context) -> SResult<Self> {
@@ -194,7 +216,7 @@ impl Save {
             gffs.push_back(Gff::read(&file)?);
         }
         // autosaves don't have screenshots
-        let texture = file_names
+        let image = file_names
             .get(IMAGE_NAME)
             .and_then(|image_name| {
                 let file = fs::read(PathBuf::from_iter([path, image_name])).ok()?;
@@ -202,24 +224,13 @@ impl Save {
             })
             .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST));
 
-        let reader = read::Reader::new(
-            gffs.pop_front().unwrap(),
-            gffs.pop_front().unwrap(),
-            gffs.pop_front().unwrap(),
-            erf,
-            gffs.pop_front(),
-            texture,
-        );
-
-        reader
-            .into_save()
-            .map_err(|err| format!("Save::read| {err}"))
+        Self::read(gffs, erf, image)
     }
 
-    pub fn save_to_directory(path: &str, save: &mut Save) -> ESResult {
+    pub fn save_to_directory(path: &str, save: &mut Save) -> crate::util::ESResult {
         use crate::util::{backup_file, read_dir_filemap};
 
-        update::Updater::new(save).update();
+        Updater::new(save).update();
         let file_names = read_dir_filemap(&path.into())
             .map_err(|err| format!("couldn't read dir {path}: {err}"))?;
 
@@ -251,5 +262,65 @@ impl Save {
             .map_err(|err| format!("couldn't write ERF file: {}", err.to_string()))?;
 
         Ok(())
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Save {
+    pub fn read_from_files(files: &HashMap<String, Vec<u8>>, ctx: &Context) -> SResult<Save> {
+        // ERF
+        let erf_bytes = files
+            .get(ERF_NAME)
+            .ok_or(format!("Couldn't find ERF file {ERF_NAME}"))?;
+        let erf = Erf::read(erf_bytes)?;
+
+        // GFFs
+        let mut gffs = VecDeque::with_capacity(GFFS.len());
+        for (required, name) in GFFS {
+            let Some(bytes) = files.get(*name) else {
+                if *required {
+                    return Err(format!("couldn't find GFF file {name}"));
+                }
+                continue;
+            };
+
+            gffs.push_back(Gff::read(bytes)?);
+        }
+        let image = files
+            .get(IMAGE_NAME)
+            .and_then(|bytes| load_tga(bytes).ok())
+            .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST));
+
+        Self::read(gffs, erf, image)
+    }
+
+    pub fn save_to_zip(save: &mut Self) -> Vec<u8> {
+        use std::io::{Cursor, Write};
+
+        Updater::new(save).update();
+        let buf = vec![];
+        let mut zip = zip::ZipWriter::new(Cursor::new(buf));
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+        for ((_, name), gff) in GFFS.iter().zip([
+            Some(&save.inner.nfo),
+            Some(&save.inner.globals),
+            Some(&save.inner.party_table),
+            save.inner.pifo.as_ref(),
+        ]) {
+            let Some(gff) = gff else {
+                continue;
+            };
+            let bytes = gff::write(gff.clone());
+
+            zip.start_file(*name, options).unwrap();
+            zip.write_all(&bytes).unwrap();
+        }
+        let erf_bytes = erf::write(save.inner.erf.clone());
+        zip.start_file(ERF_NAME, options).unwrap();
+        zip.write_all(&erf_bytes).unwrap();
+
+        zip.finish().unwrap().into_inner()
     }
 }
