@@ -2,9 +2,8 @@
 name: Deploy latest release to github pages
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["master"]
+  # Runs whenever a new release is made
+  release:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -32,9 +31,9 @@ jobs:
         uses: actions/configure-pages@v4
       - name: Fetch release
         run: |
-            wget https://github.com/StarfishXeno/sotor/releases/latest/download/web.tar.gz
-            mkdir ./_site
-            tar -xvf web.tar.gz -C _site 
+          wget https://github.com/StarfishXeno/sotor/releases/latest/download/web.tar.gz
+          mkdir ./_site
+          tar -xvf web.tar.gz -C _site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
