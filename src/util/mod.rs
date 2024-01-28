@@ -1,5 +1,5 @@
 pub use internal::util::*;
-use internal::GameData;
+use internal::{util::bytes::Cursor, GameData};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod fs;
@@ -30,6 +30,10 @@ pub use fs::*;
 pub use ui::*;
 
 pub fn load_default_game_data() -> [GameData; Game::COUNT] {
-    let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/gamedata.bin"));
-    bincode::deserialize(bytes).unwrap()
+    let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/gamedata.zip"));
+    println!("{}", bytes.len());
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let bin = archive.by_name("gamedata.bin").unwrap();
+    println!("{}", bin.size());
+    bincode::deserialize_from(bin).unwrap()
 }

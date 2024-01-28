@@ -23,7 +23,13 @@ fn main() {
     let out = &mut std::fs::File::options()
         .write(true)
         .create(true)
-        .open(PathBuf::from_iter([&out_dir, "gamedata.bin"]))
+        .open(PathBuf::from_iter([&out_dir, "gamedata.zip"]))
         .unwrap();
-    bincode::serialize_into(out, &game_data).unwrap();
+    let mut zip = zip::ZipWriter::new(out);
+    let options =
+        zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    zip.start_file("gamedata.bin", options).unwrap();
+
+    bincode::serialize_into(&mut zip, &game_data).unwrap();
+    zip.finish().unwrap();
 }

@@ -14,6 +14,7 @@ ahash = "0.8.7"
 serde = { version = "1.0.193", features = ["derive"] }
 bincode = "1.3.3"
 fastrand = "2.0.1"
+zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 
 [dependencies]
 macros = { workspace = true }
@@ -22,6 +23,7 @@ ahash = { workspace = true }
 serde = { workspace = true }
 bincode = { workspace = true }
 fastrand = { workspace = true }
+zip = { workspace = true }
 rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
 log = "0.4"
@@ -40,7 +42,6 @@ env_logger = "0.10"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.90"
 wasm-bindgen-futures = "0.4"
-zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 fastrand = { workspace = true, features = ["js"] }
 
 
@@ -48,6 +49,7 @@ fastrand = { workspace = true, features = ["js"] }
 internal = { workspace = true }
 ahash = { workspace = true }
 bincode = { workspace = true }
+zip = { workspace = true }
 dotenv = "0.15"
 
 [profile.release]
