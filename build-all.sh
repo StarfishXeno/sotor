@@ -32,4 +32,5 @@ done
 clean
 echo Building for web;
 trunk build --release   
+tar cvzf ./target/build/web.tar.gz --directory=./target/build/web .
 echo Done with web;
