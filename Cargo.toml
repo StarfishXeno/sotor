@@ -14,7 +14,7 @@ ahash = "0.8.7"
 serde = { version = "1.0.193", features = ["derive"] }
 bincode = "1.3.3"
 fastrand = "2.0.1"
-zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
+zip = { version = "0.6.6", default-features = false }
 
 [dependencies]
 macros = { workspace = true }
@@ -23,7 +23,6 @@ ahash = { workspace = true }
 serde = { workspace = true }
 bincode = { workspace = true }
 fastrand = { workspace = true }
-zip = { workspace = true }
 rfd = { version = "0.12.1" }
 image = { version = "0.24", default-features = false, features = ["tga"] }
 log = "0.4"
@@ -34,23 +33,27 @@ eframe = { version = "0.25", default-features = false, features = [
 ] }
 emath = "0.25"
 
+[build-dependencies]
+internal = { workspace = true }
+ahash = { workspace = true }
+bincode = { workspace = true }
+dotenv = "0.15"
+
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10"
+zip = { workspace = true, features = ["bzip2"] }
+[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
+zip = { workspace = true, features = ["bzip2"] }
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.90"
 wasm-bindgen-futures = "0.4"
 fastrand = { workspace = true, features = ["js"] }
-
-
-[build-dependencies]
-internal = { workspace = true }
-ahash = { workspace = true }
-bincode = { workspace = true }
-zip = { workspace = true }
-dotenv = "0.15"
+zip = { workspace = true, features = ["deflate"] }
+[target.'cfg(target_arch = "wasm32")'.build-dependencies]
+zip = { workspace = true, features = ["deflate"] }
 
 [profile.release]
 panic = "abort"
