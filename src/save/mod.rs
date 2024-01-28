@@ -323,4 +323,13 @@ impl Save {
 
         zip.finish().unwrap().into_inner()
     }
+
+    pub fn reload(self) -> Self {
+        let mut gffs =
+            VecDeque::from_iter([self.inner.nfo, self.inner.globals, self.inner.party_table]);
+        if let Some(pifo) = self.inner.pifo {
+            gffs.push_back(pifo);
+        };
+        Self::read(gffs, self.inner.erf, self.image).unwrap()
+    }
 }

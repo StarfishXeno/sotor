@@ -136,7 +136,9 @@ impl SotorApp {
         crate::util::download_save(bytes);
     }
 
-    fn reload_save(&mut self) {}
+    fn reload_save(&mut self) {
+        self.save = self.save.clone().map(Save::reload);
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

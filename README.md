@@ -17,7 +17,7 @@ May or may not work with saves from non-English versions of the game. Use at you
 # Differences from KSE
 
 - Aims to provide the same and more features. Currently WIP.
-- Runs natively on Windows, Linux and in the browser (experimental). Mac version possible if someone else wishes to build and distribute releases for it since it's hard to cross-compile.
+- Runs natively on Windows, Linux and in the browser (experimental). Mac version should work, but pre-built releases won't be available here.
 - Uses a built-in game database, allowing it to work wihout the game installed. Still capable of loading provided game files for your modding needs. Provided releases assume KotOR 1 Community patch and KotOR2 TSLRCM.
 - Support for the updated steam version of TSL, including workshop.
 - Does NOT support xbox and switch saves. See "Contributing" section.
@@ -28,7 +28,7 @@ If you encounter a bug or have a suggestion, please open an issue on github.
 
 I would like to add support for the console versions, but I don't own any of them. If you're willing to provide save files and help with testing, please open an issue.
 
-# Development
+# Building
 
 To build SotOR yourself you need to have the [rust toolchain](https://www.rust-lang.org/learn/get-started), platform-specific dependencies for [egui](https://github.com/emilk/egui/tree/3b19303e02bd2d386cf8b85b248388a25bfe9e26/crates/egui_glow) and [rfd](https://docs.rs/rfd/0.13.0/rfd/index.html#gtk-backend) and both games installed.
 
