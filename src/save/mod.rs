@@ -250,7 +250,7 @@ impl Save {
             backup_file(&full_path)
                 .map_err(|err| format!("couldn't backup file {path:?}: {err}"))?;
             fs::write(full_path, &bytes)
-                .map_err(|err| format!("Couldn't write GFF file {name}: {}", err.to_string()))?;
+                .map_err(|err| format!("Couldn't write GFF file {name}: {err}"))?;
         }
 
         let erf_name = file_names.get(ERF_NAME).map_or(ERF_NAME, |n| n.as_str());
@@ -258,8 +258,7 @@ impl Save {
         let bytes = erf::write(save.inner.erf.clone());
 
         backup_file(&full_path).map_err(|err| format!("couldn't backup file {path:?}: {err}"))?;
-        fs::write(full_path, bytes)
-            .map_err(|err| format!("couldn't write ERF file: {}", err.to_string()))?;
+        fs::write(full_path, bytes).map_err(|err| format!("couldn't write ERF file: {err}"))?;
 
         Ok(())
     }

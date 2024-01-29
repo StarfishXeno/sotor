@@ -16,9 +16,9 @@ use egui::{
     ScrollArea, Sense, WidgetText,
 };
 use emath::{vec2, Align};
-use internal::{Appearance, Data, Feat, GameDataMapped};
-use std::collections::HashSet;
-use std::hash::Hash;
+use internal::{Appearance, Data, GameDataMapped};
+use std::{borrow::Cow, collections::HashSet};
+use std::{fmt::Display, hash::Hash};
 
 pub struct Editor<'a> {
     selected: usize,
@@ -259,7 +259,8 @@ impl<'a> Editor<'a> {
             return;
         }
         ui.s_empty();
-        Self::feat_list(ui, list, &self.data.feats);
+
+        Self::ability_list(ui, list, &self.data.feats);
     }
 
     fn classes(&mut self, ui: UiRef) {
@@ -289,18 +290,25 @@ impl<'a> Editor<'a> {
         }
     }
 
-    fn feat_list(ui: UiRef, list: &mut Vec<u16>, data: &HashMap<u16, Feat>) {
+    fn ability_list<I: Eq + Hash + Display, E: Data<I>>(
+        ui: UiRef,
+        list: &mut Vec<I>,
+        data: &HashMap<I, E>,
+    ) {
         let mut named_list: Vec<_> = list
             .iter()
             .enumerate()
             .map(|(idx, id)| {
-                let (name, sorting_name) = if let Some(feat) = data.get(id) {
-                    (feat.name.clone(), feat.sorting_name.clone())
+                if let Some(e) = data.get(id) {
+                    (
+                        idx,
+                        Cow::Borrowed(e.get_name()),
+                        Cow::Borrowed(e.get_sorting_name()),
+                    )
                 } else {
                     let name = format!("UNKNOWN {id}");
-                    (name.clone(), name)
-                };
-                (idx, name, sorting_name)
+                    (idx, Cow::Owned(name.clone()), Cow::Owned(name))
+                }
             })
             .collect();
         named_list.sort_unstable_by(|a, b| a.2.cmp(&b.2));
@@ -343,35 +351,36 @@ impl<'a> Editor<'a> {
         });
     }
 
-    fn selection<I: Copy + Eq + Hash, E: Data<I>>(
+    fn selection<I: Eq + Hash + Copy, E: Data<I>>(
         id: &str,
         ui: UiRef,
         list: &mut Vec<I>,
         data_list: &[E],
     ) {
         let id = Id::new("ec_add_").with(id);
-        let present: HashSet<_> = list.iter().copied().collect();
-        let available: Vec<_> = data_list
-            .iter()
-            .filter(|f| !present.contains(&f.get_id()))
-            .collect();
 
         set_combobox_styles(ui);
         let popup_id = ui.make_persistent_id(id).with("popup");
         let mut added = false;
         ComboBox::from_id_source(id).width(240.).show_ui(ui, |ui| {
+            let present: HashSet<_> = list.iter().copied().collect();
+
             set_selectable_styles(ui);
             let mut selected = None;
-            for item in available {
-                ui.selectable_value(&mut selected, Some(item.get_id()), item.get_name());
+            for item in data_list {
+                let id = item.get_id();
+                if present.contains(id) {
+                    continue;
+                }
+                ui.selectable_value(&mut selected, Some(id), item.get_name());
             }
             if let Some(id) = selected {
-                list.push(id);
+                list.push(*id);
                 added = true;
             }
         });
 
-        // don't close the box after adding a feat
+        // don't close the box after selecting something
         if added {
             ui.memory_mut(|m| m.open_popup(popup_id));
         }
@@ -379,6 +388,7 @@ impl<'a> Editor<'a> {
 
     fn class(ui: UiRef, class: &mut Class, data: &GameDataMapped, mut remove: impl FnMut()) {
         let id = class.id;
+        let show_all = ui.ctx().get_data("ec_powers_all").unwrap_or(false);
         let name = data
             .classes
             .get(&class.id)
@@ -410,12 +420,34 @@ impl<'a> Editor<'a> {
                             return;
                         }
                         ui.label(color_text("Powers: ", GREEN));
-                        Self::selection(
-                            &format!("class_{id}"),
-                            ui,
-                            list.as_mut().unwrap(),
-                            &data.inner.powers,
-                        );
+                        let data_list = if show_all {
+                            Cow::Borrowed(&data.inner.powers)
+                        } else {
+                            Cow::Owned(
+                                data.inner
+                                    .powers
+                                    .iter()
+                                    .filter(|p| !p.extra)
+                                    .cloned()
+                                    .collect(),
+                            )
+                        };
+
+                        ui.horizontal(|ui| {
+                            Self::selection(
+                                &format!("class_{id}"),
+                                ui,
+                                list.as_mut().unwrap(),
+                                &data_list,
+                            );
+                            ui.label(color_text("Show all:", GREEN));
+                            set_checkbox_styles(ui);
+                            let mut checked = show_all;
+                            ui.s_checkbox(&mut checked);
+                            if checked != show_all {
+                                ui.ctx().set_data("ec_powers_all", checked);
+                            }
+                        });
                     });
 
                 if list.is_none() || list.as_ref().unwrap().is_empty() {
@@ -423,7 +455,7 @@ impl<'a> Editor<'a> {
                 }
 
                 ui.s_empty();
-                Self::feat_list(ui, list.as_mut().unwrap(), &data.powers);
+                Self::ability_list(ui, list.as_mut().unwrap(), &data.powers);
             });
     }
 }

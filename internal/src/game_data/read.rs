@@ -205,9 +205,9 @@ fn to_str_ref(v: i32) -> usize {
 pub fn read_feats(
     twoda: TwoDA,
     tlk_bytes: &[u8],
-    description_field: &str,
-    prefix_filter: Option<&[&str]>,
-) -> SResult<Vec<Feat>> {
+    descr_field: &str,
+    extra_filter: Option<&[&str]>,
+) -> SResult<Vec<(Feat, bool)>> {
     let mut tmp = Vec::with_capacity(twoda.0.len());
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
@@ -218,20 +218,16 @@ pub fn read_feats(
             .map(TwoDAValue::string_unwrap)
             .unwrap_or_default();
         let name_ref = feat["name"].clone().map_or(-1, TwoDAValue::int_unwrap);
-        let descr_ref = feat[description_field]
-            .clone()
-            .map_or(-1, TwoDAValue::int_unwrap);
+        let descr_ref = feat[descr_field].clone().map_or(-1, TwoDAValue::int_unwrap);
         if name_ref == -1 && label.is_empty() {
             // some nameless garbage
             continue;
         }
-        if let Some(prefixes) = prefix_filter {
-            if !prefixes.iter().any(|p| label.starts_with(p)) {
-                continue;
-            }
-        }
+        let extra = extra_filter.map_or(false, |prefixes| {
+            !prefixes.iter().any(|p| label.starts_with(p)) || name_ref == -1
+        });
 
-        tmp.push((idx, id as u16, label));
+        tmp.push((idx, id as u16, label, extra));
         str_refs.push(to_str_ref(name_ref));
         str_refs.push(to_str_ref(descr_ref));
         idx += 1;
@@ -240,20 +236,21 @@ pub fn read_feats(
         Tlk::read(tlk_bytes, &str_refs).map_err(|err| format!("couldn't read strings: {err}"))?;
 
     let mut feats = Vec::with_capacity(tmp.len());
-    for (idx, id, label) in tmp {
+    for (idx, id, label, extra) in tmp {
         let name = mem::take(&mut tlk.strings[idx * 2]);
         let descr = mem::take(&mut tlk.strings[idx * 2 + 1]);
         let name = if name.is_empty() { label } else { name };
         // so that Flurry and Improved Flurry go after each other instead of strictly alphabetically
         let sorting_name = prefix_to_sort_suffix(&name, &["Improved ", "Advanced ", "Master "]);
-        feats.push(Feat {
+        let feat = Feat {
             id,
             sorting_name,
             name,
             description: (!descr.is_empty()).then_some(descr),
-        });
+        };
+        feats.push((feat, extra));
     }
-    feats.sort_unstable_by(|a, b| a.sorting_name.cmp(&b.sorting_name));
+    feats.sort_unstable_by(|a, b| a.0.sorting_name.cmp(&b.0.sorting_name));
 
     Ok(feats)
 }

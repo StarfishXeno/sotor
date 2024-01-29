@@ -56,31 +56,62 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
 ];
 
 pub trait Data<I> {
-    fn get_id(&self) -> I;
+    fn get_id(&self) -> &I;
     fn get_name(&self) -> &str;
+    fn get_sorting_name(&self) -> &str;
 }
 
 macro_rules! impl_data {
-    ($type:ident, $id_type:ident) => {
+    ($type:ident, $id_type:ident, $id_field:tt, $sorting_field:tt) => {
         impl Data<$id_type> for $type {
-            fn get_id(&self) -> $id_type {
-                self.id
+            fn get_id(&self) -> &$id_type {
+                &self.$id_field
             }
             fn get_name(&self) -> &str {
                 &self.name
             }
+            fn get_sorting_name(&self) -> &str {
+                &self.$sorting_field
+            }
         }
+    };
+
+    ($type:ident, $id_type:ident) => {
+        impl_data!($type, $id_type, id, name);
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Feat {
     pub id: u16,
     pub name: String,
     pub sorting_name: String,
     pub description: Option<String>,
 }
-impl_data!(Feat, u16);
+impl_data!(Feat, u16, id, sorting_name);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Power {
+    pub id: u16,
+    pub name: String,
+    pub sorting_name: String,
+    pub description: Option<String>,
+    pub extra: bool,
+}
+impl_data!(Power, u16, id, sorting_name);
+
+impl From<(Feat, bool)> for Power {
+    fn from(value: (Feat, bool)) -> Self {
+        let f = value.0;
+        Self {
+            id: f.id,
+            name: f.name,
+            sorting_name: f.sorting_name,
+            description: f.description,
+            extra: value.1,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Class {
@@ -119,6 +150,7 @@ pub struct Quest {
     pub name: String,
     pub stages: BTreeMap<i32, QuestStage>,
 }
+impl_data!(Quest, String);
 
 impl Quest {
     pub fn get_first_stage_id(&self) -> i32 {
@@ -141,12 +173,13 @@ pub struct Item {
     pub description: String,
     pub stack_size: u16,
 }
+impl_data!(Item, String, res_ref, name);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {
     pub id: u64,
     pub feats: Vec<Feat>,
-    pub powers: Vec<Feat>,
+    pub powers: Vec<Power>,
     pub classes: Vec<Class>,
     pub portraits: Vec<Appearance>,
     pub appearances: Vec<Appearance>,
@@ -195,7 +228,7 @@ impl GameData {
             .map_err(|err| format!("couldn't find 2da: {err}"))?;
         let twodas: Vec<TwoDA> = get_resources(&dir, twoda_sources, &twoda_args)
             .map_err(|err| format!("couldn't read 2da: {err}"))?;
-        let [feats, spells, classes, portraits, appearances, soundsets] =
+        let [feats, powers, classes, portraits, appearances, soundsets] =
             twodas.try_into().unwrap();
 
         let journal_source = find_source(&overrides, &key, "global", ResourceType::Jrl)
@@ -226,14 +259,20 @@ impl GameData {
         Ok(Self {
             id: fastrand::u64(..),
             feats: read_feats(feats, &tlk_bytes, "description", None)
-                .map_err(|err| format!("couldn't read feats: {err}"))?,
+                .map_err(|err| format!("couldn't read feats: {err}"))?
+                .into_iter()
+                .map(|(f, _)| f)
+                .collect(),
             powers: read_feats(
-                spells,
+                powers,
                 &tlk_bytes,
                 "spelldesc",
                 Some(&["FORCE_POWER", "FORM_FORCE", "FORM_SABER"]),
             )
-            .map_err(|err| format!("couldn't read powers: {err}"))?,
+            .map_err(|err| format!("couldn't read powers: {err}"))?
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             classes: read_classes(classes, &tlk_bytes)
                 .map_err(|err| format!("couldn't read classes: {err}"))?,
             portraits: read_appearances(portraits, "baseresref"),
@@ -251,7 +290,7 @@ impl GameData {
 // so we make a wrapper of gamedata with vecs copied into hashmaps
 // costs a couple MB of RAM though
 macro_rules! impl_game_data_mapped {
-    ($([$s:ident, $id_type:ident, $id_field:tt, [$($field:tt,)+]],)+) => {
+    ($([$s:ident, $id_type:ident, [$($field:tt,)+]],)+) => {
         #[derive(Debug)]
         pub struct GameDataMapped {
             $($(pub $field: HashMap<$id_type, $s>,)+)+
@@ -260,7 +299,7 @@ macro_rules! impl_game_data_mapped {
         impl From<GameData> for GameDataMapped {
             fn from(inner: GameData) -> GameDataMapped {
                 GameDataMapped {
-                    $($($field: inner.$field.clone().into_iter().map(|s| (s.$id_field.clone(), s)).collect(),)+)+
+                    $($($field: inner.$field.clone().into_iter().map(|s| (s.get_id().clone(), s)).collect(),)+)+
                     inner,
                 }
             }
@@ -269,9 +308,10 @@ macro_rules! impl_game_data_mapped {
 }
 
 impl_game_data_mapped!(
-    [Feat, u16, id, [feats, powers,]],
-    [Class, i32, id, [classes,]],
-    [Appearance, u16, id, [portraits, appearances, soundsets,]],
-    [Quest, String, id, [quests,]],
-    [Item, String, res_ref, [items,]],
+    [Feat, u16, [feats,]],
+    [Power, u16, [powers,]],
+    [Class, i32, [classes,]],
+    [Appearance, u16, [portraits, appearances, soundsets,]],
+    [Quest, String, [quests,]],
+    [Item, String, [items,]],
 );
