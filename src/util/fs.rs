@@ -2,10 +2,7 @@ use crate::util::Game;
 pub use internal::util::fs::*;
 use std::{fs, io, path::PathBuf, process::Command};
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn open_file_manager(path: &str) {
-    #[cfg(unix)]
-    use std::os::unix::process::CommandExt;
     let program = if cfg!(target_os = "windows") {
         "explorer"
     } else if cfg!(target_os = "linux") {
@@ -20,13 +17,13 @@ pub fn open_file_manager(path: &str) {
 
     #[cfg(unix)]
     {
+        use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
 
     command.arg(path).spawn().unwrap();
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn backup_file(path: &PathBuf) -> io::Result<()> {
     if !path.exists() {
         return Ok(());
@@ -45,7 +42,6 @@ pub fn backup_file(path: &PathBuf) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
     let mut paths = vec![];
 
@@ -80,25 +76,9 @@ pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
     paths
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn select_directory(title: String) -> Option<String> {
     rfd::FileDialog::new()
         .set_title(title)
         .pick_folder()
         .map(|pb| pb.to_str().unwrap().to_owned())
-}
-
-#[cfg(target_arch = "wasm32")]
-pub async fn select_files(title: String) -> Option<Vec<rfd::FileHandle>> {
-    rfd::AsyncFileDialog::new()
-        .set_title(title)
-        .pick_files()
-        .await
-}
-
-#[cfg(target_arch = "wasm32")]
-use std::future::Future;
-#[cfg(target_arch = "wasm32")]
-pub fn execute<F: Future<Output = ()> + Send + 'static>(f: F) {
-    wasm_bindgen_futures::spawn_local(f);
 }

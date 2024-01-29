@@ -1,10 +1,14 @@
-use super::styles::{BLACK, BLUE, GREEN, GREY, GREY_DARK, WHITE};
-use egui::{
-    epaint::TextShape, style::HandleShape, Button, Color32, CursorIcon, FontSelection, Response,
-    RichText, Rounding, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle, Ui, Widget,
-    WidgetInfo, WidgetText, WidgetType,
+use super::{
+    styles::{BLACK, BLUE, GREEN, GREEN_DARK, GREY, GREY_DARK, WHITE},
+    UiRef,
 };
-use emath::{Align, Numeric, Rect, Vec2};
+use egui::{
+    epaint::TextShape, style::HandleShape, Area, Button, Color32, CursorIcon, FontSelection, Frame,
+    Order, Response, RichText, Rounding, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle,
+    Ui, Widget, WidgetInfo, WidgetText, WidgetType,
+};
+use emath::{pos2, vec2, Align, Numeric, Rect, Vec2};
+use internal::util::shorten_string;
 use std::ops::RangeInclusive;
 
 pub fn color_text(text: &str, color: Color32) -> RichText {
@@ -293,4 +297,62 @@ impl Widget for ListItem {
 
         response
     }
+}
+
+// on_hover_text that doesn't cover things above or below, or the item itself, useful for comboboxes
+pub fn on_hover_text_side(ui: UiRef, r: &Response, text: &str) {
+    if !r.hovered() || text.is_empty() {
+        return;
+    }
+    let description = shorten_string(text, 1000);
+    let ctx = ui.ctx();
+    let style = ui.style();
+    let screen_rect = ctx.screen_rect();
+    let right_space = ctx.screen_rect().right() - r.rect.right();
+    let right = right_space > r.rect.left();
+    let mut layout_job = WidgetText::RichText(color_text(&description, WHITE)).into_layout_job(
+        ui.style(),
+        FontSelection::Default,
+        Align::Min,
+    );
+    layout_job.wrap.max_width = if right { right_space } else { r.rect.left() } - 30.;
+
+    let galley = ui.fonts(|f| f.layout_job(layout_job));
+    let size = galley.size() + style.spacing.menu_margin.sum();
+    let y_offset = 'b: {
+        let below = r.rect.top();
+        if below + size.y < screen_rect.max.y {
+            break 'b below;
+        }
+        let above = r.rect.bottom() - size.y;
+        if above > 0. {
+            break 'b above;
+        }
+        screen_rect.max.y / 2. - size.y / 2.
+    };
+    let x_offset = if right {
+        r.rect.right() + 10.
+    } else {
+        r.rect.left() - 10. - size.x
+    };
+
+    let pos = screen_rect.left_top() + vec2(x_offset, y_offset);
+
+    Area::new(ui.next_auto_id())
+        .order(Order::Tooltip)
+        .fixed_pos(pos)
+        .interactable(false)
+        .show(ctx, |ui| {
+            Frame::popup(style)
+                .stroke((2.0, GREEN_DARK))
+                .show(ui, |ui| {
+                    ui.set_max_width(ui.max_rect().width());
+                    let pos = pos2(ui.max_rect().left(), ui.cursor().top());
+                    for row in &galley.rows {
+                        let rect = row.rect.translate(vec2(pos.x, pos.y));
+                        ui.allocate_rect(rect, Sense::hover());
+                    }
+                    ui.painter().add(TextShape::new(pos, galley, GREEN));
+                });
+        });
 }

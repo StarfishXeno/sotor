@@ -5,7 +5,7 @@ use crate::{
             set_checkbox_styles, set_combobox_styles, set_drag_value_styles, set_selectable_styles,
             set_slider_styles, set_striped_styles, BLACK, GREEN, GREEN_DARK, RED, WHITE,
         },
-        widgets::{color_text, Icon, UiExt},
+        widgets::{color_text, on_hover_text_side, Icon, UiExt},
         UiRef,
     },
     util::{get_data_name, ContextExt},
@@ -16,7 +16,7 @@ use egui::{
     ScrollArea, Sense, WidgetText,
 };
 use emath::{vec2, Align};
-use internal::{Appearance, Data, GameDataMapped};
+use internal::{Appearance, DataExt, GameDataMapped};
 use std::{borrow::Cow, collections::HashSet, fmt::Display, hash::Hash};
 
 pub struct Editor<'a> {
@@ -55,8 +55,6 @@ impl<'a> Editor<'a> {
                 ui.horizontal_top(|ui| self.main_stats(ui));
                 ui.s_empty();
                 ui.separator();
-                ui.horizontal_top(|ui| self.appearance(ui));
-                ui.separator();
                 self.feats(ui);
                 ui.separator();
                 self.classes(ui);
@@ -86,7 +84,7 @@ impl<'a> Editor<'a> {
             });
 
         ui.vertical(|ui| {
-            ui.s_offset(0., 0.);
+            ui.s_empty();
             ui.label(color_text("Edit name: ", GREEN));
         });
         ui.s_text_edit(&mut char!(self).name, 200.);
@@ -179,12 +177,13 @@ impl<'a> Editor<'a> {
                 ui.end_row();
             }
         });
+        self.appearance(ui);
     }
 
     fn grid(id: &str, ui: UiRef, add_contents: impl FnOnce(UiRef)) {
         Grid::new(id)
             .striped(true)
-            .spacing([20., 6.])
+            .spacing([10., 6.])
             .show(ui, add_contents);
     }
 
@@ -192,12 +191,9 @@ impl<'a> Editor<'a> {
         let char = char!(self);
         set_striped_styles(ui);
         Self::grid("ec_appearance", ui, |ui| {
-            ui.label("Portrait:");
-            ui.label("Appearance:");
-            ui.label("Soundset:");
-            ui.end_row();
-
             set_combobox_styles(ui);
+            ui.label(color_text("Portrait:", GREEN));
+            ui.end_row();
             Self::appearance_selection(
                 ui,
                 "ec_portrait",
@@ -205,6 +201,9 @@ impl<'a> Editor<'a> {
                 &self.data.portraits,
                 &self.data.inner.portraits,
             );
+            ui.end_row();
+            ui.label(color_text("Appearance:", GREEN));
+            ui.end_row();
             Self::appearance_selection(
                 ui,
                 "ec_appearance",
@@ -212,6 +211,9 @@ impl<'a> Editor<'a> {
                 &self.data.appearances,
                 &self.data.inner.appearances,
             );
+            ui.end_row();
+            ui.label(color_text("Soundset:", GREEN));
+            ui.end_row();
             Self::appearance_selection(
                 ui,
                 "ec_soundset",
@@ -288,7 +290,7 @@ impl<'a> Editor<'a> {
         }
     }
 
-    fn ability_list<I: Eq + Hash + Display, E: Data<I>>(
+    fn ability_list<I: Eq + Hash + Display, E: DataExt<I>>(
         ui: UiRef,
         list: &mut Vec<I>,
         data: &HashMap<I, E>,
@@ -297,19 +299,21 @@ impl<'a> Editor<'a> {
             .iter()
             .enumerate()
             .map(|(idx, id)| {
-                let sorting = if let Some(a) = data.get(id) {
-                    Cow::Borrowed(a.get_name())
+                let item = data.get(id);
+                let sorting = if let Some(a) = item {
+                    Cow::Borrowed(a.get_sorting_name())
                 } else {
                     Cow::Owned(format!("UNKNOWN {id}"))
                 };
-                (idx, get_data_name(data, id), sorting)
+                let description = item.and_then(|i| i.get_description());
+                (idx, get_data_name(data, id), description, sorting)
             })
             .collect();
-        named_list.sort_unstable_by(|a, b| a.2.cmp(&b.2));
+        named_list.sort_unstable_by(|a, b| a.3.cmp(&b.3));
 
         ui.horizontal_wrapped(|ui| {
             let mut removed = None;
-            for (idx, name, _) in named_list {
+            for (idx, name, description, _) in named_list {
                 // complex widgets don't work with _wrapped, so doing it raw
                 let padding = vec2(4., 2.);
                 let layout_job = WidgetText::RichText(color_text(&name, Color32::PLACEHOLDER))
@@ -318,6 +322,9 @@ impl<'a> Editor<'a> {
                 let (rect, r) =
                     ui.allocate_at_least(galley.size() + padding + padding, Sense::click());
                 let r = r.on_hover_cursor(CursorIcon::PointingHand);
+                if let Some(descr) = description {
+                    on_hover_text_side(ui, &r, descr);
+                }
 
                 let (background, text) = if r.clicked() || r.is_pointer_button_down_on() {
                     (RED, WHITE)
@@ -345,7 +352,7 @@ impl<'a> Editor<'a> {
         });
     }
 
-    fn selection<I: Eq + Hash + Copy, E: Data<I>>(
+    fn selection<I: Eq + Hash + Copy, E: DataExt<I>>(
         id: &str,
         ui: UiRef,
         list: &mut Vec<I>,
@@ -366,7 +373,10 @@ impl<'a> Editor<'a> {
                 if present.contains(id) {
                     continue;
                 }
-                ui.selectable_value(&mut selected, Some(id), item.get_name());
+                let r = ui.selectable_value(&mut selected, Some(id), item.get_name());
+                if let Some(descr) = item.get_description() {
+                    on_hover_text_side(ui, &r, descr);
+                }
             }
             if let Some(id) = selected {
                 list.push(*id);

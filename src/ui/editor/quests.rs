@@ -3,18 +3,14 @@ use crate::{
     ui::{
         styles::{
             set_combobox_styles, set_drag_value_styles, set_selectable_styles, set_striped_styles,
-            GREEN, GREEN_DARK, GREY, WHITE,
+            GREEN, GREY, WHITE,
         },
-        widgets::{color_text, Icon, IconButton, UiExt},
+        widgets::{color_text, on_hover_text_side, Icon, IconButton, UiExt},
         UiRef,
     },
     util::{get_data_name, ColumnCounter, ContextExt as _},
 };
-use egui::{
-    epaint::TextShape, Area, ComboBox, DragValue, FontSelection, Frame, Grid, Order, Response,
-    RichText, ScrollArea, Sense, WidgetText,
-};
-use emath::{pos2, vec2, Align};
+use egui::{ComboBox, DragValue, Grid, RichText, ScrollArea};
 use internal::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -140,13 +136,13 @@ impl<'a> Editor<'a> {
                     let mut selected = entry.stage;
                     for (id, stage) in stages {
                         let r = ui.selectable_value(&mut selected, *id, stage.get_name(60));
-                        Self::show_description(ui, &r, stage);
+                        on_hover_text_side(ui, &r, &stage.description);
                     }
                     entry.stage = selected;
                 });
 
             if let Some(stage) = stage {
-                Self::show_description(ui, &r.response, stage);
+                on_hover_text_side(ui, &r.response, &stage.description);
             }
         } else {
             set_drag_value_styles(ui);
@@ -217,12 +213,12 @@ impl<'a> Editor<'a> {
                 let mut selected = state.stage;
                 for (id, stage) in stages {
                     let r = ui.selectable_value(&mut selected, *id, stage.get_name(40));
-                    Self::show_description(ui, &r, stage);
+                    on_hover_text_side(ui, &r, &stage.description);
                 }
                 state.stage = selected;
             });
         if let Some(stage) = current_stage {
-            Self::show_description(ui, &r.response, stage);
+            on_hover_text_side(ui, &r.response, &stage.description);
         }
         let btn = ui.add_enabled(!state.id.trim().is_empty(), IconButton::new(Icon::Plus));
 
@@ -237,57 +233,5 @@ impl<'a> Editor<'a> {
             state.id = String::new();
             state.stage = 0;
         }
-    }
-
-    // this is messy, but it's better than normal .on_hover_text
-    // TODO simplify, somehow
-    fn show_description(ui: UiRef, r: &Response, stage: &QuestStage) {
-        if !r.hovered() || stage.description.is_empty() {
-            return;
-        }
-        let description = shorten_string(&stage.description, 1000);
-        let anchor = r.rect.left_bottom();
-        let ctx = ui.ctx();
-        let style = ui.style();
-        let screen_rect = ctx.screen_rect();
-        let mut layout_job = WidgetText::RichText(color_text(&description, WHITE)).into_layout_job(
-            ui.style(),
-            FontSelection::Default,
-            Align::Min,
-        );
-        layout_job.wrap.max_width = anchor.x - 30.;
-
-        let galley = ui.fonts(|f| f.layout_job(layout_job));
-        let size = galley.size() + style.spacing.menu_margin.sum();
-        let y_offset = 'b: {
-            let below = r.rect.left_top().y;
-            if below + size.y < screen_rect.max.y {
-                break 'b below;
-            }
-            let above = anchor.y - size.y;
-            if above > 0. {
-                break 'b above;
-            }
-            screen_rect.max.y / 2. - size.y / 2.
-        };
-        let pos = screen_rect.left_top() + vec2(anchor.x - 10. - size.x, y_offset);
-
-        Area::new("eq_descr")
-            .order(Order::Tooltip)
-            .fixed_pos(pos)
-            .interactable(false)
-            .show(ctx, |ui| {
-                Frame::popup(style)
-                    .stroke((2.0, GREEN_DARK))
-                    .show(ui, |ui| {
-                        ui.set_max_width(ui.max_rect().width());
-                        let pos = pos2(ui.max_rect().left(), ui.cursor().top());
-                        for row in &galley.rows {
-                            let rect = row.rect.translate(vec2(pos.x, pos.y));
-                            ui.allocate_rect(rect, Sense::hover());
-                        }
-                        ui.painter().add(TextShape::new(pos, galley, GREEN));
-                    });
-            });
     }
 }

@@ -58,11 +58,10 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
 pub trait Data<I> {
     fn get_id(&self) -> &I;
     fn get_name(&self) -> &str;
-    fn get_sorting_name(&self) -> &str;
 }
 
 macro_rules! impl_data {
-    ($type:ident, $id_type:ident, $id_field:tt, $sorting_field:tt) => {
+    ($type:ident, $id_type:ident, $id_field:tt) => {
         impl Data<$id_type> for $type {
             fn get_id(&self) -> &$id_type {
                 &self.$id_field
@@ -70,14 +69,29 @@ macro_rules! impl_data {
             fn get_name(&self) -> &str {
                 &self.name
             }
-            fn get_sorting_name(&self) -> &str {
-                &self.$sorting_field
-            }
         }
     };
 
     ($type:ident, $id_type:ident) => {
-        impl_data!($type, $id_type, id, name);
+        impl_data!($type, $id_type, id);
+    };
+}
+
+pub trait DataExt<I>: Data<I> {
+    fn get_sorting_name(&self) -> &str;
+    fn get_description(&self) -> Option<&str>;
+}
+
+macro_rules! impl_data_ext {
+    ($type:ident, $id_type:ident) => {
+        impl DataExt<$id_type> for $type {
+            fn get_sorting_name(&self) -> &str {
+                &self.sorting_name
+            }
+            fn get_description(&self) -> Option<&str> {
+                self.description.as_ref().map(|d| d.as_str())
+            }
+        }
     };
 }
 
@@ -88,7 +102,8 @@ pub struct Feat {
     pub sorting_name: String,
     pub description: Option<String>,
 }
-impl_data!(Feat, u16, id, sorting_name);
+impl_data!(Feat, u16);
+impl_data_ext!(Feat, u16);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Power {
@@ -98,7 +113,8 @@ pub struct Power {
     pub description: Option<String>,
     pub extra: bool,
 }
-impl_data!(Power, u16, id, sorting_name);
+impl_data!(Power, u16);
+impl_data_ext!(Power, u16);
 
 impl From<(Feat, bool)> for Power {
     fn from(value: (Feat, bool)) -> Self {
@@ -122,6 +138,14 @@ pub struct Class {
     pub force_die: u8,
 }
 impl_data!(Class, i32);
+impl DataExt<i32> for Class {
+    fn get_sorting_name(&self) -> &str {
+        &self.name
+    }
+    fn get_description(&self) -> Option<&str> {
+        None
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Appearance {
@@ -173,7 +197,7 @@ pub struct Item {
     pub description: String,
     pub stack_size: u16,
 }
-impl_data!(Item, String, res_ref, name);
+impl_data!(Item, String, res_ref);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {

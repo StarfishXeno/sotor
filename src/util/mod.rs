@@ -12,7 +12,7 @@ mod fs {
 
     pub async fn select_save() -> Option<Vec<rfd::FileHandle>> {
         rfd::AsyncFileDialog::new()
-            .set_title("Select all files from the save directory")
+            .set_title("Select all files from a save directory")
             .pick_files()
             .await
     }
