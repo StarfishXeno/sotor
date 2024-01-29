@@ -25,6 +25,13 @@ enum FieldTmp {
     // list of indices into struct array
     List(Vec<usize>),
 }
+
+impl Default for FieldTmp {
+    fn default() -> Self {
+        Self::Simple(Field::Byte(0))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Orientation {
     w: f32,

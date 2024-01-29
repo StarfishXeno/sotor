@@ -13,21 +13,21 @@ use ahash::{HashMap, HashMapExt as _};
 use std::{io::BufRead as _, usize};
 
 struct TargetColumn {
-    name: String,
+    name: &'static str,
     idx: usize,
     tp: TwoDAType,
 }
 
 struct Reader<'a> {
     c: &'a mut Cursor<'a>,
-    required_columns: HashMap<String, TwoDAType>,
+    required_columns: HashMap<&'static str, TwoDAType>,
 }
 
 impl<'a> Reader<'a> {
-    fn new(c: &'a mut Cursor<'a>, required_columns: &[(&str, TwoDAType)]) -> Self {
+    fn new(c: &'a mut Cursor<'a>, required_columns: &[(&'static str, TwoDAType)]) -> Self {
         let required_columns = required_columns
             .iter()
-            .map(|(name, tp)| ((*name).to_owned(), *tp))
+            .map(|(name, tp)| (*name, *tp))
             .collect();
         Self {
             c,
@@ -67,16 +67,22 @@ impl<'a> Reader<'a> {
             take_string_until(self.c, b'\0').ok_or("couldn't read column list")?;
         // drop the extra tab in the end
         columns_str.pop();
-        let columns: Vec<_> = columns_str.split('\t').map(ToString::to_string).collect();
+        let columns: HashMap<_, _> = columns_str
+            .split('\t')
+            .enumerate()
+            .map(|(idx, name)| (name, idx))
+            .collect();
 
         let total_columns = columns.len();
-        let target_columns: Vec<_> = columns
-            .into_iter()
-            .enumerate()
-            .filter_map(|(idx, name)| {
-                self.required_columns
-                    .get(&name)
-                    .map(|tp| TargetColumn { name, idx, tp: *tp })
+        let target_columns: Vec<_> = self
+            .required_columns
+            .iter()
+            .filter_map(|(name, tp)| {
+                columns.get(name).map(|idx| TargetColumn {
+                    name,
+                    idx: *idx,
+                    tp: *tp,
+                })
             })
             .collect();
 
@@ -159,9 +165,9 @@ impl<'a> Reader<'a> {
         total_columns: usize,
         target_columns: &[TargetColumn],
         offsets: &[u16],
-    ) -> SResult<HashMap<String, Option<TwoDAValue>>> {
+    ) -> SResult<HashMap<&'static str, Option<TwoDAValue>>> {
         let mut row = HashMap::new();
-        row.insert("_idx".to_owned(), Some(TwoDAValue::Int(row_idx as i32)));
+        row.insert("_idx", Some(TwoDAValue::Int(row_idx as i32)));
         for TargetColumn { name, idx, tp } in target_columns {
             let pos = data_offset + offsets[row_idx * total_columns + idx] as u64;
             self.c.seek_to(pos)?;
@@ -178,7 +184,7 @@ impl<'a> Reader<'a> {
                     TwoDAType::String => TwoDAValue::String(value),
                 })
             };
-            row.insert(name.clone(), parsed);
+            row.insert(*name, parsed);
         }
         Ok(row)
     }
@@ -187,6 +193,6 @@ impl<'a> Reader<'a> {
 impl_read_resource!(
     TwoDA,
     Reader,
-    &'a [(&'a str, TwoDAType)],
+    &'a [(&'static str, TwoDAType)],
     ResourceType::Twoda
 );

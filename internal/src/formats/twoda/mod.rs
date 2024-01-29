@@ -16,4 +16,4 @@ pub enum TwoDAValue {
     Int(i32),
 }
 #[derive(Debug, Clone)]
-pub struct TwoDA(pub Vec<HashMap<String, Option<TwoDAValue>>>);
+pub struct TwoDA(pub Vec<HashMap<&'static str, Option<TwoDAValue>>>);

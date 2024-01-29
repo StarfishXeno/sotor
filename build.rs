@@ -20,10 +20,12 @@ fn main() {
     let game_data = Game::LIST
         .map(|game| GameData::read(game, &game_dirs[game.idx()], Some(&steam_dir)).unwrap());
     let out_dir = var("OUT_DIR").unwrap();
+    let path = PathBuf::from_iter([&out_dir, "gamedata.zip"]);
+    std::fs::remove_file(&path).ok();
     let out = &mut std::fs::File::options()
         .write(true)
         .create(true)
-        .open(PathBuf::from_iter([&out_dir, "gamedata.zip"]))
+        .open(path)
         .unwrap();
     let mut zip = zip::ZipWriter::new(out);
 

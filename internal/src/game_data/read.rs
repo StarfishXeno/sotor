@@ -257,7 +257,7 @@ pub fn read_feats(
 
 pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
     let mut tmp = Vec::with_capacity(twoda.0.len());
-    let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
+    let mut str_refs = Vec::with_capacity(twoda.0.len());
     let mut idx = 0;
     for class in twoda.0 {
         let id = class["_idx"].clone().unwrap().int_unwrap();

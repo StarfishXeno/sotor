@@ -15,7 +15,7 @@ use crate::{
 };
 use ahash::{HashMap, HashMapExt as _};
 use bytemuck::cast;
-use std::io::BufRead as _;
+use std::{io::BufRead as _, mem};
 
 #[derive(Debug)]
 struct FieldReadTmp {
@@ -84,7 +84,7 @@ impl<'a> Reader<'a> {
         self.read_structs()?;
 
         Ok(Gff {
-            content: self.transform_struct(0),
+            content: Self::transform_struct(&self.structs, &mut self.fields, 0),
             file_head: self.h.file_head,
         })
     }
@@ -272,14 +272,20 @@ impl<'a> Reader<'a> {
         Ok(())
     }
 
-    fn unwrap_tmp_field(&self, f: &FieldTmp) -> Field {
+    fn unwrap_tmp_field(
+        structs: &[StructReadTmp],
+        fields: &mut [FieldReadTmp],
+        f: FieldTmp,
+    ) -> Field {
         match f {
-            FieldTmp::Simple(value) => value.clone(),
-            FieldTmp::Struct(idx) => Field::BStruct(Box::new(self.transform_struct(*idx))),
+            FieldTmp::Simple(value) => value,
+            FieldTmp::Struct(idx) => {
+                Field::BStruct(Box::new(Self::transform_struct(structs, fields, idx)))
+            }
             FieldTmp::List(indices) => {
                 let structs: Vec<Struct> = indices
-                    .iter()
-                    .map(|idx| self.transform_struct(*idx))
+                    .into_iter()
+                    .map(|idx| Self::transform_struct(structs, fields, idx))
                     .collect();
 
                 Field::List(structs)
@@ -287,14 +293,23 @@ impl<'a> Reader<'a> {
         }
     }
 
-    fn transform_struct(&self, idx: usize) -> Struct {
-        let s = &self.structs[idx];
-        let mut fields = HashMap::with_capacity(s.field_indices.len());
+    fn transform_struct(
+        structs: &[StructReadTmp],
+        fields: &mut [FieldReadTmp],
+        idx: usize,
+    ) -> Struct {
+        let s = &structs[idx];
+        let mut field_map = HashMap::with_capacity(s.field_indices.len());
         for idx in &s.field_indices {
-            let f = &self.fields[*idx];
-            fields.insert(f.label.clone(), self.unwrap_tmp_field(&f.value));
+            let f = &mut fields[*idx];
+            let label = mem::take(&mut f.label);
+            let value = mem::take(&mut f.value);
+            field_map.insert(label, Self::unwrap_tmp_field(structs, fields, value));
         }
-        Struct { tp: s.tp, fields }
+        Struct {
+            tp: s.tp,
+            fields: field_map,
+        }
     }
 }
 
