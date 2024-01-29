@@ -355,9 +355,10 @@ impl eframe::App for SotorApp {
         }
 
         #[cfg(not(target_arch = "wasm32"))]
-        egui::SidePanel::new(egui::panel::Side::Left, "save_select")
+        egui::SidePanel::new(egui::panel::Side::Left, "sp")
             .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::ZERO))
             .resizable(true)
+            .default_width(150.)
             .min_width(150.)
             .max_width(ctx.screen_rect().width() - 700.)
             .show(ctx, |ui| {

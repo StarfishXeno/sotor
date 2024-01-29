@@ -55,7 +55,7 @@ impl<'a> Editor<'a> {
                     .spacing([5., 5.])
                     .striped(true)
                     .num_columns(3)
-                    .max_col_width(210.)
+                    .max_col_width(230.)
                     .show(ui, |ui| {
                         self.table(ui);
                     });
@@ -75,7 +75,7 @@ impl<'a> Editor<'a> {
         for (idx, entry) in self.journal.iter_mut().enumerate() {
             let quest = self.data.quests.get(&entry.id.to_lowercase());
             let stage = quest.and_then(|q| q.stages.get(&entry.stage));
-            let name = quest.map_or(entry.id.clone(), |q| q.name.clone());
+            let name = quest.map_or_else(|| format!("UNKNOWN {}", entry.id), |q| q.name.clone());
             let completed = stage.map_or(false, |s| s.end);
 
             quests.push((completed, name, entry, quest, stage, idx));
@@ -92,7 +92,7 @@ impl<'a> Editor<'a> {
         let mut removed = None;
         for (completed, name, entry, quest, stage, idx) in quests {
             let remove = || removed = Some(idx);
-            Self::quest(ui, completed, name.as_str(), entry, quest, stage, remove);
+            Self::quest(ui, completed, &name, entry, quest, stage, remove);
         }
 
         if let Some(idx) = removed {
@@ -114,21 +114,20 @@ impl<'a> Editor<'a> {
         }
         if let Some(quest) = quest {
             let name_color = if completed { GREY } else { WHITE };
-            let name_text = Label::new(color_text(name, name_color).small());
+            let name_text = Label::new(color_text(name, name_color));
             ui.add(name_text)
                 .on_hover_text(color_text(&quest.id, WHITE));
             let stage_name =
                 stage.map_or_else(|| entry.stage.to_string() + ") UNKNOWN", |s| s.get_name(60));
 
             let r = ComboBox::from_id_source(&quest.id)
-                .width(400.)
-                .selected_text(RichText::new(stage_name).small())
+                .width(435.)
+                .selected_text(stage_name)
                 .show_ui(ui, |ui| {
                     set_selectable_styles(ui);
                     let mut selected = entry.stage;
                     for (id, stage) in &quest.stages {
-                        let name = RichText::new(stage.get_name(60)).small();
-                        let r = ui.selectable_value(&mut selected, *id, name);
+                        let r = ui.selectable_value(&mut selected, *id, stage.get_name(60));
                         if r.hovered() {
                             Self::show_description(ui, r.rect, stage);
                         }
@@ -141,19 +140,21 @@ impl<'a> Editor<'a> {
                 }
             }
         } else {
-            ui.add(Label::new(color_text(name, WHITE).small()).wrap(true));
+            ui.add(Label::new(color_text(name, WHITE)).wrap(true));
             set_drag_value_styles(ui);
             ui.add(DragValue::new(&mut entry.stage));
         }
 
         ui.end_row();
     }
+    fn get_present_ids(&self) -> HashSet<&String> {
+        self.journal.iter().map(|e| &e.id).collect()
+    }
 
     fn addition(&mut self, ui: UiRef) {
         const QUESTS_STATE_ID: &str = "eq_state";
-        let get_present_ids = || self.journal.iter().map(|e| &e.id).collect::<HashSet<_>>();
         let state = ui.ctx().get_data(QUESTS_STATE_ID).unwrap_or_else(|| {
-            let present = get_present_ids();
+            let present = self.get_present_ids();
             let mut quest = None;
 
             for q in &self.data.inner.quests {
@@ -177,12 +178,12 @@ impl<'a> Editor<'a> {
         ui.label("Quest: ");
         set_combobox_styles(ui);
         ComboBox::from_id_source("eq_new_id")
-            .width(240.)
-            .selected_text(shorten_string(name, 30))
+            .width(280.)
+            .selected_text(shorten_string(name, 37))
             .show_ui(ui, |ui| {
                 set_selectable_styles(ui);
                 let mut selected = &current_quest.map(|q| q.id.clone()).unwrap_or_default();
-                let present = get_present_ids();
+                let present = self.get_present_ids();
                 for quest in &self.data.inner.quests {
                     if present.contains(&quest.id) {
                         continue;
@@ -251,7 +252,7 @@ impl<'a> Editor<'a> {
             FontSelection::Default,
             Align::Min,
         );
-        layout_job.wrap.max_width = anchor.x - 50.;
+        layout_job.wrap.max_width = anchor.x - 30.;
 
         let galley = ui.fonts(|f| f.layout_job(layout_job));
         let size = galley.size() + style.spacing.menu_margin.sum();
