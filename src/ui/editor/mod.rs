@@ -34,7 +34,6 @@ pub fn editor_placeholder(ui: UiRef) {
             {
                 ctx.send_message(Message::LoadSaveFromDir(path));
             }
-
             #[cfg(target_arch = "wasm32")]
             {
                 use crate::util::{execute, select_save};
@@ -48,6 +47,8 @@ pub fn editor_placeholder(ui: UiRef) {
                         }
 
                         ctx.send_message(Message::LoadSaveFromFiles(files));
+                        // something something ui thread sleeping without input
+                        ctx.request_repaint()
                     }
                 });
             }

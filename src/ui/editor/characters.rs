@@ -8,7 +8,7 @@ use crate::{
         widgets::{color_text, Icon, UiExt},
         UiRef,
     },
-    util::ContextExt,
+    util::{get_data_name, ContextExt},
 };
 use ahash::HashMap;
 use egui::{
@@ -17,8 +17,7 @@ use egui::{
 };
 use emath::{vec2, Align};
 use internal::{Appearance, Data, GameDataMapped};
-use std::{borrow::Cow, collections::HashSet};
-use std::{fmt::Display, hash::Hash};
+use std::{borrow::Cow, collections::HashSet, fmt::Display, hash::Hash};
 
 pub struct Editor<'a> {
     selected: usize,
@@ -230,9 +229,8 @@ impl<'a> Editor<'a> {
         data: &HashMap<u16, Appearance>,
         data_list: &[Appearance],
     ) {
-        let name = data
-            .get(current)
-            .map_or_else(|| format!("UNKNOWN {current}"), |a| a.name.clone());
+        let name = get_data_name(data, current);
+
         ComboBox::from_id_source(id)
             .width(200.)
             .selected_text(name)
@@ -299,16 +297,12 @@ impl<'a> Editor<'a> {
             .iter()
             .enumerate()
             .map(|(idx, id)| {
-                if let Some(e) = data.get(id) {
-                    (
-                        idx,
-                        Cow::Borrowed(e.get_name()),
-                        Cow::Borrowed(e.get_sorting_name()),
-                    )
+                let sorting = if let Some(a) = data.get(id) {
+                    Cow::Borrowed(a.get_name())
                 } else {
-                    let name = format!("UNKNOWN {id}");
-                    (idx, Cow::Owned(name.clone()), Cow::Owned(name))
-                }
+                    Cow::Owned(format!("UNKNOWN {id}"))
+                };
+                (idx, get_data_name(data, id), sorting)
             })
             .collect();
         named_list.sort_unstable_by(|a, b| a.2.cmp(&b.2));
@@ -389,10 +383,7 @@ impl<'a> Editor<'a> {
     fn class(ui: UiRef, class: &mut Class, data: &GameDataMapped, mut remove: impl FnMut()) {
         let id = class.id;
         let show_all = ui.ctx().get_data("ec_powers_all").unwrap_or(false);
-        let name = data
-            .classes
-            .get(&class.id)
-            .map_or_else(|| format!("UNKNOWN {id}"), |c| c.name.clone());
+        let name = get_data_name(&data.classes, &id);
 
         Frame::default()
             .rounding(2.)

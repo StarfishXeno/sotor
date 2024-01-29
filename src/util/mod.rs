@@ -7,7 +7,9 @@ mod ui;
 
 #[cfg(target_arch = "wasm32")]
 mod fs {
+    use std::future::Future;
     use wasm_bindgen::prelude::*;
+
     pub async fn select_save() -> Option<Vec<rfd::FileHandle>> {
         rfd::AsyncFileDialog::new()
             .set_title("Select all files from the save directory")
@@ -15,7 +17,6 @@ mod fs {
             .await
     }
 
-    use std::future::Future;
     pub fn execute<F: Future<Output = ()> + 'static>(f: F) {
         wasm_bindgen_futures::spawn_local(f);
     }

@@ -33,17 +33,9 @@ eframe = { version = "0.25", default-features = false, features = [
 ] }
 emath = "0.25"
 
-[build-dependencies]
-internal = { workspace = true }
-ahash = { workspace = true }
-bincode = { workspace = true }
-dotenv = "0.15"
-
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10"
-zip = { workspace = true, features = ["bzip2"] }
-[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
 zip = { workspace = true, features = ["bzip2"] }
 
 # web:
@@ -52,8 +44,13 @@ wasm-bindgen = "0.2.90"
 wasm-bindgen-futures = "0.4"
 fastrand = { workspace = true, features = ["js"] }
 zip = { workspace = true, features = ["deflate"] }
-[target.'cfg(target_arch = "wasm32")'.build-dependencies]
-zip = { workspace = true, features = ["deflate"] }
+
+[build-dependencies]
+internal = { workspace = true }
+ahash = { workspace = true }
+bincode = { workspace = true }
+zip = { workspace = true, features = ["deflate", "bzip2"] }
+dotenv = "0.15"
 
 [profile.release]
 panic = "abort"

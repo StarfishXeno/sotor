@@ -12,8 +12,11 @@ suffix=("win" "linux")
 rm -rf ./target/build
 mkdir -p ./target/build
 
+# artifacts from previous builds screw things up
 clean() {
+    echo Cleaning for $target;
     rm -rf ./target/release;
+    rm -rf ./target/$target;
 }
 
 for i in "${!targets[@]}"; do
@@ -21,7 +24,6 @@ for i in "${!targets[@]}"; do
     ext=${exts[i]}
     suffix=${suffix[i]}
 
-    # artifacts from previous builds mess cross up
     clean
     echo Building for $target;
     cross build --release --target $target;
@@ -29,6 +31,7 @@ for i in "${!targets[@]}"; do
     echo Done with $target;
 done
 
+target="wasm32-unknown-unknown"
 clean
 echo Building for web;
 trunk build --release   

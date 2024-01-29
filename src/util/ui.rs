@@ -1,10 +1,9 @@
 use crate::{save::Save, util::SResult};
-#[cfg(target_arch = "wasm32")]
 use ahash::HashMap;
 use egui::{util::id_type_map::SerializableAny, ColorImage, Context, Id, Ui};
 use image::{io::Reader as ImageReader, ImageFormat};
-use internal::{util::bytes::Cursor, GameDataMapped};
-use std::{any::Any, sync::mpsc::Sender};
+use internal::{util::bytes::Cursor, Data, GameDataMapped};
+use std::{any::Any, borrow::Cow, fmt::Display, hash::Hash, sync::mpsc::Sender};
 
 pub enum Message {
     Save,
@@ -160,5 +159,16 @@ pub fn load_icon() -> egui::IconData {
         rgba: rgba.to_vec(),
         width,
         height,
+    }
+}
+
+pub fn get_data_name<'a, I: Eq + Hash + Display, D: Data<I>>(
+    data: &'a HashMap<I, D>,
+    id: &I,
+) -> Cow<'a, str> {
+    if let Some(a) = data.get(id) {
+        Cow::Borrowed(a.get_name())
+    } else {
+        Cow::Owned(format!("UNKNOWN {id}"))
     }
 }

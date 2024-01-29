@@ -26,11 +26,14 @@ fn main() {
         .open(PathBuf::from_iter([&out_dir, "gamedata.zip"]))
         .unwrap();
     let mut zip = zip::ZipWriter::new(out);
-    let options = zip::write::FileOptions::default();
-    #[cfg(not(target_arch = "wasm32"))]
-    let options = options.compression_method(zip::CompressionMethod::Bzip2);
-    #[cfg(target_arch = "wasm32")]
-    let options = options.compression_method(zip::CompressionMethod::Deflated);
+
+    let method = if var("TARGET").unwrap() == "wasm32-unknown-unknown" {
+        zip::CompressionMethod::Deflated
+    } else {
+        zip::CompressionMethod::Bzip2
+    };
+    let options = zip::write::FileOptions::default().compression_method(method);
+
     zip.start_file("gamedata.bin", options).unwrap();
 
     bincode::serialize_into(&mut zip, &game_data).unwrap();

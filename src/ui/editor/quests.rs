@@ -8,16 +8,16 @@ use crate::{
         widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
-    util::ContextExt as _,
+    util::{get_data_name, ColumnCounter, ContextExt as _},
 };
 use egui::{
-    epaint::TextShape, Area, ComboBox, DragValue, FontSelection, Frame, Grid, Label, Order,
+    epaint::TextShape, Area, ComboBox, DragValue, FontSelection, Frame, Grid, Order, Response,
     RichText, ScrollArea, Sense, WidgetText,
 };
-use emath::{pos2, vec2, Align, Rect};
+use emath::{pos2, vec2, Align};
 use internal::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use std::{
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -31,6 +31,7 @@ pub struct Editor<'a> {
     width: f32,
     data: &'a GameDataMapped,
 }
+
 impl<'a> Editor<'a> {
     pub fn new(save: &'a mut Save, data: &'a GameDataMapped) -> Self {
         Self {
@@ -48,8 +49,8 @@ impl<'a> Editor<'a> {
             .stick_to_bottom(true)
             .max_height(ui.available_height() - 35.)
             .show(ui, |ui| {
-                set_striped_styles(ui);
                 ui.set_width(self.width);
+                set_striped_styles(ui);
 
                 Grid::new("eq_grid")
                     .spacing([5., 5.])
@@ -65,20 +66,26 @@ impl<'a> Editor<'a> {
     }
 
     fn table(&mut self, ui: UiRef) {
-        ui.s_empty();
-        ui.label(RichText::new("Name").underline());
-        ui.label(RichText::new("Stage").underline());
-        ui.end_row();
+        let columns = (self.width / 715.).max(1.) as u32;
+        let counter = &mut ColumnCounter::new(columns);
+
+        for _ in 0..columns {
+            ui.s_empty();
+            ui.label(RichText::new("Name").underline());
+            ui.label(RichText::new("Stage").underline());
+            counter.next(ui);
+        }
         set_combobox_styles(ui);
 
         let mut quests = Vec::with_capacity(self.journal.len());
         for (idx, entry) in self.journal.iter_mut().enumerate() {
             let quest = self.data.quests.get(&entry.id.to_lowercase());
-            let stage = quest.and_then(|q| q.stages.get(&entry.stage));
-            let name = quest.map_or_else(|| format!("UNKNOWN {}", entry.id), |q| q.name.clone());
+            let stages = quest.map(|q| &q.stages);
+            let stage = stages.and_then(|s| s.get(&entry.stage));
+            let name = get_data_name(&self.data.quests, &entry.id);
             let completed = stage.map_or(false, |s| s.end);
 
-            quests.push((completed, name, entry, quest, stage, idx));
+            quests.push((completed, name, entry, stages, idx));
         }
         // sort them by completeness -> name
         quests.sort_unstable_by(|a, b| {
@@ -90,9 +97,10 @@ impl<'a> Editor<'a> {
         });
 
         let mut removed = None;
-        for (completed, name, entry, quest, stage, idx) in quests {
+        for (completed, name, entry, stages, idx) in quests {
             let remove = || removed = Some(idx);
-            Self::quest(ui, completed, &name, entry, quest, stage, remove);
+            Self::quest(ui, completed, &name, entry, stages, remove);
+            counter.next(ui);
         }
 
         if let Some(idx) = removed {
@@ -105,48 +113,47 @@ impl<'a> Editor<'a> {
         completed: bool,
         name: &str,
         entry: &mut JournalEntry,
-        quest: Option<&Quest>,
-        stage: Option<&QuestStage>,
+        stages: Option<&BTreeMap<i32, QuestStage>>,
         remove: impl FnOnce(),
     ) {
         if ui.s_icon_button(Icon::Remove, "Remove").clicked() {
             remove();
         }
-        if let Some(quest) = quest {
-            let name_color = if completed { GREY } else { WHITE };
-            let name_text = Label::new(color_text(name, name_color));
-            ui.add(name_text)
-                .on_hover_text(color_text(&quest.id, WHITE));
-            let stage_name =
-                stage.map_or_else(|| entry.stage.to_string() + ") UNKNOWN", |s| s.get_name(60));
 
-            let r = ComboBox::from_id_source(&quest.id)
+        let name_color = if completed { GREY } else { WHITE };
+        let label_r = ui.label(color_text(name, name_color));
+        // it's not already in the name
+        if stages.is_some() {
+            label_r.on_hover_text(color_text(&entry.id, WHITE));
+        }
+
+        if let Some(stages) = stages {
+            let stage = stages.get(&entry.stage);
+            let stage_name =
+                stage.map_or_else(|| format!("{}) UNKNOWN", entry.stage), |s| s.get_name(60));
+
+            let r = ComboBox::from_id_source(&entry.id)
                 .width(435.)
                 .selected_text(stage_name)
                 .show_ui(ui, |ui| {
                     set_selectable_styles(ui);
                     let mut selected = entry.stage;
-                    for (id, stage) in &quest.stages {
+                    for (id, stage) in stages {
                         let r = ui.selectable_value(&mut selected, *id, stage.get_name(60));
-                        if r.hovered() {
-                            Self::show_description(ui, r.rect, stage);
-                        }
+                        Self::show_description(ui, &r, stage);
                     }
                     entry.stage = selected;
                 });
+
             if let Some(stage) = stage {
-                if r.response.hovered() {
-                    Self::show_description(ui, r.response.rect, stage);
-                }
+                Self::show_description(ui, &r.response, stage);
             }
         } else {
-            ui.add(Label::new(color_text(name, WHITE)).wrap(true));
             set_drag_value_styles(ui);
             ui.add(DragValue::new(&mut entry.stage));
         }
-
-        ui.end_row();
     }
+
     fn get_present_ids(&self) -> HashSet<&String> {
         self.journal.iter().map(|e| &e.id).collect()
     }
@@ -210,16 +217,12 @@ impl<'a> Editor<'a> {
                 let mut selected = state.stage;
                 for (id, stage) in stages {
                     let r = ui.selectable_value(&mut selected, *id, stage.get_name(40));
-                    if r.hovered() {
-                        Self::show_description(ui, r.rect, stage);
-                    }
+                    Self::show_description(ui, &r, stage);
                 }
                 state.stage = selected;
             });
         if let Some(stage) = current_stage {
-            if r.response.hovered() {
-                Self::show_description(ui, r.response.rect, stage);
-            }
+            Self::show_description(ui, &r.response, stage);
         }
         let btn = ui.add_enabled(!state.id.trim().is_empty(), IconButton::new(Icon::Plus));
 
@@ -238,12 +241,12 @@ impl<'a> Editor<'a> {
 
     // this is messy, but it's better than normal .on_hover_text
     // TODO simplify, somehow
-    fn show_description(ui: UiRef, rect: Rect, stage: &QuestStage) {
-        let description = shorten_string(&stage.description, 1000);
-        if description.is_empty() {
+    fn show_description(ui: UiRef, r: &Response, stage: &QuestStage) {
+        if !r.hovered() || stage.description.is_empty() {
             return;
         }
-        let anchor = rect.left_bottom();
+        let description = shorten_string(&stage.description, 1000);
+        let anchor = r.rect.left_bottom();
         let ctx = ui.ctx();
         let style = ui.style();
         let screen_rect = ctx.screen_rect();
@@ -257,7 +260,7 @@ impl<'a> Editor<'a> {
         let galley = ui.fonts(|f| f.layout_job(layout_job));
         let size = galley.size() + style.spacing.menu_margin.sum();
         let y_offset = 'b: {
-            let below = rect.left_top().y;
+            let below = r.rect.left_top().y;
             if below + size.y < screen_rect.max.y {
                 break 'b below;
             }

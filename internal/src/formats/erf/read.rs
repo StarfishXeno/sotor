@@ -24,6 +24,7 @@ struct Header {
     resources_offset: usize,
     description_str_ref: usize,
 }
+
 struct KeyRead {
     name: String,
     id: u32,
