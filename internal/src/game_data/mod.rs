@@ -302,9 +302,9 @@ impl GameData {
             portraits: read_appearances(portraits, "baseresref"),
             appearances: read_appearances(appearances, "label"),
             soundsets,
-            quests: read_quests(&journal, &tlk_bytes)
+            quests: read_quests(journal, &tlk_bytes)
                 .map_err(|err| format!("couldn't read journal: {err}"))?,
-            items: read_items(&items, &tlk_bytes)
+            items: read_items(items, &tlk_bytes)
                 .map_err(|err| format!("couldn't read items: {err}"))?,
         })
     }

@@ -55,7 +55,7 @@ impl Reader {
         let (use_pifo, last_module) = self.read_last_module(&resource_map, &nfo.last_module)?;
         let (characters, character_structs) = self.read_characters(
             &resource_map,
-            &last_module,
+            last_module,
             party_table.available_members.len(),
         )?;
 
@@ -104,12 +104,11 @@ impl Reader {
         let mut values = Vec::with_capacity(GLOBALS_TYPES.len());
 
         for tp in GLOBALS_TYPES {
-            let Some(Field::List(name_list)) = s.fields.get(&("Cat".to_owned() + tp)) else {
+            let Some(Field::List(name_list)) = s.fields.get(&format!("Cat{tp}")) else {
                 return Err(format!("Globals: missing or invalid Cat{tp}"));
             };
 
-            let val = s.fields.get(&("Val".to_owned() + tp));
-            if let Some(Field::Void(bytes)) = val {
+            if let Some(Field::Void(bytes)) = s.fields.get(&format!("Val{tp}")) {
                 values.push(bytes);
             } else {
                 return Err(format!("Globals: missing or invalid Val{tp}"));
@@ -118,24 +117,15 @@ impl Reader {
             names.push(
                 name_list
                     .iter()
-                    .map(|s| s.get("Name", Field::string).unwrap())
-                    .collect(),
+                    .map(|s| s.get("Name", Field::string))
+                    .collect::<Result<_, _>>()?,
             );
         }
 
-        let numbers: Vec<_> = names
-            .remove(0)
-            .into_iter()
-            .zip(values[0].iter().copied())
-            .map(|(name, value)| Global {
-                name,
-                value: GlobalValue::Number(value),
-            })
-            .collect();
-
         let boolean_bytes = values[1];
         let booleans: Vec<_> = names
-            .remove(0)
+            .pop()
+            .unwrap()
             .into_iter()
             .enumerate()
             .map(|(idx, name)| {
@@ -151,6 +141,17 @@ impl Reader {
             })
             .collect();
 
+        let numbers: Vec<_> = names
+            .pop()
+            .unwrap()
+            .into_iter()
+            .zip(values[0].iter().copied())
+            .map(|(name, value)| Global {
+                name,
+                value: GlobalValue::Number(value),
+            })
+            .collect();
+
         let mut globals: Vec<_> = [numbers, booleans].into_iter().flatten().collect();
 
         globals.sort_unstable_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -161,8 +162,8 @@ impl Reader {
     fn read_party_table(&self) -> SResult<PartyTable> {
         let s = &self.party_table.content;
         let journal = s
-            .get("JNL_Entries", Field::list)?
-            .into_iter()
+            .get_ref("JNL_Entries", Field::list)?
+            .iter()
             .map(|e| {
                 Ok(JournalEntry {
                     id: e.get("JNL_PlotID", Field::string)?,
@@ -174,38 +175,38 @@ impl Reader {
             .collect::<SResult<_>>()?;
 
         let members = s
-            .get("PT_MEMBERS", Field::list)?
-            .into_iter()
+            .get_ref("PT_MEMBERS", Field::list)?
+            .iter()
             .map(|m| {
                 Ok(PartyMember {
                     idx: m.get("PT_MEMBER_ID", Field::int)? as usize,
-                    leader: m.get("PT_IS_LEADER", Field::bool)?,
+                    leader: m.get("PT_IS_LEADER", Field::byte)? != 0,
                 })
             })
             .collect::<SResult<_>>()?;
 
         let available_members = s
-            .get("PT_AVAIL_NPCS", Field::list)?
-            .into_iter()
+            .get_ref("PT_AVAIL_NPCS", Field::list)?
+            .iter()
             .map(|m| {
                 Ok(AvailablePartyMember {
-                    available: m.get("PT_NPC_AVAIL", Field::bool)?,
-                    selectable: m.get("PT_NPC_SELECT", Field::bool)?,
+                    available: m.get("PT_NPC_AVAIL", Field::byte)? != 0,
+                    selectable: m.get("PT_NPC_SELECT", Field::byte)? != 0,
                 })
             })
             .collect::<SResult<_>>()?;
 
         let influence = s
-            .get("PT_INFLUENCE", Field::list)
+            .get_ref("PT_INFLUENCE", Field::list)
             .ok()
             .map(|i| {
-                i.into_iter()
+                i.iter()
                     .map(|m| m.get("PT_NPC_INFLUENCE", Field::int))
                     .collect::<SResult<_>>()
             })
             .transpose()?;
         let party_xp = s.get("PT_XP_POOL", Field::int)?;
-        let cheat_used = s.get("PT_CHEAT_USED", Field::bool)?;
+        let cheat_used = s.get("PT_CHEAT_USED", Field::byte)? != 0;
         let credits = s.get("PT_GOLD", Field::dword)?;
         let components = s.get("PT_ITEM_COMPONEN", Field::dword).ok();
         let chemicals = s.get("PT_ITEM_CHEMICAL", Field::dword).ok();
@@ -253,13 +254,13 @@ impl Reader {
     fn read_characters(
         &self,
         map: &HashMap<String, String>,
-        last_module: &Gff,
+        mut last_module: Gff,
         count: usize,
     ) -> SResult<(Vec<Character>, Vec<Struct>)> {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
-        let mut player_field = last_module.get("Mod_PlayerList", Field::list)?;
+        let mut player_field = last_module.take("Mod_PlayerList", Field::list_take)?;
         if player_field.is_empty() {
             return Err("Couldn't get player character struct".to_string());
         }
@@ -287,7 +288,7 @@ impl Reader {
 
     fn read_character(s: &Struct, idx: usize) -> SResult<Character> {
         let name = s
-            .get("FirstName", Field::loc_string)?
+            .get_ref("FirstName", Field::loc_string)?
             .1
             .first()
             .map_or_else(String::new, |v| v.content.clone());
@@ -302,21 +303,21 @@ impl Reader {
         ];
 
         let skills = s
-            .get("SkillList", Field::list)?
-            .into_iter()
+            .get_ref("SkillList", Field::list)?
+            .iter()
             .map(|s| s.get("Rank", Field::byte))
             .collect::<SResult<Vec<_>>>()?
             .try_into()
             .map_err(|_| "Invalid skill list".to_string())?;
 
         let feats = s
-            .get("FeatList", Field::list)?
-            .into_iter()
+            .get_ref("FeatList", Field::list)?
+            .iter()
             .map(|s| s.get("Feat", Field::word))
             .collect::<SResult<_>>()?;
 
         let classes = s
-            .get("ClassList", Field::list)?
+            .get_ref("ClassList", Field::list)?
             .iter()
             .map(Self::read_class)
             .collect::<SResult<Vec<_>>>()?;
@@ -332,7 +333,7 @@ impl Reader {
             hp_max: s.get("MaxHitPoints", Field::short)?,
             fp: s.get("ForcePoints", Field::short)?,
             fp_max: s.get("MaxForcePoints", Field::short)?,
-            min_1_hp: s.get("Min1HP", Field::bool)?,
+            min_1_hp: s.get("Min1HP", Field::byte)? != 0,
             good_evil: s.get("GoodEvil", Field::byte)?,
             experience: s.get("Experience", Field::dword)?,
             attributes,
@@ -348,10 +349,10 @@ impl Reader {
 
     fn read_class(class: &Struct) -> SResult<Class> {
         let powers = class
-            .get("KnownList0", Field::list)
+            .get_ref("KnownList0", Field::list)
             .ok()
             .map(|list| {
-                list.into_iter()
+                list.iter()
                     .map(|s| s.get("Spell", Field::word))
                     .collect::<SResult<_>>()
             })

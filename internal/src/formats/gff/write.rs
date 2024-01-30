@@ -105,7 +105,7 @@ impl Writer {
                         self.save_bytes(&bytes_to_sized_bytes::<DWORD_SIZE>(v.as_bytes()))
                     }
                     Field::ResRef(v) => self.save_bytes(&bytes_to_sized_bytes::<1>(v.as_bytes())),
-                    Field::LocString(str_ref, v) => {
+                    Field::LocString((str_ref, v)) => {
                         let string_count = v.len();
                         // Total Size will be added in the end
                         let mut bytes = Vec::with_capacity(string_count * 10 + 2 * DWORD_SIZE);

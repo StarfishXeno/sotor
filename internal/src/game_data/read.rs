@@ -4,7 +4,7 @@ use crate::{
         gff::{Field, Gff},
         key::Key,
         tlk::Tlk,
-        twoda::{TwoDA, TwoDAValue},
+        twoda::TwoDA,
         ReadResource, ResourceType,
     },
     game_data::{Appearance, Class, Feat, Item, Quest, QuestStage},
@@ -212,13 +212,13 @@ pub fn read_feats(
     let mut str_refs = Vec::with_capacity(twoda.0.len() * 2);
     let mut idx = 0;
     for feat in twoda.0 {
-        let id = feat["_idx"].clone().unwrap().int_unwrap();
+        let id = *feat["_idx"].as_ref().unwrap().int_unwrap();
         let label = feat["label"]
-            .clone()
-            .map(TwoDAValue::string_unwrap)
+            .as_ref()
+            .map(|t| t.string_unwrap().clone())
             .unwrap_or_default();
-        let name_ref = feat["name"].clone().map_or(-1, TwoDAValue::int_unwrap);
-        let descr_ref = feat[descr_field].clone().map_or(-1, TwoDAValue::int_unwrap);
+        let name_ref = feat["name"].as_ref().map_or(-1, |t| *t.int_unwrap());
+        let descr_ref = feat[descr_field].as_ref().map_or(-1, |t| *t.int_unwrap());
         if name_ref == -1 && label.is_empty() {
             // some nameless garbage
             continue;
@@ -260,15 +260,15 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
     let mut str_refs = Vec::with_capacity(twoda.0.len());
     let mut idx = 0;
     for class in twoda.0 {
-        let id = class["_idx"].clone().unwrap().int_unwrap();
+        let id = *class["_idx"].as_ref().unwrap().int_unwrap();
         let force_user = class["spellgaintable"].is_some();
-        let Some(name_ref) = class["name"].clone().map(TwoDAValue::int_unwrap) else {
+        let Some(name_ref) = class["name"].as_ref().map(|t| *t.int_unwrap()) else {
             continue;
         };
-        let Some(hit_die) = class["hitdie"].clone().map(TwoDAValue::int_unwrap) else {
+        let Some(hit_die) = class["hitdie"].as_ref().map(|t| *t.int_unwrap()) else {
             continue;
         };
-        let Some(force_die) = class["forcedie"].clone().map(TwoDAValue::int_unwrap) else {
+        let Some(force_die) = class["forcedie"].as_ref().map(|t| *t.int_unwrap()) else {
             continue;
         };
 
@@ -297,8 +297,8 @@ pub fn read_classes(twoda: TwoDA, tlk_bytes: &[u8]) -> SResult<Vec<Class>> {
 pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
     let mut appearances = Vec::with_capacity(twoda.0.len());
     for appearance in twoda.0 {
-        let id = appearance["_idx"].clone().unwrap().int_unwrap() as u16;
-        let Some(name) = appearance[field].clone().map(TwoDAValue::string_unwrap) else {
+        let id = *appearance["_idx"].clone().unwrap().int_unwrap() as u16;
+        let Some(name) = appearance[field].clone().map(|t| t.string_unwrap().clone()) else {
             continue;
         };
 
@@ -308,19 +308,19 @@ pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
     appearances
 }
 
-pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
-    let list = journal.get("Categories", Field::list)?;
+pub fn read_quests(mut journal: Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
+    let mut list = journal.take("Categories", Field::list_take)?;
     let mut tmp = Vec::with_capacity(list.len());
     let mut str_refs = Vec::with_capacity(list.len() * 10);
-    for quest in list {
-        let id = quest.get("Tag", Field::string)?;
-        let name_ref = quest.get("Name", Field::loc_string)?.0 as usize;
-        let stages_list = quest.get("EntryList", Field::list)?;
+    for quest in &mut list {
+        let id = quest.take("Tag", Field::string_take)?;
+        let name_ref = quest.take("Name", Field::loc_string_take)?.0 as usize;
+        let mut stages_list = quest.take("EntryList", Field::list_take)?;
         let mut stages = Vec::with_capacity(stages_list.len());
-        for stage in stages_list {
-            let id = stage.get("ID", Field::dword)? as i32;
-            let end = stage.get("End", Field::word)? != 0;
-            let descr_ref = stage.get("Text", Field::loc_string)?.0 as usize;
+        for stage in &mut stages_list {
+            let id = stage.take("ID", Field::dword_take)? as i32;
+            let end = stage.take("End", Field::word_take)? != 0;
+            let descr_ref = stage.take("Text", Field::loc_string_take)?.0 as usize;
 
             stages.push((id, end, descr_ref));
             str_refs.push(descr_ref);
@@ -359,17 +359,17 @@ pub fn read_quests(journal: &Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
     Ok(quests)
 }
 
-pub fn read_items(items: &[Gff], tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
+pub fn read_items(mut items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut tmp = Vec::with_capacity(items.len());
     let mut str_refs = Vec::with_capacity(items.len() * 2);
-    for item in items {
-        let s = &item.content;
-        let tag = s.get("Tag", Field::string)?;
-        let res_ref = s.get("TemplateResRef", Field::res_ref)?;
-        let identified = s.get("Identified", Field::bool)?;
-        let name_ref = s.get("LocalizedName", Field::loc_string)?.0 as usize;
-        let descr_ref = s.get("DescIdentified", Field::loc_string)?.0 as usize;
-        let stack_size = s.get("StackSize", Field::word)?;
+    for item in &mut items {
+        let s = &mut item.content;
+        let tag = s.take("Tag", Field::string_take)?;
+        let res_ref = s.take("TemplateResRef", Field::res_ref_take)?;
+        let identified = s.take("Identified", Field::byte_take)? != 0;
+        let name_ref = s.take("LocalizedName", Field::loc_string_take)?.0 as usize;
+        let descr_ref = s.take("DescIdentified", Field::loc_string_take)?.0 as usize;
+        let stack_size = s.take("StackSize", Field::word_take)?;
 
         tmp.push((tag, res_ref, identified, name_ref, descr_ref, stack_size));
         str_refs.push(name_ref);

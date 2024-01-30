@@ -170,13 +170,13 @@ impl<'a> Updater<'a> {
         let fields = &mut s.fields;
         fields.insert(
             "FirstName".to_owned(),
-            Field::LocString(
+            Field::LocString((
                 u32::MAX,
                 vec![LocString {
                     id: 0,
                     content: char.name.clone(),
                 }],
-            ),
+            )),
         );
 
         let attributes = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];

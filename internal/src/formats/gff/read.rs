@@ -216,7 +216,7 @@ impl<'a> Reader<'a> {
                         let content = take_string_sized::<u32>(c)?;
                         strings.push(LocString { id, content });
                     }
-                    Some(Field::LocString(str_ref, strings))
+                    Some(Field::LocString((str_ref, strings)))
                 })?),
                 13 => Simple(read_data(tp, field_data, value, idx, |c| {
                     take_slice_sized::<u32, _>(c).map(|s| Field::Void(s.into_owned()))
@@ -303,7 +303,7 @@ impl<'a> Reader<'a> {
         for idx in &s.field_indices {
             let f = &mut fields[*idx];
             let label = mem::take(&mut f.label);
-            let value = mem::take(&mut f.value);
+            let value = mem::replace(&mut f.value, FieldTmp::Simple(Field::default()));
             field_map.insert(label, Self::unwrap_tmp_field(structs, fields, value));
         }
         Struct {

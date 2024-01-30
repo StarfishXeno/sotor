@@ -236,33 +236,42 @@ pub fn derive_unwrap_variant(input: TokenStream) -> TokenStream {
 
     for variant in &data.variants {
         let v_name = &variant.ident;
-        let (ret, fields, ret_fields) = match &variant.fields {
+        let (ret, ret_ref, fields, ret_fields) = match &variant.fields {
             Fields::Unnamed(v) => {
                 if v.unnamed.len() > 1 {
+                    let mut ret_ref = TokenStream2::new();
+                    for f in &v.unnamed {
+                        ret_ref.extend(quote!(&#f,));
+                    }
+
                     let mut field_names = vec![];
                     for i in 0..v.unnamed.len() {
                         field_names.push(format!("f{i}"));
                     }
                     let fields: TokenStream2 =
                         format!("({})", field_names.join(",")).parse().unwrap();
-                    (quote! { #v }, fields.clone(), fields)
+                    (quote! { #v }, quote! {(#ret_ref)}, fields.clone(), fields)
                 } else {
+                    let ty = v.unnamed.first().unwrap();
                     (
-                        v.unnamed.first().unwrap().to_token_stream(),
+                        ty.to_token_stream(),
+                        quote! {&#ty},
                         quote! { (v) },
                         quote! { v },
                     )
                 }
             }
-            Fields::Unit => (quote! { () }, quote! {}, quote! { () }),
+            Fields::Unit => continue,
             Fields::Named(_) => return derive_error!("Named fields are unsupported"),
         };
+
         let snake_name = v_name.to_string().to_case(Case::Snake);
+        let take_name = format_ident!("{}_take", snake_name);
         let get_name = format_ident!("{}", snake_name);
         let unwrap_name = format_ident!("{}_unwrap", snake_name);
 
         generated.extend(quote! {
-           pub fn  #get_name(self) -> Option<#ret> {
+            pub fn  #take_name(self) -> Option<#ret> {
                 if let #name::#v_name #fields = self {
                     Some(#ret_fields)
                 } else {
@@ -270,13 +279,21 @@ pub fn derive_unwrap_variant(input: TokenStream) -> TokenStream {
                 }
             }
 
-           pub fn  #unwrap_name(self) -> #ret {
-            if let #name::#v_name #fields = self {
-                #ret_fields
-            } else {
-                panic!("incorrect field type")
+            pub fn  #get_name(&self) -> Option<#ret_ref> {
+                if let #name::#v_name #fields = &self {
+                    Some(#ret_fields)
+                } else {
+                    None
+                }
             }
-        }
+
+            pub fn  #unwrap_name(&self) -> #ret_ref {
+                if let #name::#v_name #fields = &self {
+                    #ret_fields
+                } else {
+                    panic!("incorrect field type")
+                }
+            }
         });
     }
 

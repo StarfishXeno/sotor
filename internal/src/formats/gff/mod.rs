@@ -2,7 +2,10 @@ use super::{FileHead, LocString};
 use crate::util::SResult;
 use ahash::HashMap;
 use macros::{EnumToInt, EnumToString, UnwrapVariant};
-use std::ops::Deref;
+use std::{
+    mem,
+    ops::{Deref, DerefMut},
+};
 
 mod read;
 mod write;
@@ -26,12 +29,6 @@ enum FieldTmp {
     List(Vec<usize>),
 }
 
-impl Default for FieldTmp {
-    fn default() -> Self {
-        Self::Simple(Field::Byte(0))
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Orientation {
     w: f32,
@@ -47,7 +44,7 @@ pub struct Vector {
 }
 
 #[repr(u8)]
-#[derive(EnumToInt, EnumToString, UnwrapVariant, Debug, Clone, PartialEq)]
+#[derive(EnumToInt, EnumToString, UnwrapVariant, Debug, Clone, PartialEq, Default)]
 pub enum Field {
     Byte(u8) = 0,
     Char(i8) = 1,
@@ -61,18 +58,15 @@ pub enum Field {
     Double(f64) = 9,
     String(String) = 10,
     ResRef(String) = 11,
-    LocString(u32, Vec<LocString>) = 12,
+    LocString((u32, Vec<LocString>)) = 12,
     Void(Vec<u8>) = 13,
     // boxing it cuts Field size in half
     BStruct(Box<Struct>) = 14,
     List(Vec<Struct>) = 15,
     Orientation(Orientation) = 16,
     Vector(Vector) = 17,
-}
-impl Field {
-    pub fn bool(self) -> Option<bool> {
-        self.byte().map(|b| b != 0)
-    }
+    #[default]
+    Invalid = 255,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -95,11 +89,32 @@ impl Struct {
         }
     }
 
-    pub fn get<T>(&self, field: &str, method: impl Fn(Field) -> Option<T>) -> SResult<T> {
+    pub fn take<T>(&mut self, field: &str, method: impl Fn(Field) -> Option<T>) -> SResult<T> {
+        self.fields
+            .get_mut(field)
+            .ok_or_else(|| format!("missing field {field}"))
+            .and_then(|f| {
+                let f = mem::take(f);
+                method(f).ok_or_else(|| format!("invalid field {field}"))
+            })
+    }
+
+    pub fn get<T: Clone>(&self, field: &str, method: impl Fn(&Field) -> Option<&T>) -> SResult<T> {
         self.fields
             .get(field)
             .ok_or_else(|| format!("missing field {field}"))
-            .and_then(|f| method(f.clone()).ok_or_else(|| format!("invalid field {field}")))
+            .and_then(|f| {
+                method(f)
+                    .cloned()
+                    .ok_or_else(|| format!("invalid field {field}"))
+            })
+    }
+
+    pub fn get_ref<T>(&self, field: &str, method: impl Fn(&Field) -> Option<&T>) -> SResult<&T> {
+        self.fields
+            .get(field)
+            .ok_or_else(|| format!("missing field {field}"))
+            .and_then(|f| method(f).ok_or_else(|| format!("invalid field {field}")))
     }
 }
 
@@ -113,6 +128,12 @@ impl Deref for Gff {
     type Target = Struct;
     fn deref(&self) -> &Self::Target {
         &self.content
+    }
+}
+
+impl DerefMut for Gff {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.content
     }
 }
 
@@ -150,13 +171,13 @@ mod tests {
                 ("CResRef", Field::ResRef("CResRef".to_owned())),
                 (
                     "CExoLocString",
-                    Field::LocString(
+                    Field::LocString((
                         u32::MAX,
                         vec![LocString {
                             id: 1,
                             content: "LocString".to_owned(),
                         }],
-                    ),
+                    )),
                 ),
                 ("Void", Field::Void(vec![0, 1, 2, 3])),
                 (
