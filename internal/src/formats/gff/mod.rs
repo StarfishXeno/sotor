@@ -119,6 +119,10 @@ impl Struct {
             .ok_or_else(|| format!("missing field {field}"))
             .and_then(|f| method(f).ok_or_else(|| format!("invalid field {field}")))
     }
+
+    pub fn insert(&mut self, field: &str, value: Field) {
+        self.fields.insert(field.to_owned(), value);
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

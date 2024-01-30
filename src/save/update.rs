@@ -26,15 +26,12 @@ impl<'a> Updater<'a> {
 
     fn update_nfo(&mut self) {
         let nfo = &mut self.save.nfo;
-        let fields = &mut self.save.inner.nfo.content.fields;
+        let s = &mut self.save.inner.nfo.content;
 
-        fields.insert(
-            "SAVEGAMENAME".to_owned(),
-            Field::String(nfo.save_name.clone()),
-        );
-        fields.insert("CHEATUSED".to_owned(), Field::Byte(nfo.cheat_used as u8));
-        fields.insert(
-            "PCNAME".to_owned(),
+        s.insert("SAVEGAMENAME", Field::String(nfo.save_name.clone()));
+        s.insert("CHEATUSED", Field::Byte(nfo.cheat_used as u8));
+        s.insert(
+            "PCNAME",
             Field::String(self.save.characters.first().unwrap().name.clone()),
         );
         let mut char_indices = vec![0];
@@ -48,7 +45,7 @@ impl<'a> Updater<'a> {
             let Some(portrait) = self.data.portraits.get(&char.portrait) else {
                 continue;
             };
-            fields.insert(
+            s.fields.insert(
                 format!("PORTRAIT{idx}"),
                 Field::ResRef(portrait.name.clone()),
             );
@@ -57,7 +54,7 @@ impl<'a> Updater<'a> {
 
     fn update_globals(&mut self) {
         let globals = &self.save.globals;
-        let fields = &mut self.save.inner.globals.content.fields;
+        let s = &mut self.save.inner.globals.content;
         let mut numbers = vec![];
         let mut booleans = vec![];
         for global in globals {
@@ -82,12 +79,12 @@ impl<'a> Updater<'a> {
                 .into_iter()
                 .map(|name| Struct::new(vec![("Name", Field::String(name))]))
                 .collect();
-            fields.insert("Cat".to_owned() + name, Field::List(structs));
+            s.fields.insert(format!("Cat{name}"), Field::List(structs));
         }
 
         // NUMBERS
         let number_values = numbers.iter().map(|g| g.1).collect();
-        fields.insert("ValNumber".to_owned(), Field::Void(number_values));
+        s.insert("ValNumber", Field::Void(number_values));
 
         // BOOLEANS
         let mut boolean_values = Vec::with_capacity(booleans.len() / 8 + 1);
@@ -101,11 +98,11 @@ impl<'a> Updater<'a> {
 
             boolean_values[byte_idx] |= (field.1 as u8) << bit_idx;
         }
-        fields.insert("ValBoolean".to_owned(), Field::Void(boolean_values));
+        s.insert("ValBoolean", Field::Void(boolean_values));
     }
 
     fn update_party_table(&mut self) {
-        let fields = &mut self.save.inner.party_table.content.fields;
+        let s = &mut self.save.inner.party_table.content;
         let pt = &self.save.party_table;
 
         let journal_list = pt
@@ -120,7 +117,7 @@ impl<'a> Updater<'a> {
                 ])
             })
             .collect();
-        fields.insert("JNL_Entries".to_owned(), Field::List(journal_list));
+        s.insert("JNL_Entries", Field::List(journal_list));
 
         let members_list: Vec<_> = pt
             .members
@@ -132,11 +129,8 @@ impl<'a> Updater<'a> {
                 ])
             })
             .collect();
-        fields.insert(
-            "PT_NUM_MEMBERS".to_owned(),
-            Field::Byte(members_list.len() as u8),
-        );
-        fields.insert("PT_MEMBERS".to_owned(), Field::List(members_list));
+        s.insert("PT_NUM_MEMBERS", Field::Byte(members_list.len() as u8));
+        s.insert("PT_MEMBERS", Field::List(members_list));
 
         let av_members_list = pt
             .available_members
@@ -148,21 +142,18 @@ impl<'a> Updater<'a> {
                 ])
             })
             .collect();
-        fields.insert("PT_AVAIL_NPCS".to_owned(), Field::List(av_members_list));
+        s.insert("PT_AVAIL_NPCS", Field::List(av_members_list));
 
-        fields.insert(
-            "PT_CHEAT_USED".to_owned(),
-            Field::Byte(self.save.nfo.cheat_used as u8),
-        );
-        fields.insert("PT_GOLD".to_owned(), Field::Dword(pt.credits));
-        fields.insert("PT_XP_POOL".to_owned(), Field::Int(pt.party_xp));
+        s.insert("PT_CHEAT_USED", Field::Byte(self.save.nfo.cheat_used as u8));
+        s.insert("PT_GOLD", Field::Dword(pt.credits));
+        s.insert("PT_XP_POOL", Field::Int(pt.party_xp));
 
         if let Some(v) = pt.components {
-            fields.insert("PT_ITEM_COMPONEN".to_owned(), Field::Dword(v));
+            s.insert("PT_ITEM_COMPONEN", Field::Dword(v));
         }
 
         if let Some(v) = pt.chemicals {
-            fields.insert("PT_ITEM_CHEMICAL".to_owned(), Field::Dword(v));
+            s.insert("PT_ITEM_CHEMICAL", Field::Dword(v));
         }
 
         if let Some(v) = &pt.influence {
@@ -170,7 +161,7 @@ impl<'a> Updater<'a> {
                 .iter()
                 .map(|m| Struct::new(vec![("PT_NPC_INFLUENCE", Field::Int(*m))]))
                 .collect();
-            fields.insert("PT_INFLUENCE".to_owned(), Field::List(influence_list));
+            s.insert("PT_INFLUENCE", Field::List(influence_list));
         }
     }
 
@@ -181,9 +172,8 @@ impl<'a> Updater<'a> {
     }
 
     fn update_character(char: &Character, s: &mut Struct) {
-        let fields = &mut s.fields;
-        fields.insert(
-            "FirstName".to_owned(),
+        s.insert(
+            "FirstName",
             Field::LocString((
                 char.name_ref,
                 vec![LocString {
@@ -195,40 +185,40 @@ impl<'a> Updater<'a> {
 
         let attributes = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
         for (idx, name) in attributes.into_iter().enumerate() {
-            fields.insert(name.to_owned(), Field::Byte(char.attributes[idx]));
+            s.insert(name, Field::Byte(char.attributes[idx]));
         }
 
-        fields.insert("HitPoints".to_owned(), Field::Short(char.hp));
-        fields.insert("CurrentHitPoints".to_owned(), Field::Short(char.hp));
-        fields.insert("MaxHitPoints".to_owned(), Field::Short(char.hp_max));
-        fields.insert("ForcePoints".to_owned(), Field::Short(char.fp));
-        fields.insert("CurrentForce".to_owned(), Field::Short(char.fp));
-        fields.insert("MaxForcePoints".to_owned(), Field::Short(char.fp_max));
-        fields.insert("Min1HP".to_owned(), Field::Byte(char.min_1_hp as u8));
-        fields.insert("GoodEvil".to_owned(), Field::Byte(char.good_evil));
-        fields.insert("Experience".to_owned(), Field::Dword(char.experience));
+        s.insert("HitPoints", Field::Short(char.hp));
+        s.insert("CurrentHitPoints", Field::Short(char.hp));
+        s.insert("MaxHitPoints", Field::Short(char.hp_max));
+        s.insert("ForcePoints", Field::Short(char.fp));
+        s.insert("CurrentForce", Field::Short(char.fp));
+        s.insert("MaxForcePoints", Field::Short(char.fp_max));
+        s.insert("Min1HP", Field::Byte(char.min_1_hp as u8));
+        s.insert("GoodEvil", Field::Byte(char.good_evil));
+        s.insert("Experience", Field::Dword(char.experience));
 
         let skills = char
             .skills
             .iter()
             .map(|r| Struct::new(vec![("Rank", Field::Byte(*r))]))
             .collect();
-        fields.insert("SkillList".to_owned(), Field::List(skills));
+        s.insert("SkillList", Field::List(skills));
 
         let feats = char
             .feats
             .iter()
             .map(|f| Struct::with_type(1, vec![("Feat", Field::Word(*f))]))
             .collect();
-        fields.insert("FeatList".to_owned(), Field::List(feats));
+        s.insert("FeatList", Field::List(feats));
 
         let classes = char.classes.iter().map(Self::make_class).collect();
-        fields.insert("ClassList".to_owned(), Field::List(classes));
+        s.insert("ClassList", Field::List(classes));
 
-        fields.insert("Gender".to_owned(), Field::Byte(char.gender.to_int()));
-        fields.insert("PortraitId".to_owned(), Field::Word(char.portrait));
-        fields.insert("Appearance_Type".to_owned(), Field::Word(char.appearance));
-        fields.insert("SoundSetFile".to_owned(), Field::Word(char.soundset));
+        s.insert("Gender", Field::Byte(char.gender.to_int()));
+        s.insert("PortraitId", Field::Word(char.portrait));
+        s.insert("Appearance_Type", Field::Word(char.appearance));
+        s.insert("SoundSetFile", Field::Word(char.soundset));
     }
 
     fn make_class(class: &Class) -> Struct {
@@ -246,11 +236,10 @@ impl<'a> Updater<'a> {
                 .map(|p| Struct::with_type(3, vec![("Spell", Field::Word(*p))]))
                 .collect();
 
-            s.fields
-                .insert("KnownList0".to_owned(), Field::List(powers));
+            s.insert("KnownList0", Field::List(powers));
             // fuck knows, normal saves have this field
-            s.fields.insert(
-                "SpellsPerDayList".to_owned(),
+            s.insert(
+                "SpellsPerDayList",
                 Field::List(vec![Struct::with_type(
                     17767,
                     vec![("NumSpellsLeft", Field::Byte(0))],
@@ -303,8 +292,8 @@ impl<'a> Updater<'a> {
 
         for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {
             let inner_idx = &self.save.characters[idx].idx.to_string();
-            let key = &(NPC_RESOURCE_PREFIX.to_owned() + inner_idx);
-            let res = erf.get_mut(key, ResourceType::Utc).unwrap();
+            let key = format!("{NPC_RESOURCE_PREFIX}{inner_idx}");
+            let res = erf.get_mut(&key, ResourceType::Utc).unwrap();
             res.content = gff::write(Gff {
                 file_head: ("UTC ", "V3.2").into(),
                 content: char.clone(),
@@ -315,28 +304,31 @@ impl<'a> Updater<'a> {
     fn make_inventory(&mut self) -> Gff {
         let mut items = Vec::with_capacity(self.save.inventory.len());
         for item in &self.save.inventory {
-            let mut fields = item.raw.clone();
-            fields.insert("StackSize".to_owned(), Field::Word(item.stack_size));
-            fields.insert("MaxCharges".to_owned(), Field::Byte(item.max_charges));
-            fields.insert("Charges".to_owned(), Field::Byte(item.charges));
-            fields.insert("NewItem".to_owned(), Field::Byte(item.new as u8));
-            fields.insert("Upgrades".to_owned(), Field::Dword(item.upgrades));
+            let mut s = Struct {
+                tp: 0,
+                fields: item.raw.clone(),
+            };
+            s.insert("StackSize", Field::Word(item.stack_size));
+            s.insert("MaxCharges", Field::Byte(item.max_charges));
+            s.insert("Charges", Field::Byte(item.charges));
+            s.insert("NewItem", Field::Byte(item.new as u8));
+            s.insert("Upgrades", Field::Dword(item.upgrades));
             if let Some(slots) = item.upgrade_slots {
                 for (idx, v) in slots.iter().enumerate() {
-                    fields.insert(format!("UpgradeSlot{idx}"), Field::Int(*v));
+                    s.fields.insert(format!("UpgradeSlot{idx}"), Field::Int(*v));
                 }
             }
-            fields.insert("NewItem".to_owned(), Field::Byte(item.new as u8));
+            s.insert("NewItem", Field::Byte(item.new as u8));
             let mut insert_loc_if_needed = |source: Option<&String>, key: &str| {
                 let Some(val) = source else {
                     return;
                 };
-                let (str_ref, v) = fields[key].loc_string_unwrap();
+                let (str_ref, v) = s.fields[key].loc_string_unwrap();
                 if !v.is_empty() {
                     return;
                 }
-                fields.insert(
-                    key.to_owned(),
+                s.insert(
+                    key,
                     Field::LocString((
                         *str_ref,
                         vec![LocString {
@@ -349,7 +341,7 @@ impl<'a> Updater<'a> {
             insert_loc_if_needed(item.name.as_ref(), "LocalizedName");
             insert_loc_if_needed(item.description.as_ref(), "DescIdentified");
 
-            items.push(Struct { tp: 0, fields });
+            items.push(s);
         }
 
         Gff {

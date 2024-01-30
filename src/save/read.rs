@@ -258,7 +258,7 @@ impl Reader {
         structs.push(player);
 
         for idx in 0..count {
-            let key = NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string();
+            let key = format!("{NPC_RESOURCE_PREFIX}{idx}");
             let Some(resource) = self.erf.get(&key, ResourceType::Utc) else {
                 continue;
             };
