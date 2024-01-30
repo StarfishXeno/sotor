@@ -1,5 +1,5 @@
 use crate::{
-    save::{Character, Class, PartyTable, Save},
+    save::{Character, Class, Gender, PartyTable, Save},
     ui::{
         styles::{
             set_checkbox_styles, set_combobox_styles, set_drag_value_styles, set_selectable_styles,
@@ -192,6 +192,20 @@ impl<'a> Editor<'a> {
         set_striped_styles(ui);
         Self::grid("ec_appearance", ui, |ui| {
             set_combobox_styles(ui);
+            ui.label(color_text("Gender:", GREEN));
+            ui.end_row();
+            ComboBox::from_id_source("ec_gender")
+                .width(200.)
+                .selected_text(char.gender.to_str())
+                .show_ui(ui, |ui| {
+                    set_selectable_styles(ui);
+                    let mut selected = char.gender;
+                    for gender in Gender::LIST {
+                        ui.selectable_value(&mut selected, gender, gender.to_str());
+                    }
+                    char.gender = selected;
+                });
+            ui.end_row();
             ui.label(color_text("Portrait:", GREEN));
             ui.end_row();
             Self::appearance_selection(

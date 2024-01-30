@@ -15,7 +15,7 @@ fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_app_id("sotor")
-            .with_min_inner_size([900., 540.])
+            .with_min_inner_size([960., 540.])
             .with_icon(util::load_icon()),
         ..Default::default()
     };

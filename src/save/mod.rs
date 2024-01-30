@@ -9,7 +9,7 @@ use internal::{
     gff::{self, Field, Gff, Struct},
     ReadResourceNoArg as _,
 };
-use macros::{EnumFromInt, EnumToInt};
+use macros::{EnumFromInt, EnumList, EnumToInt, EnumToString};
 use std::{
     collections::VecDeque,
     fmt::{self},
@@ -76,7 +76,7 @@ pub struct Nfo {
     pub time_played: u32,
 }
 
-#[derive(EnumFromInt, EnumToInt, Debug, Clone, PartialEq)]
+#[derive(EnumFromInt, EnumToInt, EnumToString, EnumList, Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Gender {
     Male = 0,

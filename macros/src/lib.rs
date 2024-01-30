@@ -212,13 +212,13 @@ pub fn derive_enum_to_string(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics #name #ty_generics #where_clause {
-            fn repr_to_string(repr: #repr) -> &'static str {
+            pub fn repr_to_string(repr: #repr) -> &'static str {
                 match repr {
                     #discr_match_arms
                     _ => panic!()
                 }
             }
-            fn to_str(self) -> &'static str {
+            pub fn to_str(self) -> &'static str {
                 match self {
                     #match_arms
                 }

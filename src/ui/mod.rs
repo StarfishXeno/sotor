@@ -360,7 +360,7 @@ impl eframe::App for SotorApp {
             .resizable(true)
             .default_width(150.)
             .min_width(150.)
-            .max_width(ctx.screen_rect().width() - 700.)
+            .max_width(ctx.screen_rect().width() - 760.)
             .show(ctx, |ui| {
                 side_panel::SidePanel::new(&self.save_path, &self.game_data, &self.save_list)
                     .show(ui);

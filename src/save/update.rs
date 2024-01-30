@@ -265,7 +265,7 @@ impl<'a> Updater<'a> {
         // pain
         if !self.save.inner.use_pifo {
             let module = erf
-                .get_mut(&self.save.nfo.last_module, ResourceType::Sav)
+                .get_mut(&self.save.nfo.last_module.to_lowercase(), ResourceType::Sav)
                 .unwrap();
             let mut module_erf = Erf::read(&module.content).unwrap();
             let module_inner = module_erf.get_mut("module", ResourceType::Ifo).unwrap();
