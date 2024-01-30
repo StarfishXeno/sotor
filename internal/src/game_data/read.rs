@@ -359,19 +359,16 @@ pub fn read_quests(mut journal: Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
     Ok(quests)
 }
 
-pub fn read_items(mut items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
+pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut tmp = Vec::with_capacity(items.len());
     let mut str_refs = Vec::with_capacity(items.len() * 2);
-    for item in &mut items {
-        let s = &mut item.content;
-        let tag = s.take("Tag", Field::string_take)?;
-        let res_ref = s.take("TemplateResRef", Field::res_ref_take)?;
-        let identified = s.take("Identified", Field::byte_take)? != 0;
-        let name_ref = s.take("LocalizedName", Field::loc_string_take)?.0 as usize;
-        let descr_ref = s.take("DescIdentified", Field::loc_string_take)?.0 as usize;
-        let stack_size = s.take("StackSize", Field::word_take)?;
+    for item in items {
+        let tag = item.get("Tag", Field::string)?;
+        let name_ref = item.get("LocalizedName", Field::loc_string)?.0 as usize;
+        let descr_ref = item.get("DescIdentified", Field::loc_string)?.0 as usize;
+        let stack_size = item.get("StackSize", Field::word)?;
 
-        tmp.push((tag, res_ref, identified, name_ref, descr_ref, stack_size));
+        tmp.push((tag, name_ref, descr_ref, stack_size, item.content.fields));
         str_refs.push(name_ref);
         str_refs.push(descr_ref);
     }
@@ -380,14 +377,13 @@ pub fn read_items(mut items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
     let mut items = Vec::with_capacity(tmp.len());
 
-    for (tag, res_ref, identified, name_ref, descr_ref, stack_size) in tmp {
+    for (tag, name_ref, descr_ref, stack_size, inner) in tmp {
         items.push(Item {
-            res_ref,
             tag,
-            identified,
             stack_size,
             name: mem::take(map.get_mut(&name_ref).unwrap()),
             description: mem::take(map.get_mut(&descr_ref).unwrap()),
+            inner: inner.clone(),
         });
     }
     items.sort_unstable_by(|a, b| a.name.cmp(&b.name));

@@ -12,6 +12,8 @@ use internal::{
     gff::{Field, Gff, Struct},
     ReadResourceNoArg as _, ResourceType,
 };
+
+use super::Item;
 pub struct Reader {
     nfo: Gff,
     globals: Gff,
@@ -36,6 +38,7 @@ impl Reader {
         } else {
             Game::Two
         };
+
         Self {
             nfo,
             globals,
@@ -58,6 +61,7 @@ impl Reader {
             last_module,
             party_table.available_members.len(),
         )?;
+        let inventory = self.read_inventory(&resource_map)?;
 
         // unifying the flag in case it's somehow out of sync
         nfo.cheat_used = nfo.cheat_used || party_table.cheat_used;
@@ -71,6 +75,7 @@ impl Reader {
             characters,
             image: self.image,
             game: self.game,
+            inventory,
 
             inner: SaveInternals {
                 nfo: self.nfo,
@@ -363,5 +368,38 @@ impl Reader {
             level: class.get("ClassLevel", Field::short)?,
             powers,
         })
+    }
+
+    fn read_inventory(&self, map: &HashMap<String, String>) -> SResult<Vec<Item>> {
+        let key = map.get("inventory").ok_or("couldn't find inventory")?;
+        let res = self.erf.get(key, ResourceType::Unknown).unwrap();
+        let gff = Gff::read(&res.content)?;
+        let list = gff.get_ref("ItemList", Field::list)?;
+        let mut items = Vec::with_capacity(list.len());
+        for item in list {
+            let mut upgrade_slots = None;
+            // only in K2
+            if let Ok(slot0) = item.get("UpgradeSlot0", Field::int) {
+                upgrade_slots = Some([
+                    slot0,
+                    item.get("UpgradeSlot1", Field::int)?,
+                    item.get("UpgradeSlot2", Field::int)?,
+                    item.get("UpgradeSlot3", Field::int)?,
+                    item.get("UpgradeSlot4", Field::int)?,
+                    item.get("UpgradeSlot5", Field::int)?,
+                ]);
+            }
+
+            items.push(Item {
+                tag: item.get("Tag", Field::string)?,
+                count: item.get("StackSize", Field::word)?,
+                charges: item.get("Charges", Field::byte)?,
+                new: item.get("NewItem", Field::byte)? != 0,
+                upgrades: item.get("Upgrades", Field::dword)?,
+                upgrade_slots,
+                properties: Field::List(item.get("PropertiesList", Field::list)?),
+            });
+        }
+        Ok(items)
     }
 }

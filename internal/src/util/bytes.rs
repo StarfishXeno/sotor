@@ -105,7 +105,7 @@ pub fn take_slice<'a, T: Pod>(input: &'a mut Cursor, len: usize) -> Option<Cow<'
     if let Ok(slice) = try_cast_slice(bytes) {
         Some(Cow::Borrowed(slice))
     } else {
-        // pointer allignment issues won't let us use bytemuck's cast_slice
+        // pointer alignment issues won't let us to simply cast the slice
         // have to copy everything over into a properly aligned vec
         let mut vec = Vec::<T>::with_capacity(len);
         let ptr = vec.as_mut_ptr().cast::<u8>();

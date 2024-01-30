@@ -2,6 +2,7 @@ use super::{FileHead, LocString};
 use crate::util::SResult;
 use ahash::HashMap;
 use macros::{EnumToInt, EnumToString, UnwrapVariant};
+use serde::{Deserialize, Serialize};
 use std::{
     mem,
     ops::{Deref, DerefMut},
@@ -29,14 +30,14 @@ enum FieldTmp {
     List(Vec<usize>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Orientation {
     w: f32,
     x: f32,
     y: f32,
     z: f32,
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Vector {
     x: f32,
     y: f32,
@@ -44,7 +45,9 @@ pub struct Vector {
 }
 
 #[repr(u8)]
-#[derive(EnumToInt, EnumToString, UnwrapVariant, Debug, Clone, PartialEq, Default)]
+#[derive(
+    EnumToInt, EnumToString, UnwrapVariant, Serialize, Deserialize, Debug, Clone, PartialEq, Default,
+)]
 pub enum Field {
     Byte(u8) = 0,
     Char(i8) = 1,
@@ -69,7 +72,7 @@ pub enum Field {
     Invalid = 255,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Struct {
     pub tp: u32,
     pub fields: HashMap<String, Field>,

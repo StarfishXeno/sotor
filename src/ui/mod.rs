@@ -165,7 +165,6 @@ impl SotorApp {
     }
 
     fn load_save(&mut self, path: String, ctx: &Context, silent: bool) {
-        let now = std::time::Instant::now();
         match Save::read_from_directory(&path, ctx) {
             Ok(save) => {
                 self.save = Some(save);
@@ -178,7 +177,6 @@ impl SotorApp {
             }
         }
         self.set_meta_id(ctx);
-        println!("{:.2?}", now.elapsed());
     }
 
     fn load_latest_save(&mut self, ctx: &Context) {
@@ -264,7 +262,6 @@ impl SotorApp {
     }
 
     fn load_game_data(&mut self, game: Game, ctx: &Context) {
-        let now = std::time::Instant::now();
         let idx = game.idx();
         if let Some(game_path) = self.prs.game_paths[idx].as_ref() {
             let game_data = GameData::read(game, game_path, self.prs.steam_path.as_ref());
@@ -278,7 +275,6 @@ impl SotorApp {
             self.game_data[idx] = None;
         };
         self.set_meta_id(ctx);
-        println!("{:.2?}", now.elapsed());
     }
 
     fn reload_game_data(&mut self, ctx: &Context) {

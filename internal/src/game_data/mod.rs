@@ -9,6 +9,7 @@ use crate::{
         find_source, find_sources_by_name, find_sources_by_type, get_resource, get_resources,
         read_appearances, read_classes, read_feats, read_items, read_quests, read_workshop_dir,
     },
+    gff::Field,
     util::{
         fs::{read_dir_filemap, read_file},
         shorten_string, Game, SResult,
@@ -190,14 +191,13 @@ impl PartialEq for Quest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Item {
-    pub res_ref: String,
     pub tag: String,
     pub name: String,
-    pub identified: bool,
     pub description: String,
     pub stack_size: u16,
+    pub inner: HashMap<String, Field>,
 }
-impl_data!(Item, String, res_ref);
+impl_data!(Item, String, tag);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {

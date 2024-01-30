@@ -7,7 +7,7 @@ use ahash::HashMap;
 use egui::{Context, TextureHandle, TextureOptions};
 use internal::{
     erf::{self, Erf},
-    gff::{self, Gff, Struct},
+    gff::{self, Field, Gff, Struct},
     ReadResourceNoArg as _,
 };
 use macros::{EnumFromInt, EnumToInt};
@@ -115,6 +115,7 @@ pub struct Character {
     pub appearance: u16,
     pub soundset: u16,
 }
+
 impl Character {
     pub fn get_name(&self) -> &str {
         if self.name.is_empty() {
@@ -123,6 +124,17 @@ impl Character {
             &self.name
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Item {
+    tag: String,
+    count: u16,
+    charges: u8,
+    new: bool,
+    upgrades: u32,                   // in K1
+    upgrade_slots: Option<[i32; 6]>, // in K2
+    properties: Field,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -144,6 +156,7 @@ pub struct Save {
     pub party_table: PartyTable,
     pub image: Option<TextureHandle>,
     pub characters: Vec<Character>,
+    pub inventory: Vec<Item>,
 
     inner: SaveInternals,
 }
