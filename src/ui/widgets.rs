@@ -2,13 +2,13 @@ use super::{
     styles::{BLACK, BLUE, GREEN, GREEN_DARK, GREY, GREY_DARK, WHITE},
     UiRef,
 };
+use core::util::shorten_string;
 use egui::{
     epaint::TextShape, style::HandleShape, Area, Button, Color32, CursorIcon, FontSelection, Frame,
     Order, Response, RichText, Rounding, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle,
     Ui, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 use emath::{pos2, vec2, Align, Numeric, Rect};
-use internal::util::shorten_string;
 use std::ops::RangeInclusive;
 
 pub fn color_text(text: &str, color: Color32) -> RichText {

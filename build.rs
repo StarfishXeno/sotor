@@ -1,4 +1,4 @@
-use internal::{util::Game, GameData};
+use core::{util::Game, GameData};
 use std::{
     env::var,
     path::{Path, PathBuf},

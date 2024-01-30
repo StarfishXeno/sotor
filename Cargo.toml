@@ -5,11 +5,11 @@ edition = "2021"
 rust-version = "1.74"
 
 [workspace]
-members = ["macros", "internal"]
+members = ["macros", "core"]
 
 [workspace.dependencies]
 macros = { path = "./macros" }
-internal = { path = "./internal" }
+core = { path = "./core" }
 ahash = "0.8.7"
 serde = { version = "1.0.193", features = ["derive"] }
 bincode = "1.3.3"
@@ -18,7 +18,7 @@ zip = { version = "0.6.6", default-features = false }
 
 [dependencies]
 macros = { workspace = true }
-internal = { workspace = true }
+core = { workspace = true }
 ahash = { workspace = true }
 serde = { workspace = true }
 bincode = { workspace = true }
@@ -46,7 +46,7 @@ fastrand = { workspace = true, features = ["js"] }
 zip = { workspace = true, features = ["deflate"] }
 
 [build-dependencies]
-internal = { workspace = true }
+core = { workspace = true }
 ahash = { workspace = true }
 bincode = { workspace = true }
 zip = { workspace = true, features = ["deflate", "bzip2"] }

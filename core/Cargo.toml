@@ -1,8 +1,7 @@
 [package]
-name = "internal"
+name = "core"
 version = "0.0.0"
 edition = "2021"
-
 
 [dependencies]
 macros = { workspace = true }
@@ -12,10 +11,8 @@ fastrand = { workspace = true }
 bytemuck = "1.14.0"
 time = { version = "0.3.31", features = ["macros"] }
 
-
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 time = { version = "0.3.31", features = ["wasm-bindgen"] }
-
 
 [lints]
 workspace = true

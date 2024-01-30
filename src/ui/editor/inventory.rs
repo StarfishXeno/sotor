@@ -10,9 +10,9 @@ use crate::{
     },
     util::ContextExt,
 };
+use core::{Data as _, GameDataMapped};
 use egui::{ComboBox, Grid, Label, ScrollArea, Separator};
 use emath::{vec2, Align};
-use internal::{Data as _, GameDataMapped};
 
 pub struct Editor<'a> {
     items: &'a mut Vec<Item>,

@@ -1,5 +1,5 @@
 use crate::util::Game;
-pub use internal::util::fs::*;
+pub use core::util::fs::*;
 use std::{fs, io, path::PathBuf, process::Command};
 
 pub fn open_file_manager(path: &str) {

@@ -401,6 +401,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
+name = "core"
+version = "0.0.0"
+dependencies = [
+ "ahash",
+ "bytemuck",
+ "fastrand",
+ "macros",
+ "serde",
+ "time",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1027,18 +1039,6 @@ checksum = "d530e1a18b1cb4c484e6e34556a0d948706958449fca0cab753d649f2bce3d1f"
 dependencies = [
  "equivalent",
  "hashbrown",
-]
-
-[[package]]
-name = "internal"
-version = "0.0.0"
-dependencies = [
- "ahash",
- "bytemuck",
- "fastrand",
- "macros",
- "serde",
- "time",
 ]
 
 [[package]]
@@ -1729,6 +1729,7 @@ version = "0.9.0"
 dependencies = [
  "ahash",
  "bincode",
+ "core",
  "dotenv",
  "eframe",
  "egui",
@@ -1736,7 +1737,6 @@ dependencies = [
  "env_logger",
  "fastrand",
  "image",
- "internal",
  "log",
  "macros",
  "rfd",

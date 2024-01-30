@@ -1,7 +1,6 @@
 use crate::{formats::FileHead, util::ESResult};
 use bytemuck::{
-    bytes_of, cast_slice, checked::try_cast_slice, try_pod_read_unaligned, AnyBitPattern, NoUninit,
-    Pod,
+    bytes_of, cast_slice, try_cast_slice, try_pod_read_unaligned, AnyBitPattern, NoUninit, Pod,
 };
 use std::{
     borrow::Cow,

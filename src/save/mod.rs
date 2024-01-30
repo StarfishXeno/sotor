@@ -3,12 +3,12 @@ use crate::{
     util::{load_tga, Game, SResult},
 };
 use ahash::HashMap;
-use egui::{Context, TextureHandle, TextureOptions};
-use internal::{
+use core::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
     GameDataMapped, ReadResourceNoArg as _,
 };
+use egui::{Context, TextureHandle, TextureOptions};
 use macros::{EnumFromInt, EnumList, EnumToInt, EnumToString};
 use std::{
     collections::VecDeque,

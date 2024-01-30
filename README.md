@@ -16,7 +16,7 @@ May or may not work with saves from non-English versions of the game. Use at you
 
 # Differences from KSE
 
-- Aims to provide the same and more features. Currently WIP.
+- Aims to provide the same features and more. Currently WIP.
 - Runs natively on Windows, Linux and [in the browser](https://starfishxeno.github.io/sotor/) (experimental, using wasm). Mac version should work, but pre-built releases won't be available here.
 - Uses a built-in game database, allowing it to work wihout the game installed. Still capable of loading provided game files for your modding needs. Provided releases assume KotOR 1 Community patch and KotOR2 TSLRCM.
 - Support for the updated steam version of TSL, including workshop.

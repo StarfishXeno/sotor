@@ -6,8 +6,8 @@ use crate::{
     },
     util::{open_file_manager, ContextExt, Game, Message},
 };
+use core::GameDataMapped;
 use egui::{collapsing_header::CollapsingState, Frame, Layout, Margin, PointerButton, ScrollArea};
-use internal::GameDataMapped;
 
 pub struct SidePanel<'a> {
     current_save: &'a Option<String>,

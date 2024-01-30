@@ -11,12 +11,12 @@ use crate::{
     util::{get_data_name, ContextExt},
 };
 use ahash::HashMap;
+use core::{Appearance, DataExt, GameDataMapped};
 use egui::{
     Color32, ComboBox, CursorIcon, DragValue, FontSelection, Frame, Grid, Id, Margin, Rounding,
     ScrollArea, Sense, WidgetText,
 };
 use emath::{vec2, Align};
-use internal::{Appearance, DataExt, GameDataMapped};
 use std::{borrow::Cow, collections::HashSet, fmt::Display, hash::Hash};
 
 pub struct Editor<'a> {

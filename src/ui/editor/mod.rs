@@ -7,9 +7,9 @@ use crate::{
     },
     util::{ContextExt, Message},
 };
+use core::GameDataMapped;
 use egui::Layout;
 use emath::Align;
-use internal::GameDataMapped;
 use macros::{EnumList, EnumToString};
 use serde::{Deserialize, Serialize};
 

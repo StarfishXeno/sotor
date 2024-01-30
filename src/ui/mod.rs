@@ -6,10 +6,10 @@ use crate::{
 };
 #[cfg(target_arch = "wasm32")]
 use ahash::HashMap;
+use core::{GameData, GameDataMapped};
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::APP_KEY;
 use egui::{Context, Ui};
-use internal::{GameData, GameDataMapped};
 use log::error;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
@@ -132,7 +132,10 @@ impl SotorApp {
     }
 
     fn save(&mut self) {
-        let bytes = Save::save_to_zip(self.save.as_mut().unwrap());
+        let Some(save) = &mut self.save else {
+            return;
+        };
+        let bytes = Save::save_to_zip(save, &self.default_game_data[save.game.idx()]);
         crate::util::download_save(bytes);
     }
 

@@ -1,8 +1,8 @@
 use crate::{save::Save, util::SResult};
 use ahash::HashMap;
+use core::{util::bytes::Cursor, Data, GameDataMapped};
 use egui::{util::id_type_map::SerializableAny, ColorImage, Context, Id, Ui};
 use image::{io::Reader as ImageReader, ImageFormat};
-use internal::{util::bytes::Cursor, Data, GameDataMapped};
 use std::{any::Any, borrow::Cow, fmt::Display, hash::Hash, sync::mpsc::Sender};
 
 pub enum Message {

@@ -1,5 +1,5 @@
-pub use internal::util::*;
-use internal::{util::bytes::Cursor, GameData};
+pub use core::util::*;
+use core::{util::bytes::Cursor, GameData};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod fs;

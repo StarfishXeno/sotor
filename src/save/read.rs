@@ -5,13 +5,13 @@ use crate::{
     },
     util::SResult,
 };
-use egui::TextureHandle;
-use internal::{
+use core::{
     erf::Erf,
     gff::{Field, Gff, Struct},
     util::prepare_item_name,
     ReadResourceNoArg as _, ResourceType,
 };
+use egui::TextureHandle;
 
 use super::Item;
 pub struct Reader {

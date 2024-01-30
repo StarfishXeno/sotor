@@ -10,8 +10,8 @@ use crate::{
     },
     util::{get_data_name, ColumnCounter, ContextExt as _},
 };
+use core::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use egui::{ComboBox, DragValue, Grid, RichText, ScrollArea};
-use internal::{util::shorten_string, GameDataMapped, Quest, QuestStage};
 use std::{
     collections::{BTreeMap, HashSet},
     sync::{Arc, Mutex},

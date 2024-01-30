@@ -1,5 +1,5 @@
 use crate::save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX};
-use internal::{
+use core::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
     GameDataMapped, LocString, ReadResourceNoArg as _, ResourceType,
@@ -151,11 +151,9 @@ impl<'a> Updater<'a> {
         if let Some(v) = pt.components {
             s.insert("PT_ITEM_COMPONEN", Field::Dword(v));
         }
-
         if let Some(v) = pt.chemicals {
             s.insert("PT_ITEM_CHEMICAL", Field::Dword(v));
         }
-
         if let Some(v) = &pt.influence {
             let influence_list = v
                 .iter()
@@ -314,8 +312,8 @@ impl<'a> Updater<'a> {
             s.insert("NewItem", Field::Byte(item.new as u8));
             s.insert("Upgrades", Field::Dword(item.upgrades));
             if let Some(slots) = item.upgrade_slots {
-                for (idx, v) in slots.iter().enumerate() {
-                    s.fields.insert(format!("UpgradeSlot{idx}"), Field::Int(*v));
+                for (idx, v) in slots.into_iter().enumerate() {
+                    s.fields.insert(format!("UpgradeSlot{idx}"), Field::Int(v));
                 }
             }
             s.insert("NewItem", Field::Byte(item.new as u8));
@@ -327,16 +325,14 @@ impl<'a> Updater<'a> {
                 if !v.is_empty() {
                     return;
                 }
-                s.insert(
-                    key,
-                    Field::LocString((
-                        *str_ref,
-                        vec![LocString {
-                            id: 0,
-                            content: val.clone(),
-                        }],
-                    )),
-                );
+                let value = Field::LocString((
+                    *str_ref,
+                    vec![LocString {
+                        id: 0,
+                        content: val.clone(),
+                    }],
+                ));
+                s.insert(key, value);
             };
             insert_loc_if_needed(item.name.as_ref(), "LocalizedName");
             insert_loc_if_needed(item.description.as_ref(), "DescIdentified");
