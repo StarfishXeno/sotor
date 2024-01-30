@@ -7,7 +7,7 @@ use egui::{Context, TextureHandle, TextureOptions};
 use internal::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
-    ReadResourceNoArg as _,
+    GameDataMapped, ReadResourceNoArg as _,
 };
 use macros::{EnumFromInt, EnumList, EnumToInt, EnumToString};
 use std::{
@@ -254,10 +254,14 @@ impl Save {
         Self::read(gffs, erf, image)
     }
 
-    pub fn save_to_directory(path: &str, save: &mut Save) -> crate::util::ESResult {
+    pub fn save_to_directory(
+        path: &str,
+        save: &mut Save,
+        data: &GameDataMapped,
+    ) -> crate::util::ESResult {
         use crate::util::{backup_file, read_dir_filemap};
 
-        Updater::new(save).update();
+        Updater::new(save, data).update();
         let file_names = read_dir_filemap(&path.into())
             .map_err(|err| format!("couldn't read dir {path}: {err}"))?;
 
@@ -320,10 +324,10 @@ impl Save {
         Self::read(gffs, erf, image)
     }
 
-    pub fn save_to_zip(save: &mut Self) -> Vec<u8> {
+    pub fn save_to_zip(save: &mut Self, data: &GameDataMapped) -> Vec<u8> {
         use std::io::{Cursor, Write};
 
-        Updater::new(save).update();
+        Updater::new(save, data).update();
         let buf = vec![];
         let mut zip = zip::ZipWriter::new(Cursor::new(buf));
         let options =

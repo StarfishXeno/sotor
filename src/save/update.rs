@@ -2,16 +2,17 @@ use crate::save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOUR
 use internal::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
-    LocString, ReadResourceNoArg as _, ResourceType,
+    GameDataMapped, LocString, ReadResourceNoArg as _, ResourceType,
 };
 
 pub struct Updater<'a> {
     save: &'a mut Save,
+    data: &'a GameDataMapped,
 }
 
 impl<'a> Updater<'a> {
-    pub fn new(save: &'a mut Save) -> Self {
-        Self { save }
+    pub fn new(save: &'a mut Save, data: &'a GameDataMapped) -> Self {
+        Self { save, data }
     }
 
     pub fn update(mut self) {
@@ -36,6 +37,22 @@ impl<'a> Updater<'a> {
             "PCNAME".to_owned(),
             Field::String(self.save.characters.first().unwrap().name.clone()),
         );
+        let mut char_indices = vec![0];
+        for member in &self.save.party_table.members {
+            char_indices.push(member.idx);
+        }
+        for (idx, char_idx) in char_indices.into_iter().enumerate() {
+            let Some(char) = self.save.characters.iter().find(|c| c.idx == char_idx) else {
+                continue;
+            };
+            let Some(portrait) = self.data.portraits.get(&char.portrait) else {
+                continue;
+            };
+            fields.insert(
+                format!("PORTRAIT{idx}"),
+                Field::ResRef(portrait.name.clone()),
+            );
+        }
     }
 
     fn update_globals(&mut self) {

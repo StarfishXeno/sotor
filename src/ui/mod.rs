@@ -156,9 +156,16 @@ impl SotorApp {
     }
 
     fn save(&mut self) {
+        let game = self.save.as_ref().unwrap().game.idx();
+        let game_data = if let Some(data) = &self.game_data[game] {
+            data
+        } else {
+            &self.default_game_data[game]
+        };
         if let Err(err) = Save::save_to_directory(
             self.save_path.as_ref().unwrap(),
             self.save.as_mut().unwrap(),
+            game_data,
         ) {
             error!("{err}");
         }
@@ -358,8 +365,8 @@ impl eframe::App for SotorApp {
         egui::SidePanel::new(egui::panel::Side::Left, "sp")
             .frame(egui::Frame::side_top_panel(&ctx.style()).inner_margin(egui::Margin::ZERO))
             .resizable(true)
-            .default_width(150.)
-            .min_width(150.)
+            .default_width(160.)
+            .min_width(160.)
             .max_width(ctx.screen_rect().width() - 760.)
             .show(ctx, |ui| {
                 side_panel::SidePanel::new(&self.save_path, &self.game_data, &self.save_list)
