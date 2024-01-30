@@ -53,7 +53,7 @@ impl Writer {
 
         for (key, r) in sorted {
             keys.push(KeyWrite {
-                name: nullpad_string(key.0, KEY_NAME_LEN),
+                name: nullpad_string(r.name, KEY_NAME_LEN),
                 id: r.id,
                 tp: key.1,
             });

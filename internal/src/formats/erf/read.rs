@@ -153,9 +153,10 @@ impl<'a> Reader<'a> {
                 .to_vec();
 
             result.insert(
-                (key.name, key.res_type).into(),
+                (key.name.to_lowercase(), key.res_type).into(),
                 Resource {
                     id: key.id,
+                    name: key.name,
                     content,
                 },
             );

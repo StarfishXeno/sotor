@@ -242,7 +242,8 @@ pub fn read_feats(
         let descr = mem::take(&mut tlk.strings[idx * 2 + 1]);
         let name = if name.is_empty() { label } else { name };
         // so that Flurry and Improved Flurry go after each other instead of strictly alphabetically
-        let sorting_name = prefix_to_sort_suffix(&name, &["Improved ", "Advanced ", "Master "]);
+        let sorting_name =
+            prefix_to_sort_suffix(&name, &["Improved ", "Advanced ", "Knight ", "Master "]);
         let feat = Feat {
             id,
             sorting_name,

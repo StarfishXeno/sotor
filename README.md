@@ -8,16 +8,16 @@ A new save editor for KotOR 1 and 2
 
 # Warning
 
-SotOR allows you to do things that would be impossible in the normal game and generally lacks sanity checks, potentially allowing you to break the save.
+SotOR is a pathway to many abilities some consider to be unnatural, and generally lacks sanity checks, potentially allowing you to break the save. Also there are bugs, probably.
 
-It stores a backup of the previous version of the save in .bak files in the save directory, but you may still want to back them up manually.
+It stores a backup of the previous version of the save in .bak files in the save directory, but you may still want to back it up manually.
 
 May or may not work with saves from non-English versions of the game. Use at your own risk.
 
 # Differences from KSE
 
 - Aims to provide the same and more features. Currently WIP.
-- Runs natively on Windows, Linux and [in the browser](https://starfishxeno.github.io/sotor/) (experimental). Mac version should work, but pre-built releases won't be available here.
+- Runs natively on Windows, Linux and [in the browser](https://starfishxeno.github.io/sotor/) (experimental, using wasm). Mac version should work, but pre-built releases won't be available here.
 - Uses a built-in game database, allowing it to work wihout the game installed. Still capable of loading provided game files for your modding needs. Provided releases assume KotOR 1 Community patch and KotOR2 TSLRCM.
 - Support for the updated steam version of TSL, including workshop.
 - Does NOT support xbox and switch saves. See "Contributing" section.
@@ -42,9 +42,7 @@ cargo run #run a debug build
 cargo build --release #build a release version
 ```
 
-To build for other targets you also need to install [cross](https://github.com/cross-rs/cross) and [trunk](https://trunkrs.dev/).
-
-`build-all.sh` calls both and places output into `./target/build`
+To build for other targets you also need to install [cross](https://github.com/cross-rs/cross) and [trunk](https://trunkrs.dev/). See `build-all.sh`.
 
 # Thanks
 

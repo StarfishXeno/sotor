@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use crate::{
     save::{Item, Save},
     ui::{
@@ -72,16 +70,17 @@ impl<'a> Editor<'a> {
             .map(|(idx, i)| (idx, i, i.get_name()))
             .collect();
         sorted.sort_by_key(|i| i.2);
+        let get_nth_idx = |idx| sorted.get(idx).map(|(idx, _, _)| *idx).unwrap_or_default();
         self.selected = ui
             .ctx()
             .get_data("ei_selected")
-            .unwrap_or_else(|| sorted.get(0).map(|(idx, _, _)| *idx).unwrap_or_default());
+            .unwrap_or_else(|| get_nth_idx(0));
 
         let scroll_to: Option<usize> = ui.ctx().get_data("ei_scroll_to");
 
         let mut removed = None;
-        // can go lower than the first, so go for the second
-        let mut prev_idx = sorted.get(1).map(|(idx, _, _)| *idx).unwrap_or_default();
+        // can't go lower than the first, so go for the second
+        let mut prev_idx = get_nth_idx(1);
         for (idx, item, name) in sorted {
             ui.horizontal(|ui| {
                 if ui.s_icon_button(Icon::Remove, "Remove").clicked() {
@@ -103,21 +102,13 @@ impl<'a> Editor<'a> {
         }
         if let Some((idx, prev_idx)) = removed {
             self.items.remove(idx);
-            match self.selected.cmp(&idx) {
-                // if deleted currently selected, go to one before
-                Ordering::Equal => {
-                    // indices following the deleted have shifted by 1
-                    self.selected = if prev_idx > idx {
-                        prev_idx - 1
-                    } else {
-                        prev_idx
-                    };
-                }
-                // selected was after deleted and it's idx has shifted by 1
-                Ordering::Greater => {
-                    self.selected -= 1;
-                }
-                Ordering::Less => {}
+            // if deleted currently selected, go to one before it
+            if self.selected == idx {
+                self.selected = prev_idx;
+            }
+            // selected was after the deleted and the index has shifted by 1
+            if self.selected > idx {
+                self.selected -= 1;
             }
         }
     }

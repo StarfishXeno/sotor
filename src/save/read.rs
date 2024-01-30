@@ -3,9 +3,8 @@ use crate::{
         AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
         Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
     },
-    util::{string_lowercase_map, SResult},
+    util::SResult,
 };
-use ahash::HashMap;
 use egui::TextureHandle;
 use internal::{
     erf::Erf,
@@ -55,14 +54,10 @@ impl Reader {
         let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
-        let resource_map = self.read_resource_map();
-        let (use_pifo, last_module) = self.read_last_module(&resource_map, &nfo.last_module)?;
-        let (characters, character_structs) = self.read_characters(
-            &resource_map,
-            last_module,
-            party_table.available_members.len(),
-        )?;
-        let inventory = self.read_inventory(&resource_map)?;
+        let (use_pifo, last_module) = self.read_last_module(&nfo.last_module.to_lowercase())?;
+        let (characters, character_structs) =
+            self.read_characters(last_module, party_table.available_members.len())?;
+        let inventory = self.read_inventory()?;
 
         // unifying the flag in case it's somehow out of sync
         nfo.cheat_used = nfo.cheat_used || party_table.cheat_used;
@@ -230,36 +225,23 @@ impl Reader {
         })
     }
 
-    // goddammit the casing is all over the place even in ERFs
-    fn read_resource_map(&self) -> HashMap<String, String> {
-        let resources = &self.erf.resources;
-        let keys: Vec<_> = resources.keys().map(|k| k.0.clone()).collect();
-        string_lowercase_map(&keys)
-    }
-
-    fn read_last_module(
-        &self,
-        map: &HashMap<String, String>,
-        last_module: &str,
-    ) -> SResult<(bool, Gff)> {
-        if let Some(name) = map.get(&last_module.to_lowercase()) {
-            let module = self.erf.get(name, ResourceType::Sav).unwrap();
+    fn read_last_module(&self, last_module: &str) -> SResult<(bool, Gff)> {
+        if let Some(module) = self.erf.get(last_module, ResourceType::Sav) {
             let module_erf = Erf::read(&module.content)?;
             let module_inner = module_erf
-                .get("Module", ResourceType::Ifo)
-                .ok_or("Couldn't get inner module resource".to_string())?;
+                .get("module", ResourceType::Ifo)
+                .ok_or("couldn't get inner module resource".to_string())?;
 
             Ok((false, Gff::read(&module_inner.content)?))
         } else if let Some(res) = &self.pifo {
             Ok((true, res.clone()))
         } else {
-            return Err("Couldn't get last module resource".to_string());
+            return Err("couldn't get last module resource".to_string());
         }
     }
 
     fn read_characters(
         &self,
-        map: &HashMap<String, String>,
         mut last_module: Gff,
         count: usize,
     ) -> SResult<(Vec<Character>, Vec<Struct>)> {
@@ -268,7 +250,7 @@ impl Reader {
 
         let mut player_field = last_module.take("Mod_PlayerList", Field::list_take)?;
         if player_field.is_empty() {
-            return Err("Couldn't get player character struct".to_string());
+            return Err("couldn't get player character struct".to_string());
         }
         let player = player_field.remove(0);
 
@@ -276,15 +258,16 @@ impl Reader {
         structs.push(player);
 
         for idx in 0..count {
-            let Some(name) = map.get(&(NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string())) else {
+            let key = NPC_RESOURCE_PREFIX.to_owned() + &idx.to_string();
+            let Some(resource) = self.erf.get(&key, ResourceType::Utc) else {
                 continue;
             };
-            let gff = Gff::read(&self.erf.get(name, ResourceType::Utc).unwrap().content)
-                .map_err(|err| format!("Couldn't read NPC GFF {idx}: {err}"))?;
+            let gff = Gff::read(&resource.content)
+                .map_err(|err| format!("couldn't read NPC GFF {idx}: {err}"))?;
 
             characters.push(
                 Self::read_character(&gff.content, idx)
-                    .map_err(|err| format!("Error parsing character {idx}: {err}"))?,
+                    .map_err(|err| format!("error parsing character {idx}: {err}"))?,
             );
             structs.push(gff.content);
         }
@@ -327,7 +310,7 @@ impl Reader {
             .collect::<SResult<Vec<_>>>()?;
 
         let gender = Gender::try_from(s.get("Gender", Field::byte)?)
-            .map_err(|id| format!("Invalid gender {id}"))?;
+            .map_err(|id| format!("invalid gender {id}"))?;
 
         Ok(Character {
             idx,
@@ -370,9 +353,11 @@ impl Reader {
         })
     }
 
-    fn read_inventory(&self, map: &HashMap<String, String>) -> SResult<Vec<Item>> {
-        let key = map.get("inventory").ok_or("couldn't find inventory")?;
-        let res = self.erf.get(key, ResourceType::Unknown).unwrap();
+    fn read_inventory(&self) -> SResult<Vec<Item>> {
+        let res = self
+            .erf
+            .get("inventory", ResourceType::Unknown)
+            .ok_or("couldn't find inventory")?;
         let gff = Gff::read(&res.content)?;
         let list = gff.get_ref("ItemList", Field::list)?;
         let mut items = Vec::with_capacity(list.len());

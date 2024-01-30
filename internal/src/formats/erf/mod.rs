@@ -19,6 +19,7 @@ const RESOURCE_SIZE: usize = 2;
 
 #[derive(PartialEq, Clone)]
 pub struct Resource {
+    pub name: String,
     pub id: u32,
     pub content: Vec<u8>,
 }
@@ -67,6 +68,7 @@ mod tests {
                 (
                     ("pc", ResourceType::Txt).into(),
                     Resource {
+                        name: "PC".to_owned(),
                         id: 0,
                         content: (*b"pc").into(),
                     },
@@ -74,6 +76,7 @@ mod tests {
                 (
                     ("inventory", ResourceType::Txt).into(),
                     Resource {
+                        name: "INVENTORY".to_owned(),
                         id: 1,
                         content: (*b"inventory").into(),
                     },

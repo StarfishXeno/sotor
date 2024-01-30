@@ -1,7 +1,4 @@
-use crate::{
-    save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX},
-    util::string_lowercase_map,
-};
+use crate::save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX};
 use internal::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
@@ -261,20 +258,17 @@ impl<'a> Updater<'a> {
     fn update_erf(&mut self) {
         let inventory = self.make_inventory();
         let erf = &mut self.save.inner.erf;
-        let keys: Vec<_> = erf.resources.keys().map(|k| k.0.clone()).collect();
-        let map = string_lowercase_map(&keys);
 
-        let inventory_res = erf
-            .get_mut(&map["inventory"], ResourceType::Unknown)
-            .unwrap();
+        let inventory_res = erf.get_mut("inventory", ResourceType::Unknown).unwrap();
         inventory_res.content = gff::write(inventory);
 
         // pain
         if !self.save.inner.use_pifo {
-            let key = &map[&self.save.nfo.last_module.to_lowercase()];
-            let module = erf.get_mut(key, ResourceType::Sav).unwrap();
+            let module = erf
+                .get_mut(&self.save.nfo.last_module, ResourceType::Sav)
+                .unwrap();
             let mut module_erf = Erf::read(&module.content).unwrap();
-            let module_inner = module_erf.get_mut("Module", ResourceType::Ifo).unwrap();
+            let module_inner = module_erf.get_mut("module", ResourceType::Ifo).unwrap();
             let mut module_inner_gff = Gff::read(&module_inner.content).unwrap();
             let Field::List(list) = module_inner_gff
                 .content
@@ -292,7 +286,7 @@ impl<'a> Updater<'a> {
 
         for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {
             let inner_idx = &self.save.characters[idx].idx.to_string();
-            let key = &map[&(NPC_RESOURCE_PREFIX.to_owned() + inner_idx)];
+            let key = &(NPC_RESOURCE_PREFIX.to_owned() + inner_idx);
             let res = erf.get_mut(key, ResourceType::Utc).unwrap();
             res.content = gff::write(Gff {
                 file_head: ("UTC ", "V3.2").into(),
