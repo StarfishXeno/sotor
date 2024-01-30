@@ -10,8 +10,9 @@ use crate::{
     game_data::{Appearance, Class, Feat, Item, Quest, QuestStage},
     util::{
         fs::{read_dir_dirs, read_dir_filemap, read_file},
-        prefix_to_sort_suffix, SResult,
+        prefix_to_sort_suffix, prepare_item_name, SResult,
     },
+    Data,
 };
 use ahash::{HashMap, HashMapExt as _};
 use std::{
@@ -367,8 +368,18 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
         let name_ref = item.get("LocalizedName", Field::loc_string)?.0 as usize;
         let descr_ref = item.get("DescIdentified", Field::loc_string)?.0 as usize;
         let stack_size = item.get("StackSize", Field::word)?;
+        let charges = item.get("Charges", Field::byte)?;
+        let upgrade_level = item.get("UpgradeLevel", Field::byte).ok();
 
-        tmp.push((tag, name_ref, descr_ref, stack_size, item.content.fields));
+        tmp.push((
+            tag,
+            name_ref,
+            descr_ref,
+            stack_size,
+            charges,
+            upgrade_level,
+            item.content.fields,
+        ));
         str_refs.push(name_ref);
         str_refs.push(descr_ref);
     }
@@ -377,16 +388,22 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
     let mut items = Vec::with_capacity(tmp.len());
 
-    for (tag, name_ref, descr_ref, stack_size, inner) in tmp {
+    for (tag, name_ref, descr_ref, stack_size, charges, upgrade_level, inner) in tmp {
+        let name = mem::take(map.get_mut(&name_ref).unwrap());
+        let name = prepare_item_name(&name);
+        let descr = mem::take(map.get_mut(&descr_ref).unwrap());
         items.push(Item {
+            id: tag.to_lowercase(),
             tag,
             stack_size,
-            name: mem::take(map.get_mut(&name_ref).unwrap()),
-            description: mem::take(map.get_mut(&descr_ref).unwrap()),
+            charges,
+            name: (!name.is_empty()).then_some(name),
+            description: (!descr.is_empty()).then_some(descr),
+            upgrade_level,
             inner: inner.clone(),
         });
     }
-    items.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    items.sort_unstable_by(|a, b| a.get_name().cmp(b.get_name()));
 
     Ok(items)
 }

@@ -10,6 +10,7 @@ use egui::TextureHandle;
 use internal::{
     erf::Erf,
     gff::{Field, Gff, Struct},
+    util::prepare_item_name,
     ReadResourceNoArg as _, ResourceType,
 };
 
@@ -292,11 +293,9 @@ impl Reader {
     }
 
     fn read_character(s: &Struct, idx: usize) -> SResult<Character> {
-        let name = s
-            .get_ref("FirstName", Field::loc_string)?
-            .1
-            .first()
-            .map_or_else(String::new, |v| v.content.clone());
+        let nf = s.get_ref("FirstName", Field::loc_string)?;
+        let name_ref = nf.0;
+        let name = nf.1.first().map_or_else(String::new, |v| v.content.clone());
 
         let attributes = [
             s.get("Str", Field::byte)?,
@@ -333,6 +332,7 @@ impl Reader {
         Ok(Character {
             idx,
             name,
+            name_ref,
             tag: s.get("Tag", Field::string)?,
             hp: s.get("CurrentHitPoints", Field::short)?,
             hp_max: s.get("MaxHitPoints", Field::short)?,
@@ -377,29 +377,44 @@ impl Reader {
         let list = gff.get_ref("ItemList", Field::list)?;
         let mut items = Vec::with_capacity(list.len());
         for item in list {
-            let mut upgrade_slots = None;
+            let tag = item.get("Tag", Field::string)?;
+            let name = item
+                .get_ref("LocalizedName", Field::loc_string)?
+                .1
+                .first()
+                .map(|s| prepare_item_name(s.content.as_str()));
             // only in K2
-            if let Ok(slot0) = item.get("UpgradeSlot0", Field::int) {
-                upgrade_slots = Some([
+            let upgrade_slots = if let Ok(slot0) = item.get("UpgradeSlot0", Field::int) {
+                Some([
                     slot0,
                     item.get("UpgradeSlot1", Field::int)?,
                     item.get("UpgradeSlot2", Field::int)?,
                     item.get("UpgradeSlot3", Field::int)?,
                     item.get("UpgradeSlot4", Field::int)?,
                     item.get("UpgradeSlot5", Field::int)?,
-                ]);
-            }
+                ])
+            } else {
+                None
+            };
 
             items.push(Item {
-                tag: item.get("Tag", Field::string)?,
-                count: item.get("StackSize", Field::word)?,
+                name,
+                description: item
+                    .get("DescIdentified", Field::loc_string)?
+                    .1
+                    .first()
+                    .map(|s| s.content.clone()),
+                stack_size: item.get("StackSize", Field::word)?,
+                max_charges: item.get("MaxCharges", Field::byte)?,
                 charges: item.get("Charges", Field::byte)?,
                 new: item.get("NewItem", Field::byte)? != 0,
                 upgrades: item.get("Upgrades", Field::dword)?,
                 upgrade_slots,
-                properties: Field::List(item.get("PropertiesList", Field::list)?),
+                raw: item.fields.clone(),
+                tag,
             });
         }
+
         Ok(items)
     }
 }

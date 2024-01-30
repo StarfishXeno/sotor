@@ -2,7 +2,6 @@ use crate::{
     save::update::Updater,
     util::{load_tga, Game, SResult},
 };
-#[cfg(target_arch = "wasm32")]
 use ahash::HashMap;
 use egui::{Context, TextureHandle, TextureOptions};
 use internal::{
@@ -98,6 +97,7 @@ pub struct Class {
 pub struct Character {
     pub idx: usize,
     pub name: String,
+    pub name_ref: u32,
     pub tag: String,
     pub hp: i16,
     pub hp_max: i16,
@@ -128,13 +128,27 @@ impl Character {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
-    tag: String,
-    count: u16,
-    charges: u8,
-    new: bool,
-    upgrades: u32,                   // in K1
-    upgrade_slots: Option<[i32; 6]>, // in K2
-    properties: Field,
+    pub tag: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub stack_size: u16,
+    pub max_charges: u8,
+    pub charges: u8,
+    pub new: bool,
+    pub upgrades: u32,                   // in K1
+    pub upgrade_slots: Option<[i32; 6]>, // in K2
+
+    pub raw: HashMap<String, Field>,
+}
+
+impl Item {
+    pub fn get_name(&self) -> &str {
+        if let Some(name) = &self.name {
+            name
+        } else {
+            &self.tag
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 mod characters;
 mod general;
 mod globals;
+mod inventory;
 mod quests;
 
 pub fn editor_placeholder(ui: UiRef) {
@@ -119,7 +120,7 @@ impl<'a> Editor<'a> {
             Tab::Globals => globals::Editor::new(self.save).show(ui),
             Tab::Characters => characters::Editor::new(self.save, self.data).show(ui),
             Tab::Quests => quests::Editor::new(self.save, self.data).show(ui),
-            Tab::Inventory => {}
+            Tab::Inventory => inventory::Editor::new(self.save, self.data).show(ui),
         }
     }
 }

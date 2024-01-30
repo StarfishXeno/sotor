@@ -43,9 +43,10 @@ impl<'a> Editor<'a> {
         ScrollArea::vertical()
             .id_source("eq_scroll")
             .stick_to_bottom(true)
-            .max_height(ui.available_height() - 35.)
+            .max_height(ui.available_height() - 30.)
             .show(ui, |ui| {
                 ui.set_width(self.width);
+                ui.set_height(ui.available_height());
                 set_striped_styles(ui);
 
                 Grid::new("eq_grid")

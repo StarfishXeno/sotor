@@ -61,3 +61,12 @@ pub fn prefix_to_sort_suffix<'a>(str: &'a str, prefixes: &'a [&'a str]) -> Strin
     }
     str.to_owned()
 }
+
+pub fn prepare_item_name(name: &str) -> String {
+    if name.starts_with('{') {
+        if let Some(close_idx) = name.find('}') {
+            return name[close_idx + 1..].to_owned();
+        }
+    }
+    name.to_owned()
+}

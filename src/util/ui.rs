@@ -34,6 +34,7 @@ pub trait ContextExt {
     fn get_data_raw<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T>;
     fn get_data<T: 'static + Clone>(&self, id: impl Into<Id>) -> Option<T>;
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T);
+    fn remove_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>);
     fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T>;
     fn set_data_prs<T: 'static + Any + Clone + Send + Sync + SerializableAny>(
         &self,
@@ -87,6 +88,10 @@ impl ContextExt for Context {
 
     fn set_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>, value: T) {
         self.set_data_raw(id, (get_meta_id(self), value));
+    }
+
+    fn remove_data<T: 'static + Any + Clone + Send + Sync>(&self, id: impl Into<Id>) {
+        self.data_mut(|data| data.remove_temp::<(Id, T)>(id.into()));
     }
 
     fn get_data_prs<T: 'static + Clone + SerializableAny>(&self, id: impl Into<Id>) -> Option<T> {
@@ -167,7 +172,12 @@ pub fn get_data_name<'a, I: Eq + Hash + Display, D: Data<I>>(
     id: &I,
 ) -> Cow<'a, str> {
     if let Some(a) = data.get(id) {
-        Cow::Borrowed(a.get_name())
+        let n = a.get_name();
+        if n.is_empty() {
+            Cow::Owned(format!("UNNAMED {id}"))
+        } else {
+            Cow::Borrowed(n)
+        }
     } else {
         Cow::Owned(format!("UNKNOWN {id}"))
     }

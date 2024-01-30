@@ -171,7 +171,7 @@ impl<'a> Updater<'a> {
         fields.insert(
             "FirstName".to_owned(),
             Field::LocString((
-                u32::MAX,
+                char.name_ref,
                 vec![LocString {
                     id: 0,
                     content: char.name.clone(),
@@ -259,9 +259,15 @@ impl<'a> Updater<'a> {
     }
 
     fn update_erf(&mut self) {
+        let inventory = self.make_inventory();
         let erf = &mut self.save.inner.erf;
         let keys: Vec<_> = erf.resources.keys().map(|k| k.0.clone()).collect();
         let map = string_lowercase_map(&keys);
+
+        let inventory_res = erf
+            .get_mut(&map["inventory"], ResourceType::Unknown)
+            .unwrap();
+        inventory_res.content = gff::write(inventory);
 
         // pain
         if !self.save.inner.use_pifo {
@@ -287,13 +293,57 @@ impl<'a> Updater<'a> {
         for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {
             let inner_idx = &self.save.characters[idx].idx.to_string();
             let key = &map[&(NPC_RESOURCE_PREFIX.to_owned() + inner_idx)];
-            let Some(res) = erf.get_mut(key, ResourceType::Utc) else {
-                unreachable!()
-            };
+            let res = erf.get_mut(key, ResourceType::Utc).unwrap();
             res.content = gff::write(Gff {
                 file_head: ("UTC ", "V3.2").into(),
                 content: char.clone(),
             });
+        }
+    }
+
+    fn make_inventory(&mut self) -> Gff {
+        let mut items = Vec::with_capacity(self.save.inventory.len());
+        for item in &self.save.inventory {
+            let mut fields = item.raw.clone();
+            fields.insert("StackSize".to_owned(), Field::Word(item.stack_size));
+            fields.insert("MaxCharges".to_owned(), Field::Byte(item.max_charges));
+            fields.insert("Charges".to_owned(), Field::Byte(item.charges));
+            fields.insert("NewItem".to_owned(), Field::Byte(item.new as u8));
+            fields.insert("Upgrades".to_owned(), Field::Dword(item.upgrades));
+            if let Some(slots) = item.upgrade_slots {
+                for (idx, v) in slots.iter().enumerate() {
+                    fields.insert(format!("UpgradeSlot{idx}"), Field::Int(*v));
+                }
+            }
+            fields.insert("NewItem".to_owned(), Field::Byte(item.new as u8));
+            let mut insert_loc_if_needed = |source: Option<&String>, key: &str| {
+                let Some(val) = source else {
+                    return;
+                };
+                let (str_ref, v) = fields[key].loc_string_unwrap();
+                if !v.is_empty() {
+                    return;
+                }
+                fields.insert(
+                    key.to_owned(),
+                    Field::LocString((
+                        *str_ref,
+                        vec![LocString {
+                            id: 0,
+                            content: val.clone(),
+                        }],
+                    )),
+                );
+            };
+            insert_loc_if_needed(item.name.as_ref(), "LocalizedName");
+            insert_loc_if_needed(item.description.as_ref(), "DescIdentified");
+
+            items.push(Struct { tp: 0, fields });
+        }
+
+        Gff {
+            file_head: ("INV ", "V3.2").into(),
+            content: Struct::with_type(u32::MAX, vec![("ItemList", Field::List(items))]),
         }
     }
 }

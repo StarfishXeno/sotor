@@ -7,7 +7,7 @@ use egui::{
     Order, Response, RichText, Rounding, Sense, Slider, Stroke, TextBuffer, TextEdit, TextStyle,
     Ui, Widget, WidgetInfo, WidgetText, WidgetType,
 };
-use emath::{pos2, vec2, Align, Numeric, Rect, Vec2};
+use emath::{pos2, vec2, Align, Numeric, Rect};
 use internal::util::shorten_string;
 use std::ops::RangeInclusive;
 
@@ -261,9 +261,10 @@ impl Widget for ListItem {
         let Self { selected, text } = self;
 
         let width = ui.available_width();
-        let padding = Vec2::from([8., 2.]);
+        let padding = vec2(8., 2.);
 
-        let text_galley = text.into_galley(ui, None, width, TextStyle::Button);
+        let text_galley =
+            text.into_galley(ui, Some(true), width - padding.x * 2., TextStyle::Button);
 
         let desired_size = [width, text_galley.size().y + padding.y].into();
         let (rect, mut response) = ui.allocate_at_least(desired_size, Sense::click());
@@ -273,10 +274,7 @@ impl Widget for ListItem {
         response = response.on_hover_cursor(CursorIcon::PointingHand);
 
         if ui.is_rect_visible(response.rect) {
-            let pos = ui
-                .layout()
-                .align_size_within_rect(text_galley.size(), rect.shrink2(padding))
-                .min;
+            let pos = rect.shrink2(padding).left_top();
 
             if selected || response.hovered() || response.highlighted() || response.has_focus() {
                 ui.painter()

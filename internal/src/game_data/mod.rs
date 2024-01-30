@@ -54,6 +54,14 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
     ("portraits", &[("baseresref", TwoDAType::String)]),
     ("appearance", &[("label", TwoDAType::String)]),
     ("soundset", &[("label", TwoDAType::String)]),
+    // (
+    //     "baseitems",
+    //     &[
+    //         ("label", TwoDAType::String),
+    //         ("itemclass", TwoDAType::String),
+    //         ("itemtype", TwoDAType::String),
+    //     ],
+    // ),
 ];
 
 pub trait Data<I> {
@@ -191,13 +199,28 @@ impl PartialEq for Quest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Item {
+    pub id: String,
     pub tag: String,
-    pub name: String,
-    pub description: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub stack_size: u16,
+    pub charges: u8,
+    pub upgrade_level: Option<u8>,
     pub inner: HashMap<String, Field>,
 }
-impl_data!(Item, String, tag);
+
+impl Data<String> for Item {
+    fn get_id(&self) -> &String {
+        &self.id
+    }
+    fn get_name(&self) -> &str {
+        if let Some(name) = &self.name {
+            name
+        } else {
+            &self.tag
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {
