@@ -5,6 +5,7 @@ use crate::{
     },
     util::SResult,
 };
+use ahash::HashMap;
 use core::{
     erf::Erf,
     gff::{Field, Gff, Struct},
@@ -13,7 +14,7 @@ use core::{
 };
 use egui::TextureHandle;
 
-use super::Item;
+use super::{Item, EQUIPMENT_SLOT_IDS};
 pub struct Reader {
     nfo: Gff,
     globals: Gff,
@@ -279,6 +280,7 @@ impl Reader {
         let nf = s.get_ref("FirstName", Field::loc_string)?;
         let name_ref = nf.0;
         let name = nf.1.first().map_or_else(String::new, |v| v.content.clone());
+        let tag = s.get("Tag", Field::string)?;
 
         let attributes = [
             s.get("Str", Field::byte)?,
@@ -312,11 +314,28 @@ impl Reader {
         let gender = Gender::try_from(s.get("Gender", Field::byte)?)
             .map_err(|id| format!("invalid gender {id}"))?;
 
+        let mut equipment = [(); 12].map(|_| None);
+        let equipment_list = s.get_ref("Equip_ItemList", Field::list)?;
+        let slot_map: HashMap<_, _> = EQUIPMENT_SLOT_IDS
+            .into_iter()
+            .enumerate()
+            .map(|(idx, id)| (id, idx))
+            .collect();
+
+        for item in equipment_list {
+            let slot = slot_map.get(&item.tp).ok_or_else(|| {
+                format!("invalid item equipment slot {} on {name} {tag}", item.tp)
+            })?;
+            let item = Self::read_item(item)?;
+
+            equipment[*slot] = Some(item);
+        }
+
         Ok(Character {
             idx,
             name,
             name_ref,
-            tag: s.get("Tag", Field::string)?,
+            tag,
             hp: s.get("CurrentHitPoints", Field::short)?,
             hp_max: s.get("MaxHitPoints", Field::short)?,
             fp: s.get("ForcePoints", Field::short)?,
@@ -332,6 +351,7 @@ impl Reader {
             portrait: s.get("PortraitId", Field::word)?,
             appearance: s.get("Appearance_Type", Field::word)?,
             soundset: s.get("SoundSetFile", Field::word)?,
+            equipment: Box::new(equipment),
         })
     }
 
@@ -362,44 +382,51 @@ impl Reader {
         let list = gff.get_ref("ItemList", Field::list)?;
         let mut items = Vec::with_capacity(list.len());
         for item in list {
-            let tag = item.get("Tag", Field::string)?;
-            let name = item
-                .get_ref("LocalizedName", Field::loc_string)?
-                .1
-                .first()
-                .map(|s| prepare_item_name(s.content.as_str()));
-            // only in K2
-            let upgrade_slots = if let Ok(slot0) = item.get("UpgradeSlot0", Field::int) {
-                Some([
-                    slot0,
-                    item.get("UpgradeSlot1", Field::int)?,
-                    item.get("UpgradeSlot2", Field::int)?,
-                    item.get("UpgradeSlot3", Field::int)?,
-                    item.get("UpgradeSlot4", Field::int)?,
-                    item.get("UpgradeSlot5", Field::int)?,
-                ])
-            } else {
-                None
-            };
-
-            items.push(Item {
-                name,
-                description: item
-                    .get("DescIdentified", Field::loc_string)?
-                    .1
-                    .first()
-                    .map(|s| s.content.clone()),
-                stack_size: item.get("StackSize", Field::word)?,
-                max_charges: item.get("MaxCharges", Field::byte)?,
-                charges: item.get("Charges", Field::byte)?,
-                new: item.get("NewItem", Field::byte)? != 0,
-                upgrades: item.get("Upgrades", Field::dword)?,
-                upgrade_slots,
-                raw: item.fields.clone(),
-                tag,
-            });
+            items.push(Self::read_item(item)?);
         }
 
         Ok(items)
+    }
+
+    fn read_item(item: &Struct) -> SResult<Item> {
+        let tag = item.get("Tag", Field::string)?;
+        let name = item
+            .get_ref("LocalizedName", Field::loc_string)?
+            .1
+            .first()
+            .map(|s| prepare_item_name(s.content.as_str()));
+        // only in K2
+        let upgrade_slots = if let Ok(slot0) = item.get("UpgradeSlot0", Field::int) {
+            Some([
+                slot0,
+                item.get("UpgradeSlot1", Field::int)?,
+                item.get("UpgradeSlot2", Field::int)?,
+                item.get("UpgradeSlot3", Field::int)?,
+                item.get("UpgradeSlot4", Field::int)?,
+                item.get("UpgradeSlot5", Field::int)?,
+            ])
+        } else {
+            None
+        };
+
+        let item = Item {
+            base_item: item.get("BaseItem", Field::int)?,
+            name,
+            description: item
+                .get("DescIdentified", Field::loc_string)?
+                .1
+                .first()
+                .map(|s| s.content.clone()),
+            stack_size: item.get("StackSize", Field::word)?,
+            max_charges: item.get("MaxCharges", Field::byte)?,
+            charges: item.get("Charges", Field::byte)?,
+            new: item.get("NewItem", Field::byte)? != 0,
+            upgrades: item.get("Upgrades", Field::dword)?,
+            upgrade_slots,
+            raw: item.fields.clone(),
+            tag,
+        };
+
+        Ok(item)
     }
 }

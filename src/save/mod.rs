@@ -6,7 +6,7 @@ use ahash::HashMap;
 use core::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
-    GameDataMapped, ReadResourceNoArg as _,
+    Data, DataDescr, GameDataMapped, Item as DItem, ReadResourceNoArg as _,
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use macros::{EnumFromInt, EnumList, EnumToInt, EnumToString};
@@ -93,6 +93,21 @@ pub struct Class {
     pub powers: Option<Vec<u16>>, // IDs
 }
 
+const EQUIPMENT_SLOT_IDS: [u32; 12] = [
+    0x00200, // Implant
+    0x00001, // Head
+    0x00008, // Gloves
+    0x00080, // Arm Left
+    0x00002, // Armor
+    0x00100, // Arm Right
+    0x00400, // Belt
+    0x00010, // Main Hand
+    0x00020, // Offhand
+    0x40000, // Main Hand 2
+    0x80000, // Offhand 2
+    0x20000, // idk, some hidden slot
+];
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Character {
     pub idx: usize,
@@ -114,6 +129,7 @@ pub struct Character {
     pub portrait: u16,
     pub appearance: u16,
     pub soundset: u16,
+    pub equipment: Box<[Option<Item>; 12]>,
 }
 
 impl Character {
@@ -129,6 +145,7 @@ impl Character {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Item {
     pub tag: String,
+    pub base_item: i32,
     pub name: Option<String>,
     pub description: Option<String>,
     pub stack_size: u16,
@@ -137,17 +154,44 @@ pub struct Item {
     pub new: bool,
     pub upgrades: u32,                   // in K1
     pub upgrade_slots: Option<[i32; 6]>, // in K2
-
     pub raw: HashMap<String, Field>,
 }
 
-impl Item {
-    pub fn get_name(&self) -> &str {
+impl Data<String> for Item {
+    fn get_id(&self) -> &String {
+        &self.tag
+    }
+
+    fn get_name(&self) -> &str {
         if let Some(name) = &self.name {
             name
         } else {
             &self.tag
         }
+    }
+}
+
+impl From<&DItem> for Item {
+    fn from(item: &DItem) -> Self {
+        Self {
+            tag: item.tag.clone(),
+            base_item: item.base_item,
+            name: item.name.clone(),
+            description: item.description.clone(),
+            stack_size: item.stack_size,
+            max_charges: item.charges,
+            charges: item.charges,
+            new: true,
+            upgrades: 0,
+            upgrade_slots: item.upgrade_level.map(|_| [-1; 6]),
+            raw: item.inner.clone(),
+        }
+    }
+}
+
+impl DataDescr for Item {
+    fn get_description(&self) -> Option<&str> {
+        self.description.as_deref()
     }
 }
 

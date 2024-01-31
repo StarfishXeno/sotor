@@ -12,7 +12,7 @@ use crate::{
         fs::{read_dir_dirs, read_dir_filemap, read_file},
         prefix_to_sort_suffix, prepare_item_name, SResult,
     },
-    Data,
+    BaseItem, Data, ItemSlot, WeaponType,
 };
 use ahash::{HashMap, HashMapExt as _};
 use std::{
@@ -361,11 +361,67 @@ pub fn read_quests(mut journal: Gff, tlk_bytes: &[u8]) -> SResult<Vec<Quest>> {
     Ok(quests)
 }
 
+pub fn read_base_items(items: TwoDA) -> HashMap<i32, BaseItem> {
+    let mut base_items = HashMap::with_capacity(items.0.len());
+    for item in items.0 {
+        let id = *item["_idx"].as_ref().unwrap().int_unwrap();
+        let label = item["label"]
+            .as_ref()
+            .map(|t| t.string_unwrap().clone())
+            .unwrap_or_default();
+        let Some(droid_or_human) = item["droidorhuman"].as_ref().map(|t| *t.int_unwrap()) else {
+            continue;
+        };
+        let Some(slot) = item["equipableslots"].as_ref().map(|t| *t.int_unwrap()) else {
+            continue;
+        };
+        let Ok(usable_by) = (droid_or_human as u8).try_into() else {
+            continue;
+        };
+
+        let slot = match slot {
+            0x00200 | 0x00208 => ItemSlot::Implant,
+            0x00001 => ItemSlot::Head,
+            0x00008 => ItemSlot::Gloves,
+            0x00180 => ItemSlot::Arms,
+            0x00002 => ItemSlot::Armor,
+            0x00400 | 0x20400 => ItemSlot::Belt,
+            0x00010 | 0x00030 => {
+                let Some(ranged) = item["weapontype"].as_ref().map(|t| *t.int_unwrap() != 1) else {
+                    println!("invalid weapon {label}");
+                    continue;
+                };
+                let two_handed = slot == 0x00010;
+                let tp = match (ranged, two_handed) {
+                    (false, false) => WeaponType::MeleeOneHanded,
+                    (false, true) => WeaponType::MeleeTwoHanded,
+                    (true, false) => WeaponType::RangedOneHanded,
+                    (true, true) => WeaponType::RangedTwoHanded,
+                };
+
+                ItemSlot::Weapon(tp)
+            }
+            _ => continue,
+        };
+        base_items.insert(
+            id,
+            BaseItem {
+                id,
+                label,
+                usable_by,
+                slot,
+            },
+        );
+    }
+    base_items
+}
+
 pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut tmp = Vec::with_capacity(items.len());
     let mut str_refs = Vec::with_capacity(items.len() * 2);
     for item in items {
         let tag = item.get("Tag", Field::string)?;
+        let base_item = item.get("BaseItem", Field::int)?;
         let name_ref = item.get("LocalizedName", Field::loc_string)?.0 as usize;
         let descr_ref = item.get("DescIdentified", Field::loc_string)?.0 as usize;
         let stack_size = item.get("StackSize", Field::word)?;
@@ -374,6 +430,7 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
 
         tmp.push((
             tag,
+            base_item,
             name_ref,
             descr_ref,
             stack_size,
@@ -389,13 +446,14 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
     let mut items = Vec::with_capacity(tmp.len());
 
-    for (tag, name_ref, descr_ref, stack_size, charges, upgrade_level, inner) in tmp {
+    for (tag, base_item, name_ref, descr_ref, stack_size, charges, upgrade_level, inner) in tmp {
         let name = mem::take(map.get_mut(&name_ref).unwrap());
         let name = prepare_item_name(&name);
         let descr = mem::take(map.get_mut(&descr_ref).unwrap());
         items.push(Item {
             id: tag.to_lowercase(),
             tag,
+            base_item,
             stack_size,
             charges,
             name: (!name.is_empty()).then_some(name),

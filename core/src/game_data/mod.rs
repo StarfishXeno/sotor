@@ -16,12 +16,15 @@ use crate::{
     },
 };
 use ahash::HashMap;
+use macros::{EnumFromInt, EnumList};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
+
+use self::read::read_base_items;
 
 mod read;
 
@@ -54,14 +57,15 @@ const TWODAS: &[(&str, &[(&str, TwoDAType)])] = &[
     ("portraits", &[("baseresref", TwoDAType::String)]),
     ("appearance", &[("label", TwoDAType::String)]),
     ("soundset", &[("label", TwoDAType::String)]),
-    // (
-    //     "baseitems",
-    //     &[
-    //         ("label", TwoDAType::String),
-    //         ("itemclass", TwoDAType::String),
-    //         ("itemtype", TwoDAType::String),
-    //     ],
-    // ),
+    (
+        "baseitems",
+        &[
+            ("label", TwoDAType::String),
+            ("equipableslots", TwoDAType::Int),
+            ("droidorhuman", TwoDAType::Int),
+            ("weapontype", TwoDAType::Int),
+        ],
+    ),
 ];
 
 pub trait Data<I> {
@@ -86,17 +90,24 @@ macro_rules! impl_data {
     };
 }
 
-pub trait DataExt<I>: Data<I> {
+pub trait DataSorting {
     fn get_sorting_name(&self) -> &str;
+}
+pub trait DataDescr {
     fn get_description(&self) -> Option<&str>;
 }
-
-macro_rules! impl_data_ext {
-    ($type:ident, $id_type:ident) => {
-        impl DataExt<$id_type> for $type {
+macro_rules! impl_data_sorting {
+    ($type:ident) => {
+        impl DataSorting for $type {
             fn get_sorting_name(&self) -> &str {
                 &self.sorting_name
             }
+        }
+    };
+}
+macro_rules! impl_data_descr {
+    ($type:ident) => {
+        impl DataDescr for $type {
             fn get_description(&self) -> Option<&str> {
                 self.description.as_ref().map(|d| d.as_str())
             }
@@ -112,7 +123,8 @@ pub struct Feat {
     pub description: Option<String>,
 }
 impl_data!(Feat, u16);
-impl_data_ext!(Feat, u16);
+impl_data_sorting!(Feat);
+impl_data_descr!(Feat);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Power {
@@ -123,7 +135,8 @@ pub struct Power {
     pub extra: bool,
 }
 impl_data!(Power, u16);
-impl_data_ext!(Power, u16);
+impl_data_sorting!(Power);
+impl_data_descr!(Power);
 
 impl From<(Feat, bool)> for Power {
     fn from(value: (Feat, bool)) -> Self {
@@ -147,10 +160,7 @@ pub struct Class {
     pub force_die: u8,
 }
 impl_data!(Class, i32);
-impl DataExt<i32> for Class {
-    fn get_sorting_name(&self) -> &str {
-        &self.name
-    }
+impl DataDescr for Class {
     fn get_description(&self) -> Option<&str> {
         None
     }
@@ -197,10 +207,59 @@ impl PartialEq for Quest {
     }
 }
 
+#[derive(EnumList, Serialize, Deserialize, Debug, Clone, Copy, Hash, PartialEq)]
+pub enum WeaponType {
+    MeleeOneHanded,
+    MeleeTwoHanded,
+    RangedOneHanded,
+    RangedTwoHanded,
+}
+
+impl WeaponType {
+    pub fn offhand_option(self) -> &'static [ItemSlot] {
+        let onehanded = matches!(self, Self::MeleeOneHanded | Self::RangedOneHanded);
+        let melee = matches!(self, Self::MeleeOneHanded | Self::MeleeTwoHanded);
+
+        match (onehanded, melee) {
+            (true, true) => &[ItemSlot::Weapon(WeaponType::MeleeOneHanded)],
+            (true, false) => &[ItemSlot::Weapon(WeaponType::RangedOneHanded)],
+            (false, _) => &[],
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Hash, PartialEq)]
+pub enum ItemSlot {
+    Implant,
+    Head,
+    Gloves,
+    Arms,
+    Armor,
+    Belt,
+    Weapon(WeaponType),
+}
+
+#[derive(EnumFromInt, Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum UsableBy {
+    All = 0,
+    Humans = 1,
+    Droids = 2,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BaseItem {
+    pub id: i32,
+    pub label: String,
+    pub usable_by: UsableBy,
+    pub slot: ItemSlot,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Item {
     pub id: String,
     pub tag: String,
+    pub base_item: i32,
     pub name: Option<String>,
     pub description: Option<String>,
     pub stack_size: u16,
@@ -221,6 +280,7 @@ impl Data<String> for Item {
         }
     }
 }
+impl_data_descr!(Item);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GameData {
@@ -232,6 +292,7 @@ pub struct GameData {
     pub appearances: Vec<Appearance>,
     pub soundsets: Vec<Appearance>,
     pub quests: Vec<Quest>,
+    pub base_items: HashMap<i32, BaseItem>,
     pub items: Vec<Item>,
 }
 
@@ -275,7 +336,7 @@ impl GameData {
             .map_err(|err| format!("couldn't find 2da: {err}"))?;
         let twodas: Vec<TwoDA> = get_resources(&dir, twoda_sources, &twoda_args)
             .map_err(|err| format!("couldn't read 2da: {err}"))?;
-        let [feats, powers, classes, portraits, appearances, soundsets] =
+        let [feats, powers, classes, portraits, appearances, soundsets, baseitems] =
             twodas.try_into().unwrap();
 
         let journal_source = find_source(&overrides, &key, "global", ResourceType::Jrl)
@@ -302,7 +363,8 @@ impl GameData {
                 });
             }
             soundsets.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-        }
+        };
+
         Ok(Self {
             id: fastrand::u64(..),
             feats: read_feats(feats, &tlk_bytes, "description", None)
@@ -327,6 +389,7 @@ impl GameData {
             soundsets,
             quests: read_quests(journal, &tlk_bytes)
                 .map_err(|err| format!("couldn't read journal: {err}"))?,
+            base_items: read_base_items(baseitems),
             items: read_items(items, &tlk_bytes)
                 .map_err(|err| format!("couldn't read items: {err}"))?,
         })

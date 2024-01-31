@@ -56,6 +56,14 @@ pub fn set_drag_value_styles(ui: UiRef) {
 pub fn set_slider_styles(ui: UiRef) {
     set_drag_value_styles(ui);
 }
+
+pub fn set_radio_styles(ui: UiRef) {
+    let visuals = ui.visuals_mut();
+    let widgets = &mut visuals.widgets;
+    widgets.inactive.fg_stroke.color = BLACK;
+    widgets.hovered.fg_stroke.color = BLACK;
+}
+
 pub fn set_checkbox_styles(ui: UiRef) {
     let visuals = ui.visuals_mut();
     let widgets = &mut visuals.widgets;
@@ -79,19 +87,6 @@ pub fn set_button_styles(ui: UiRef) {
     widgets.hovered.weak_bg_fill = BLACK;
     widgets.active.weak_bg_fill = BLACK;
     widgets.active.bg_stroke = (2., WHITE).into();
-}
-
-#[allow(dead_code)]
-pub fn set_button_styles_disabled(ui: UiRef) {
-    let visuals = ui.visuals_mut();
-    let widgets = &mut visuals.widgets;
-    let stroke = (2., GREY).into();
-
-    visuals.override_text_color = Some(GREY);
-
-    widgets.inactive.bg_stroke = stroke;
-    widgets.hovered.bg_stroke = stroke;
-    widgets.active.bg_stroke = stroke;
 }
 
 pub fn make_fonts() -> FontDefinitions {

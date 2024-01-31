@@ -178,9 +178,20 @@ impl<'a> Reader<'a> {
                 None
             } else {
                 Some(match tp {
-                    TwoDAType::Int => TwoDAValue::Int(value.parse().map_err(|_| {
-                        format!("couldn't parse int column {name} in row {row_idx}, value: {value}")
-                    })?),
+                    TwoDAType::Int => {
+                        let (str, radix) = if value.starts_with("0x") {
+                            (value.trim_start_matches("0x"), 16)
+                        } else {
+                            (value.as_str(), 10)
+                        };
+                        let v = i32::from_str_radix(str, radix).map_err(|_| {
+                            format!(
+                                "couldn't parse int column {name} in row {row_idx}, value: {value}"
+                            )
+                        })?;
+
+                        TwoDAValue::Int(v)
+                    }
                     TwoDAType::String => TwoDAValue::String(value),
                 })
             };

@@ -183,18 +183,7 @@ impl<'a> Editor<'a> {
                     if let Some(id) = selected {
                         let item = &self.data.items[id];
                         let idx = self.items.len();
-                        self.items.push(Item {
-                            tag: item.tag.clone(),
-                            name: item.name.clone(),
-                            description: item.description.clone(),
-                            stack_size: item.stack_size,
-                            max_charges: item.charges,
-                            charges: item.charges,
-                            new: true,
-                            upgrades: 0,
-                            upgrade_slots: item.upgrade_level.map(|_| [-1; 6]),
-                            raw: item.inner.clone(),
-                        });
+                        self.items.push(item.into());
                         self.selected = idx;
                         ui.ctx().set_data("ei_scroll_to", idx);
                     }
