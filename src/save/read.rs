@@ -34,10 +34,10 @@ impl Reader {
         pifo: Option<Gff>,
         image: Option<TextureHandle>,
     ) -> Self {
-        let game = if erf.get("pc", ResourceType::Utc).is_none() {
-            Game::One
-        } else {
+        let game = if party_table.fields.get("PT_ITEM_CHEMICAL").is_some() {
             Game::Two
+        } else {
+            Game::One
         };
 
         Self {
@@ -164,17 +164,22 @@ impl Reader {
     fn read_party_table(&self) -> SResult<PartyTable> {
         let s = &self.party_table.content;
         let journal = s
-            .get_ref("JNL_Entries", Field::list)?
-            .iter()
-            .map(|e| {
-                Ok(JournalEntry {
-                    id: e.get("JNL_PlotID", Field::string)?,
-                    stage: e.get("JNL_State", Field::int)?,
-                    time: e.get("JNL_Time", Field::dword)?,
-                    date: e.get("JNL_Date", Field::dword)?,
-                })
+            .get_ref("JNL_Entries", Field::list)
+            .ok()
+            .map(|list| {
+                list.iter()
+                    .map(|e| {
+                        Ok(JournalEntry {
+                            id: e.get("JNL_PlotID", Field::string)?,
+                            stage: e.get("JNL_State", Field::int)?,
+                            time: e.get("JNL_Time", Field::dword)?,
+                            date: e.get("JNL_Date", Field::dword)?,
+                        })
+                    })
+                    .collect::<SResult<_>>()
             })
-            .collect::<SResult<_>>()?;
+            .transpose()?
+            .unwrap_or_default();
 
         let members = s
             .get_ref("PT_MEMBERS", Field::list)?

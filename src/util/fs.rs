@@ -45,17 +45,17 @@ pub fn backup_file(path: &PathBuf) -> io::Result<()> {
 pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
     let mut paths = vec![];
 
-    if game == Game::One {
-        return paths;
-    }
-
     if cfg!(target_os = "windows") {
-        let Ok(app_data) = std::env::var("LocalAppData") else {
+        let Ok(app_data) = std::env::var("LOCALAPPDATA") else {
             return paths;
         };
+        let game_dir = match game {
+            Game::One => "SWKotOR",
+            Game::Two => "SWKotORII",
+        };
 
-        let path_end = PathBuf::from_iter(["LucasArts", "SWKotORII"]);
-        let mut path = PathBuf::from(app_data);
+        let path_end = PathBuf::from_iter(["LucasArts", game_dir]);
+        let mut path = PathBuf::from_iter(["VirtualStore", &app_data]);
         let mut path_x86 = path.clone();
         path.push("Program Files");
         path_x86.push("Program Files (x86)");
@@ -65,6 +65,9 @@ pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
         paths.push(path);
         paths.push(path_x86);
     } else if cfg!(target_os = "linux") {
+        if game == Game::One {
+            return paths;
+        }
         let Ok(home) = std::env::var("HOME") else {
             return paths;
         };

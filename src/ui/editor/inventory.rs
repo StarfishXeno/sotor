@@ -36,7 +36,7 @@ impl<'a> Editor<'a> {
             *spacing = vec2(0., 4.);
             ScrollArea::vertical()
                 .id_source("ei_scroll")
-                .max_width(220.)
+                .max_width(240.)
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
                         self.list(ui);

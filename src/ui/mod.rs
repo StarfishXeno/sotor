@@ -11,13 +11,12 @@ use core::{GameData, GameDataMapped};
 use eframe::APP_KEY;
 use egui::{Context, Ui};
 use egui_toast::Toasts;
-use emath::Align2;
 use log::error;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
-use self::toasts::{error_toast, make_toast, success_toast, ERROR_TOAST, SUCCESS_TOAST};
+use self::toasts::{init_toasts, make_toast};
 
 mod editor;
 #[cfg(not(target_arch = "wasm32"))]
@@ -71,11 +70,7 @@ impl SotorApp {
         let (sender, receiver) = channel();
         cc.egui_ctx.set_channel(sender.clone());
         let default_game_data = load_default_game_data().map(GameData::into);
-        let toasts = Toasts::new()
-            .anchor(Align2::RIGHT_TOP, (-6.0, 40.0))
-            .direction(egui::Direction::TopDown)
-            .custom_contents(SUCCESS_TOAST, success_toast)
-            .custom_contents(ERROR_TOAST, error_toast);
+        let toasts = init_toasts();
 
         #[cfg(not(target_arch = "wasm32"))]
         {

@@ -7,7 +7,8 @@ use egui::{
     text::{LayoutJob, LayoutSection},
     Color32, FontId, Frame, Margin, Response, RichText, TextFormat, TextStyle, WidgetText,
 };
-use egui_toast::{Toast, ToastKind, ToastOptions};
+use egui_toast::{Toast, ToastKind, ToastOptions, Toasts};
+use emath::Align2;
 
 pub const SUCCESS_TOAST: u32 = 0;
 pub const ERROR_TOAST: u32 = 1;
@@ -68,9 +69,24 @@ pub fn make_toast(text: String, content: Option<String>, success: bool) -> Toast
         text: full_text,
         ..Default::default()
     });
+
+    let (kind, duration) = if success {
+        (SUCCESS_TOAST, 3.)
+    } else {
+        (ERROR_TOAST, 7.)
+    };
+
     Toast {
         text: widget_text,
-        kind: ToastKind::Custom(if success { SUCCESS_TOAST } else { ERROR_TOAST }),
-        options: ToastOptions::default().duration_in_seconds(5.0),
+        kind: ToastKind::Custom(kind),
+        options: ToastOptions::default().duration_in_seconds(duration),
     }
+}
+
+pub fn init_toasts() -> Toasts {
+    Toasts::new()
+        .anchor(Align2::RIGHT_TOP, (-6.0, 40.0))
+        .direction(egui::Direction::TopDown)
+        .custom_contents(SUCCESS_TOAST, success_toast)
+        .custom_contents(ERROR_TOAST, error_toast)
 }

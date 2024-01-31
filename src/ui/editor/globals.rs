@@ -29,6 +29,7 @@ impl<'a> Editor<'a> {
             .id_source("eg_scroll")
             .show(ui, |ui| {
                 set_striped_styles(ui);
+                ui.set_width(self.width);
 
                 Grid::new("eg_grid")
                     .spacing([5., 5.])
