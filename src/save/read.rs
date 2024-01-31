@@ -255,7 +255,7 @@ impl Reader {
         }
         let player = player_field.remove(0);
 
-        characters.push(Self::read_character(&player, count)?);
+        characters.push(Self::read_character(&player, usize::MAX)?);
         structs.push(player);
 
         for idx in 0..count {

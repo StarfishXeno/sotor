@@ -1,9 +1,11 @@
-use crate::save::{Character, Class, GlobalValue, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX};
+use crate::save::{Character, Class, GlobalValue, Item, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX};
 use core::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
     GameDataMapped, LocString, ReadResourceNoArg as _, ResourceType,
 };
+
+use super::EQUIPMENT_SLOT_IDS;
 
 pub struct Updater<'a> {
     save: &'a mut Save,
@@ -34,7 +36,8 @@ impl<'a> Updater<'a> {
             "PCNAME",
             Field::String(self.save.characters.first().unwrap().name.clone()),
         );
-        let mut char_indices = vec![0];
+
+        let mut char_indices = vec![usize::MAX]; // PC
         for member in &self.save.party_table.members {
             char_indices.push(member.idx);
         }
@@ -217,6 +220,18 @@ impl<'a> Updater<'a> {
         s.insert("PortraitId", Field::Word(char.portrait));
         s.insert("Appearance_Type", Field::Word(char.appearance));
         s.insert("SoundSetFile", Field::Word(char.soundset));
+
+        let mut equipment = Vec::with_capacity(EQUIPMENT_SLOT_IDS.len());
+        for (idx, tp) in EQUIPMENT_SLOT_IDS.into_iter().enumerate() {
+            let Some(item) = &char.equipment[idx] else {
+                continue;
+            };
+            let mut item_s = Self::make_item(item);
+            item_s.tp = tp;
+
+            equipment.push(item_s);
+        }
+        s.insert("Equip_ItemList", Field::List(equipment));
     }
 
     fn make_class(class: &Class) -> Struct {
@@ -299,45 +314,49 @@ impl<'a> Updater<'a> {
         }
     }
 
+    fn make_item(item: &Item) -> Struct {
+        let mut s = Struct {
+            tp: 0,
+            fields: item.raw.clone(),
+        };
+        s.insert("StackSize", Field::Word(item.stack_size));
+        s.insert("MaxCharges", Field::Byte(item.max_charges));
+        s.insert("Charges", Field::Byte(item.charges));
+        s.insert("NewItem", Field::Byte(item.new as u8));
+        s.insert("Upgrades", Field::Dword(item.upgrades));
+        if let Some(slots) = item.upgrade_slots {
+            for (idx, v) in slots.into_iter().enumerate() {
+                s.fields.insert(format!("UpgradeSlot{idx}"), Field::Int(v));
+            }
+        }
+        s.insert("NewItem", Field::Byte(item.new as u8));
+        let mut insert_loc_if_needed = |source: Option<&String>, key: &str| {
+            let Some(val) = source else {
+                return;
+            };
+            let (str_ref, v) = s.fields[key].loc_string_unwrap();
+            if !v.is_empty() {
+                return;
+            }
+            let value = Field::LocString((
+                *str_ref,
+                vec![LocString {
+                    id: 0,
+                    content: val.clone(),
+                }],
+            ));
+            s.insert(key, value);
+        };
+        insert_loc_if_needed(item.name.as_ref(), "LocalizedName");
+        insert_loc_if_needed(item.description.as_ref(), "DescIdentified");
+
+        s
+    }
+
     fn make_inventory(&mut self) -> Gff {
         let mut items = Vec::with_capacity(self.save.inventory.len());
         for item in &self.save.inventory {
-            let mut s = Struct {
-                tp: 0,
-                fields: item.raw.clone(),
-            };
-            s.insert("StackSize", Field::Word(item.stack_size));
-            s.insert("MaxCharges", Field::Byte(item.max_charges));
-            s.insert("Charges", Field::Byte(item.charges));
-            s.insert("NewItem", Field::Byte(item.new as u8));
-            s.insert("Upgrades", Field::Dword(item.upgrades));
-            if let Some(slots) = item.upgrade_slots {
-                for (idx, v) in slots.into_iter().enumerate() {
-                    s.fields.insert(format!("UpgradeSlot{idx}"), Field::Int(v));
-                }
-            }
-            s.insert("NewItem", Field::Byte(item.new as u8));
-            let mut insert_loc_if_needed = |source: Option<&String>, key: &str| {
-                let Some(val) = source else {
-                    return;
-                };
-                let (str_ref, v) = s.fields[key].loc_string_unwrap();
-                if !v.is_empty() {
-                    return;
-                }
-                let value = Field::LocString((
-                    *str_ref,
-                    vec![LocString {
-                        id: 0,
-                        content: val.clone(),
-                    }],
-                ));
-                s.insert(key, value);
-            };
-            insert_loc_if_needed(item.name.as_ref(), "LocalizedName");
-            insert_loc_if_needed(item.description.as_ref(), "DescIdentified");
-
-            items.push(s);
+            items.push(Self::make_item(item));
         }
 
         Gff {

@@ -365,6 +365,17 @@ impl GameData {
             soundsets.sort_unstable_by(|a, b| a.name.cmp(&b.name));
         };
 
+        let mut portraits = read_appearances(portraits, "baseresref");
+        let mut appearances = read_appearances(appearances, "label");
+        // this is important
+        if game == Game::Two {
+            for app in portraits.iter_mut().chain(appearances.iter_mut()) {
+                if app.name == "po_PMHC04" || app.name == "P_MAL_C_MED_04" {
+                    app.name = "Jedi Jesus".to_owned();
+                }
+            }
+        }
+
         Ok(Self {
             id: fastrand::u64(..),
             feats: read_feats(feats, &tlk_bytes, "description", None)
@@ -384,8 +395,8 @@ impl GameData {
             .collect(),
             classes: read_classes(classes, &tlk_bytes)
                 .map_err(|err| format!("couldn't read classes: {err}"))?,
-            portraits: read_appearances(portraits, "baseresref"),
-            appearances: read_appearances(appearances, "label"),
+            portraits,
+            appearances,
             soundsets,
             quests: read_quests(journal, &tlk_bytes)
                 .map_err(|err| format!("couldn't read journal: {err}"))?,

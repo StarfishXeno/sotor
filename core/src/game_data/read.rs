@@ -306,7 +306,7 @@ pub fn read_appearances(twoda: TwoDA, field: &str) -> Vec<Appearance> {
 
         appearances.push(Appearance { id, name });
     }
-    appearances.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    appearances.sort_unstable_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     appearances
 }
 
@@ -462,7 +462,11 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
             inner: inner.clone(),
         });
     }
-    items.sort_unstable_by(|a, b| a.get_name().cmp(b.get_name()));
+    items.sort_unstable_by(|a, b| {
+        a.get_name()
+            .to_lowercase()
+            .cmp(&b.get_name().to_lowercase())
+    });
 
     Ok(items)
 }

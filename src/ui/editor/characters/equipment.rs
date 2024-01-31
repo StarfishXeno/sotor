@@ -64,9 +64,10 @@ impl<'a> CharEquipment<'a> {
     }
 
     fn header(&mut self, ui: UiRef) {
+        let usable_id = Id::new("ec_eq_usable").with(&self.char.tag);
         let usable_by = ui
             .ctx()
-            .get_data("ec_eq_usable")
+            .get_data(usable_id)
             .unwrap_or_else(|| Self::droid_or_human(&self.char.tag));
         let show_all = ui.ctx().get_data("ec_eq_all").unwrap_or(false);
         self.usable_by = usable_by;
@@ -83,7 +84,7 @@ impl<'a> CharEquipment<'a> {
         });
 
         if usable_by != self.usable_by {
-            ui.ctx().set_data("ec_eq_usable", self.usable_by);
+            ui.ctx().set_data(usable_id, self.usable_by);
         }
         if show_all != self.show_all {
             ui.ctx().set_data("ec_eq_all", self.show_all);
