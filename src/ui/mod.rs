@@ -10,10 +10,14 @@ use core::{GameData, GameDataMapped};
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::APP_KEY;
 use egui::{Context, Ui};
+use egui_toast::Toasts;
+use emath::Align2;
 use log::error;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
+
+use self::toasts::{error_toast, make_toast, success_toast, ERROR_TOAST, SUCCESS_TOAST};
 
 mod editor;
 #[cfg(not(target_arch = "wasm32"))]
@@ -21,12 +25,12 @@ mod settings;
 #[cfg(not(target_arch = "wasm32"))]
 mod side_panel;
 mod styles;
+mod toasts;
 mod widgets;
 
 type UiRef<'a> = &'a mut Ui;
 
 #[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug)]
 struct SaveDirectories {
     cloud: bool,
     base_dir: String,
@@ -34,17 +38,17 @@ struct SaveDirectories {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 struct PersistentState {
     steam_path: Option<String>,
     game_paths: [Option<String>; Game::COUNT],
 }
 #[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug)]
 pub struct SotorApp {
     save: Option<Save>,
     channel: (Sender<Message>, Receiver<Message>),
     default_game_data: [GameDataMapped; Game::COUNT],
+    toasts: Toasts,
     save_path: Option<String>,
     settings_open: bool,
     save_list: [Vec<SaveDirectories>; Game::COUNT],
@@ -54,11 +58,11 @@ pub struct SotorApp {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[derive(Debug)]
 pub struct SotorApp {
     save: Option<Save>,
     channel: (Sender<Message>, Receiver<Message>),
     default_game_data: [GameDataMapped; Game::COUNT],
+    toasts: Toasts,
 }
 
 impl SotorApp {
@@ -67,6 +71,11 @@ impl SotorApp {
         let (sender, receiver) = channel();
         cc.egui_ctx.set_channel(sender.clone());
         let default_game_data = load_default_game_data().map(GameData::into);
+        let toasts = Toasts::new()
+            .anchor(Align2::RIGHT_TOP, (-6.0, 40.0))
+            .direction(egui::Direction::TopDown)
+            .custom_contents(SUCCESS_TOAST, success_toast)
+            .custom_contents(ERROR_TOAST, error_toast);
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -75,6 +84,7 @@ impl SotorApp {
                 save_path: None,
                 channel: (sender, receiver),
                 default_game_data,
+                toasts,
                 settings_open: false,
                 save_list: [vec![], vec![]],
                 latest_save: None,
@@ -85,8 +95,8 @@ impl SotorApp {
                     .unwrap_or_default(),
             };
 
-            app.reload_save_list(&cc.egui_ctx);
-            app.reload_game_data(&cc.egui_ctx);
+            app.reload_game_data(&cc.egui_ctx, true);
+            app.reload_save_list(&cc.egui_ctx, true);
 
             app
         }
@@ -96,6 +106,7 @@ impl SotorApp {
                 save: None,
                 channel: (sender, receiver),
                 default_game_data,
+                toasts,
             }
         }
     }
@@ -105,6 +116,18 @@ impl SotorApp {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.save_path = None;
+        }
+    }
+
+    fn add_toast(&mut self, text: impl Into<String>, content: Option<String>, success: bool) {
+        self.toasts.add(make_toast(text.into(), content, success));
+    }
+
+    fn reload_save(&mut self, ctx: &Context) {
+        // platform-specific
+        let success = self._reload_save(ctx);
+        if success {
+            self.add_toast("Reloaded successfully", None, true);
         }
     }
 }
@@ -139,8 +162,9 @@ impl SotorApp {
         crate::util::download_save(bytes);
     }
 
-    fn reload_save(&mut self) {
+    fn _reload_save(&mut self, _ctx: &Context) -> bool {
         self.save = self.save.clone().map(Save::reload);
+        true
     }
 }
 
@@ -165,28 +189,41 @@ impl SotorApp {
         } else {
             &self.default_game_data[game]
         };
-        if let Err(err) = Save::save_to_directory(
+        let res = Save::save_to_directory(
             self.save_path.as_ref().unwrap(),
             self.save.as_mut().unwrap(),
             game_data,
-        ) {
-            error!("{err}");
+        );
+        match res {
+            Ok(_) => self.add_toast("Saved successfully", None, true),
+            Err(err) => {
+                error!("{err}");
+                self.add_toast("Couldn't save: ", Some(err), true);
+            }
         }
     }
 
-    fn load_save(&mut self, path: String, ctx: &Context, silent: bool) {
-        match Save::read_from_directory(&path, ctx) {
+    fn load_save(&mut self, path: String, ctx: &Context, silent: bool) -> bool {
+        let success = match Save::read_from_directory(&path, ctx) {
             Ok(save) => {
                 self.save = Some(save);
                 self.save_path = Some(path);
+                true
             }
             Err(err) => {
+                error!("{err}");
                 if !silent {
-                    error!("{err}");
+                    self.add_toast("Couldn't load save:", Some(err), false);
                 }
+                false
             }
-        }
+        };
         self.set_meta_id(ctx);
+        success
+    }
+
+    fn _reload_save(&mut self, ctx: &Context) -> bool {
+        self.load_save(self.save_path.clone().unwrap(), ctx, false)
     }
 
     fn load_latest_save(&mut self, ctx: &Context) {
@@ -263,32 +300,51 @@ impl SotorApp {
         }
     }
 
-    fn reload_save_list(&mut self, ctx: &Context) {
+    fn reload_save_list(&mut self, ctx: &Context, silent: bool) {
         Game::LIST.map(|game| self.load_save_list(game));
-
+        if !silent {
+            self.add_toast("Save list refreshed", None, true);
+        }
         if self.save.is_none() {
             self.load_latest_save(ctx);
         }
     }
 
-    fn load_game_data(&mut self, game: Game, ctx: &Context) {
+    fn load_game_data(&mut self, game: Game, ctx: &Context, silent: bool) -> bool {
         let idx = game.idx();
-        if let Some(game_path) = self.prs.game_paths[idx].as_ref() {
+        let success = if let Some(game_path) = self.prs.game_paths[idx].as_ref() {
             let game_data = GameData::read(game, game_path, self.prs.steam_path.as_ref());
-            if let Ok(data) = game_data {
-                self.game_data[idx] = Some(data.into());
-            } else {
-                self.game_data[idx] = None;
-                error!("couldn't load game data for game {game}: {game_data:?}");
+            match game_data {
+                Ok(data) => {
+                    self.game_data[idx] = Some(data.into());
+                    true
+                }
+                Err(err) => {
+                    self.game_data[idx] = None;
+                    error!("KotOR {game}: {err:?}");
+                    if !silent {
+                        self.add_toast(
+                            format!("Couldn't load game data for KotOR {game}:"),
+                            Some(err),
+                            false,
+                        );
+                    }
+                    false
+                }
             }
         } else {
             self.game_data[idx] = None;
+            true
         };
         self.set_meta_id(ctx);
+        success
     }
 
-    fn reload_game_data(&mut self, ctx: &Context) {
-        Game::LIST.map(|game| self.load_game_data(game, ctx));
+    fn reload_game_data(&mut self, ctx: &Context, silent: bool) {
+        let res = Game::LIST.map(|game| self.load_game_data(game, ctx, silent));
+        if !silent && res.iter().all(|s| *s) {
+            self.add_toast("Reloaded successfully", None, true);
+        }
     }
 
     fn set_steam_path(&mut self, path: Option<String>, ctx: &Context) {
@@ -308,7 +364,7 @@ impl SotorApp {
                 *game_path = Some(new_path.to_str().unwrap().to_owned());
             }
             self.load_save_list(game);
-            self.load_game_data(game, ctx);
+            self.load_game_data(game, ctx, false);
         }
         self.load_latest_save(ctx);
     }
@@ -316,7 +372,7 @@ impl SotorApp {
     fn set_game_path(&mut self, game: Game, path: Option<String>, ctx: &Context) {
         self.prs.game_paths[game.idx()] = path;
         self.load_save_list(game);
-        self.load_game_data(game, ctx);
+        self.load_game_data(game, ctx, false);
         self.load_latest_save(ctx);
     }
 
@@ -337,19 +393,21 @@ impl eframe::App for SotorApp {
             match message {
                 Message::Save => self.save(),
                 Message::CloseSave => self.close_save(),
-                Message::ReloadSave => self.load_save(self.save_path.clone().unwrap(), ctx, false),
-                Message::LoadSaveFromDir(path) => self.load_save(path.to_string(), ctx, false),
+                Message::ReloadSave => self.reload_save(ctx),
+                Message::LoadSaveFromDir(path) => {
+                    self.load_save(path.to_string(), ctx, false);
+                }
                 Message::ToggleSettingsOpen => self.toggle_settings_open(),
                 Message::SetSteamPath(path) => self.set_steam_path(path, ctx),
                 Message::SetGamePath(game, path) => self.set_game_path(game, path, ctx),
-                Message::ReloadSaveList => self.reload_save_list(ctx),
-                Message::ReloadGameData => self.reload_game_data(ctx),
+                Message::ReloadSaveList => self.reload_save_list(ctx, false),
+                Message::ReloadGameData => self.reload_game_data(ctx, false),
             }
             #[cfg(target_arch = "wasm32")]
             match message {
                 Message::Save => self.save(),
                 Message::CloseSave => self.close_save(),
-                Message::ReloadSave => self.reload_save(),
+                Message::ReloadSave => self.reload_save(ctx),
                 Message::LoadSaveFromFiles(files) => self.load_save(&files, ctx),
             }
         }
@@ -391,5 +449,7 @@ impl eframe::App for SotorApp {
                 editor::editor_placeholder(ui);
             }
         });
+
+        self.toasts.show(ctx);
     }
 }

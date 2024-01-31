@@ -114,6 +114,7 @@ impl UiExt for Ui {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Icon {
+    Check,
     Close,
     #[cfg(not(target_arch = "wasm32"))]
     Cloud,
@@ -133,6 +134,7 @@ pub enum Icon {
 impl Icon {
     pub fn symbol(self) -> &'static str {
         match self {
+            Self::Check => "\u{f00c}",
             Self::Close => "\u{f00d}",
             #[cfg(not(target_arch = "wasm32"))]
             Self::Cloud => "\u{f0c2}",

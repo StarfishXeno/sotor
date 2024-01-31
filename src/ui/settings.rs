@@ -145,7 +145,7 @@ impl<'a, F: Fn()> Settings<'a, F> {
                 Self::path(
                     ui,
                     steam_path,
-                    "Steam library path",
+                    "steamapps path",
                     "Select the steamapps directory".to_owned(),
                     empty_text,
                     Message::SetSteamPath,

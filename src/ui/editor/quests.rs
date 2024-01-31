@@ -50,7 +50,7 @@ impl<'a> Editor<'a> {
                 set_striped_styles(ui);
 
                 Grid::new("eq_grid")
-                    .spacing([5., 5.])
+                    .spacing([0., 5.])
                     .striped(true)
                     .num_columns(3)
                     .max_col_width(230.)
@@ -69,7 +69,9 @@ impl<'a> Editor<'a> {
         for _ in 0..columns {
             ui.s_empty();
             ui.label(RichText::new("Name").underline());
+            ui.add_space(10.);
             ui.label(RichText::new("Stage").underline());
+            ui.add_space(10.);
             counter.next(ui);
         }
         set_combobox_styles(ui);
@@ -119,6 +121,7 @@ impl<'a> Editor<'a> {
 
         let name_color = if completed { GREY } else { WHITE };
         let label_r = ui.label(color_text(name, name_color));
+        ui.add_space(10.);
         // it's not already in the name
         if stages.is_some() {
             label_r.on_hover_text(color_text(&entry.id, WHITE));
@@ -149,6 +152,7 @@ impl<'a> Editor<'a> {
             set_drag_value_styles(ui);
             ui.add(DragValue::new(&mut entry.stage));
         }
+        ui.add_space(10.);
     }
 
     fn get_present_ids(&self) -> HashSet<&String> {
