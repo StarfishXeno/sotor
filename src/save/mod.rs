@@ -70,6 +70,7 @@ pub struct Global {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nfo {
     pub save_name: String,
+    pub pc_name: Option<String>,
     pub area_name: String,
     pub last_module: String,
     pub cheat_used: bool,

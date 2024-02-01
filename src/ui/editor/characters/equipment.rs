@@ -158,6 +158,8 @@ impl<'a> CharEquipment<'a> {
                 .show_ui(ui, |ui| {
                     set_selectable_styles(ui);
                     let mut selected = current_id.as_deref();
+                    ui.selectable_value(&mut selected, None, "None");
+
                     for template in &self.data.inner.items {
                         let Some(base) = self.data.inner.base_items.get(&template.base_item) else {
                             continue;
@@ -202,12 +204,15 @@ impl<'a> CharEquipment<'a> {
 
     fn droid_or_human(tag: &str) -> UsableBy {
         match tag {
-            "t3m4" | "hk47" | "g0t0" | "remote" => UsableBy::Droids,
+            "t3m4" | "hk47" | "g0t0" | "remote" | "3cfd" | "b4d4" => UsableBy::Droids,
             _ => UsableBy::Humans,
         }
     }
 
     fn item_on_hover_text(ui: UiRef, r: &Response, item: &(impl DataDescr + Data<String>)) {
+        if !r.hovered() {
+            return;
+        }
         let mut hover_text = Cow::Borrowed(item.get_id().as_str());
         if let Some(descr) = item.get_description() {
             hover_text = Cow::Owned([&hover_text, descr].join("\n\n"));

@@ -78,7 +78,12 @@ impl<'a> Editor<'a> {
         ui.end_row();
 
         ui.label("PC name: ");
-        ui.s_text(&self.characters.first().unwrap().name);
+        let name = self
+            .nfo
+            .pc_name
+            .as_deref()
+            .unwrap_or_else(|| &self.characters.first().unwrap().name);
+        ui.s_text(name);
         ui.end_row();
 
         ui.label("Area name: ");

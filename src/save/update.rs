@@ -32,10 +32,13 @@ impl<'a> Updater<'a> {
 
         s.insert("SAVEGAMENAME", Field::String(nfo.save_name.clone()));
         s.insert("CHEATUSED", Field::Byte(nfo.cheat_used as u8));
-        s.insert(
-            "PCNAME",
-            Field::String(self.save.characters.first().unwrap().name.clone()),
-        );
+        // PC data can be temporarily overriden by an NPC, this preserves the name in that case
+        if self.save.characters[0].tag.is_empty() {
+            s.insert(
+                "PCNAME",
+                Field::String(self.save.characters.first().unwrap().name.clone()),
+            );
+        }
 
         let mut char_indices = vec![usize::MAX]; // PC
         for member in &self.save.party_table.members {

@@ -129,6 +129,8 @@ impl<'a, F: Fn()> Settings<'a, F> {
     }
 
     fn paths(ui: UiRef, steam_path: &Option<String>, game_paths: &[Option<String>; 2]) {
+        ui.label("Set paths if you want automatically loaded save lists and non-vanilla game data");
+        ui.separator();
         set_striped_styles(ui);
         Grid::new("s_grid")
             .spacing([0., 5.])

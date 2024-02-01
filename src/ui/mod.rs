@@ -72,6 +72,7 @@ impl SotorApp {
         cc.egui_ctx.set_channel(sender.clone());
         let default_game_data = load_default_game_data().map(GameData::into);
         let toasts = init_toasts();
+        let prs = cc.storage.and_then(|s| eframe::get_value(s, APP_KEY));
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -81,14 +82,11 @@ impl SotorApp {
                 channel: (sender, receiver),
                 default_game_data,
                 toasts,
-                settings_open: false,
+                settings_open: prs.is_none(),
                 save_list: [vec![], vec![]],
                 latest_save: None,
                 game_data: [None, None],
-                prs: cc
-                    .storage
-                    .and_then(|s| eframe::get_value(s, APP_KEY))
-                    .unwrap_or_default(),
+                prs: prs.unwrap_or_default(),
             };
 
             app.reload_game_data(&cc.egui_ctx, true);

@@ -92,6 +92,7 @@ impl Reader {
 
         Ok(Nfo {
             save_name: s.get("SAVEGAMENAME", Field::string).unwrap_or_default(), // autosaves don't have this field
+            pc_name: s.get("PCNAME", Field::string).ok(),
             area_name: s.get("AREANAME", Field::string)?,
             last_module: s.get("LASTMODULE", Field::string)?,
             cheat_used: s.get("CHEATUSED", Field::byte)? != 0,
