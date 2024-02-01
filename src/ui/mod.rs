@@ -72,10 +72,10 @@ impl SotorApp {
         cc.egui_ctx.set_channel(sender.clone());
         let default_game_data = load_default_game_data().map(GameData::into);
         let toasts = init_toasts();
-        let prs = cc.storage.and_then(|s| eframe::get_value(s, APP_KEY));
 
         #[cfg(not(target_arch = "wasm32"))]
         {
+            let prs = cc.storage.and_then(|s| eframe::get_value(s, APP_KEY));
             let mut app = Self {
                 save: None,
                 save_path: None,
