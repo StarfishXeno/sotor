@@ -40,7 +40,7 @@ impl<'a> Editor<'a> {
 
     fn globals(&mut self, ui: UiRef) {
         const COLUMN_WIDTH: f32 = 220.;
-        let mut counter = ColumnCounter::new((self.width / COLUMN_WIDTH) as u32);
+        let mut counter = ColumnCounter::new((self.width / COLUMN_WIDTH) as usize);
 
         for global in &mut *self.globals {
             match &mut global.value {

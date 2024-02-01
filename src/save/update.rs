@@ -25,6 +25,7 @@ impl<'a> Updater<'a> {
         self.update_globals();
         self.update_party_table();
         self.update_characters();
+        self.update_doors();
         self.update_pifo();
         self.update_erf();
     }
@@ -270,6 +271,16 @@ impl<'a> Updater<'a> {
         s
     }
 
+    fn update_doors(&mut self) {
+        let Some(doors) = self.save.doors.as_mut() else {
+            return;
+        };
+        for door in doors {
+            door.raw.insert("Locked", Field::Byte(door.locked as u8));
+            door.raw.insert("OpenState", Field::Byte(door.open_state));
+        }
+    }
+
     fn update_pifo(&mut self) {
         if !self.save.inner.use_pifo {
             return;
@@ -290,9 +301,8 @@ impl<'a> Updater<'a> {
 
         // pain
         if !self.save.inner.use_pifo {
-            let module = erf
-                .get_mut(&self.save.nfo.last_module.to_lowercase(), ResourceType::Sav)
-                .unwrap();
+            let last_module = self.save.nfo.last_module.to_lowercase();
+            let module = erf.get_mut(&last_module, ResourceType::Sav).unwrap();
             let mut module_erf = Erf::read(&module.content).unwrap();
             let module_inner = module_erf.get_mut("module", ResourceType::Ifo).unwrap();
             let mut module_inner_gff = Gff::read(&module_inner.content).unwrap();
@@ -307,7 +317,20 @@ impl<'a> Updater<'a> {
 
             list[0] = self.save.inner.characters[0].clone();
             module_inner.content = gff::write(module_inner_gff);
-            module.content = erf::write(module_erf.clone());
+
+            if let Some(doors) = &self.save.doors {
+                let git_key = self.save.inner.git_key.as_ref().unwrap();
+                let git = module_erf.resources.get_mut(git_key).unwrap();
+                let mut gff = Gff::read(&git.content).unwrap();
+
+                let Field::List(list) = gff.content.fields.get_mut("Door List").unwrap() else {
+                    unreachable!()
+                };
+                *list = doors.iter().map(|d| &d.raw).cloned().collect();
+                git.content = gff::write(gff);
+            }
+
+            module.content = erf::write(module_erf);
         }
 
         for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {

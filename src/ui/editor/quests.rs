@@ -63,7 +63,7 @@ impl<'a> Editor<'a> {
     }
 
     fn table(&mut self, ui: UiRef) {
-        let columns = (self.width / 715.).max(1.) as u32;
+        let columns = ((self.width / 715.) as usize).clamp(1, self.journal.len().max(1));
         let counter = &mut ColumnCounter::new(columns);
 
         for _ in 0..columns {

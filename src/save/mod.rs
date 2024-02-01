@@ -6,7 +6,7 @@ use ahash::HashMap;
 use core::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
-    Data, DataDescr, GameDataMapped, Item as DItem, ReadResourceNoArg as _,
+    Data, DataDescr, GameDataMapped, Item as DItem, ReadResourceNoArg as _, ResourceKey,
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use macros::{EnumFromInt, EnumList, EnumToInt, EnumToString};
@@ -197,15 +197,26 @@ impl DataDescr for Item {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Door {
+    pub tag: String,
+    pub locked: bool,
+    pub open_state: u8,
+    raw: Struct,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct SaveInternals {
     nfo: Gff,
     globals: Gff,
     party_table: Gff,
     erf: Erf,
     pifo: Option<Gff>,
+
+    git_key: Option<ResourceKey>,
     use_pifo: bool,
     characters: Vec<Struct>,
 }
+
 #[derive(Clone, PartialEq)]
 pub struct Save {
     pub id: u64,
@@ -216,6 +227,7 @@ pub struct Save {
     pub image: Option<TextureHandle>,
     pub characters: Vec<Character>,
     pub inventory: Vec<Item>,
+    pub doors: Option<Vec<Door>>,
 
     inner: SaveInternals,
 }

@@ -13,6 +13,7 @@ use emath::Align;
 use macros::{EnumList, EnumToString};
 use serde::{Deserialize, Serialize};
 
+mod area;
 mod characters;
 mod general;
 mod globals;
@@ -68,6 +69,7 @@ pub enum Tab {
     Characters,
     Inventory,
     Quests,
+    Area,
 }
 
 static TAB_ID: &str = "e_id";
@@ -121,6 +123,7 @@ impl<'a> Editor<'a> {
             Tab::Characters => characters::Editor::new(self.save, self.data).show(ui),
             Tab::Quests => quests::Editor::new(self.save, self.data).show(ui),
             Tab::Inventory => inventory::Editor::new(self.save, self.data).show(ui),
+            Tab::Area => area::Editor::new(self.save).show(ui),
         }
     }
 }

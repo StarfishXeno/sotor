@@ -136,12 +136,12 @@ pub fn load_tga(bytes: &[u8]) -> SResult<ColorImage> {
 }
 
 pub struct ColumnCounter {
-    max: u32,
-    current: u32,
+    max: usize,
+    current: usize,
 }
 
 impl ColumnCounter {
-    pub fn new(max: u32) -> Self {
+    pub fn new(max: usize) -> Self {
         Self { max, current: 0 }
     }
     pub fn next(&mut self, ui: &mut Ui) {

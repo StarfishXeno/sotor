@@ -58,6 +58,12 @@ pub fn set_drag_value_styles(ui: UiRef) {
     widgets.active.bg_stroke = (2., GREEN).into();
 }
 pub fn set_slider_styles(ui: UiRef) {
+    let visuals = ui.visuals_mut();
+    let widgets = &mut visuals.widgets;
+
+    widgets.inactive.fg_stroke = (2., GREEN_DARK).into();
+    widgets.hovered.fg_stroke = (2., GREEN).into();
+    widgets.active.fg_stroke = (2., GREEN).into();
     set_drag_value_styles(ui);
 }
 

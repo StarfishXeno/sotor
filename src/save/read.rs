@@ -1,6 +1,6 @@
 use crate::{
     save::{
-        AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, Item,
+        AvailablePartyMember, Character, Class, Door, Game, Gender, Global, GlobalValue, Item,
         JournalEntry, Nfo, PartyMember, PartyTable, Save, SaveInternals, EQUIPMENT_SLOT_IDS,
         GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
     },
@@ -11,9 +11,16 @@ use core::{
     erf::Erf,
     gff::{Field, Gff, Struct},
     util::prepare_item_name,
-    ReadResourceNoArg as _, ResourceType,
+    ReadResourceNoArg as _, ResourceKey, ResourceType,
 };
 use egui::TextureHandle;
+use log::error;
+
+struct LastModuleInfo {
+    use_pifo: bool,
+    module: Gff,
+    git: Option<(ResourceKey, Gff)>,
+}
 
 pub struct Reader {
     nfo: Gff,
@@ -55,10 +62,14 @@ impl Reader {
         let mut nfo = self.read_nfo()?;
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
-        let (use_pifo, last_module) = self.read_last_module(&nfo.last_module.to_lowercase())?;
+        let lm_info = self.read_last_module(&nfo.last_module.to_lowercase())?;
         let (characters, character_structs) =
-            self.read_characters(last_module, party_table.available_members.len())?;
+            self.read_characters(lm_info.module, party_table.available_members.len())?;
         let inventory = self.read_inventory()?;
+        let (git_key, doors) = match lm_info.git.map(|(key, gff)| (key, Self::read_doors(gff))) {
+            Some((key, Some(d))) => (Some(key), Some(d)),
+            _ => (None, None),
+        };
 
         // unifying the flag in case it's somehow out of sync
         nfo.cheat_used = nfo.cheat_used || party_table.cheat_used;
@@ -73,6 +84,7 @@ impl Reader {
             image: self.image,
             game: self.game,
             inventory,
+            doors,
 
             inner: SaveInternals {
                 nfo: self.nfo,
@@ -81,7 +93,8 @@ impl Reader {
                 erf: self.erf,
                 pifo: self.pifo,
 
-                use_pifo,
+                git_key,
+                use_pifo: lm_info.use_pifo,
                 characters: character_structs,
             },
         })
@@ -232,16 +245,35 @@ impl Reader {
         })
     }
 
-    fn read_last_module(&self, last_module: &str) -> SResult<(bool, Gff)> {
+    fn read_last_module(&self, last_module: &str) -> SResult<LastModuleInfo> {
         if let Some(module) = self.erf.get(last_module, ResourceType::Sav) {
             let module_erf = Erf::read(&module.content)?;
             let module_inner = module_erf
                 .get("module", ResourceType::Ifo)
                 .ok_or("couldn't get inner module resource".to_string())?;
+            let ifo = Gff::read(&module_inner.content)?;
 
-            Ok((false, Gff::read(&module_inner.content)?))
+            let mut git_key = None;
+            for key in module_erf.resources.keys() {
+                if last_module.ends_with(&key.0) && key.1 == ResourceType::Git {
+                    git_key = Some(key.clone());
+                    break;
+                }
+            }
+            let module_git = git_key.as_ref().and_then(|k| module_erf.resources.get(k));
+            let git = module_git.and_then(|g| Gff::read(&g.content).ok());
+
+            Ok(LastModuleInfo {
+                use_pifo: false,
+                module: ifo,
+                git: git_key.zip(git),
+            })
         } else if let Some(res) = &self.pifo {
-            Ok((true, res.clone()))
+            Ok(LastModuleInfo {
+                use_pifo: true,
+                module: res.clone(),
+                git: None,
+            })
         } else {
             return Err("couldn't get last module resource".to_string());
         }
@@ -448,5 +480,32 @@ impl Reader {
         Ok(item)
     }
 
+    fn read_doors(mut gff: Gff) -> Option<Vec<Door>> {
+        let list = gff.take("Door List", Field::list_take).ok()?;
+        let mut doors = Vec::with_capacity(list.len());
+        for door in list {
+            let tag = door.get("Tag", Field::string).ok()?;
+            let locked = door.get("Locked", Field::byte).ok()?;
+            let open_state = door.get("OpenState", Field::byte).ok()?;
 
+            // idk, just to be safe, i'm clamping the values from here on out
+            if locked > 1 {
+                error!("door locked value > 1");
+                return None;
+            }
+            if open_state > 2 {
+                error!("door open state value > 2");
+                return None;
+            }
+
+            doors.push(Door {
+                tag,
+                locked: locked == 1,
+                open_state,
+                raw: door,
+            });
+        }
+
+        Some(doors)
+    }
 }
