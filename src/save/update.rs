@@ -1,6 +1,6 @@
 use crate::{
     save::{Character, Class, GlobalValue, Item, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX},
-    util::calc_hp_fp_offset,
+    util::{calc_hp_fp_offset, find_pc_name},
 };
 use core::{
     erf::{self, Erf},
@@ -35,15 +35,12 @@ impl<'a> Updater<'a> {
 
         s.insert("SAVEGAMENAME", Field::String(nfo.save_name.clone()));
         s.insert("CHEATUSED", Field::Byte(nfo.cheat_used as u8));
-        // PC data can be temporarily overriden by an NPC, this preserves the name in that case
-        if self.save.characters[0].tag.is_empty() {
-            s.insert(
-                "PCNAME",
-                Field::String(self.save.characters.first().unwrap().name.clone()),
-            );
-        }
+        s.insert(
+            "PCNAME",
+            Field::String(find_pc_name(&self.save.characters, nfo).to_owned()),
+        );
 
-        let mut char_indices = vec![usize::MAX]; // PC
+        let mut char_indices = vec![usize::MAX]; // Party leader
         for member in &self.save.party_table.members {
             char_indices.push(member.idx);
         }

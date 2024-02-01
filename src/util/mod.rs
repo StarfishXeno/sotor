@@ -1,4 +1,4 @@
-use crate::save::Character;
+use crate::save::{Character, Nfo};
 pub use core::util::*;
 use core::{util::bytes::Cursor, GameData};
 
@@ -92,4 +92,13 @@ pub fn calc_hp_fp_offset(char: &Character) -> (i16, i16) {
     fp += wisdom * force_level;
 
     (hp, fp)
+}
+
+pub fn find_pc_name<'a>(chars: &'a [Character], nfo: &'a Nfo) -> &'a str {
+    chars
+        .iter()
+        .find(|c| c.tag.is_empty())
+        .map(|c| c.name.as_str())
+        .or(nfo.pc_name.as_deref())
+        .unwrap_or("UNKNOWN")
 }

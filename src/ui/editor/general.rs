@@ -5,7 +5,7 @@ use crate::{
         widgets::{color_text, Icon, IconButton, UiExt},
         UiRef,
     },
-    util::{format_seconds, ColumnCounter},
+    util::{find_pc_name, format_seconds, ColumnCounter},
 };
 use egui::{Frame, Grid, Image, Layout, Margin, RichText, TextureHandle};
 
@@ -78,12 +78,7 @@ impl<'a> Editor<'a> {
         ui.end_row();
 
         ui.label("PC name: ");
-        let name = self
-            .nfo
-            .pc_name
-            .as_deref()
-            .unwrap_or_else(|| &self.characters.first().unwrap().name);
-        ui.s_text(name);
+        ui.s_text(find_pc_name(self.characters, self.nfo));
         ui.end_row();
 
         ui.label("Area name: ");

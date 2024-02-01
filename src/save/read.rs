@@ -255,16 +255,17 @@ impl Reader {
         let mut characters = Vec::with_capacity(count + 1);
         let mut structs = Vec::with_capacity(count + 1);
 
-        let mut player_field = last_module.take("Mod_PlayerList", Field::list_take)?;
-        if player_field.is_empty() {
+        let mut leader_field = last_module.take("Mod_PlayerList", Field::list_take)?;
+        if leader_field.is_empty() {
             return Err("couldn't get player character struct".to_string());
         }
-        let player = player_field.remove(0);
+        let leader = leader_field.remove(0);
 
-        characters.push(Self::read_character(&player, usize::MAX)?);
-        structs.push(player);
+        characters.push(Self::read_character(&leader, usize::MAX)?);
+        structs.push(leader);
 
         let mut keys = Vec::with_capacity(count + 1);
+        // in case the PC isn't currently in the party
         keys.push(("pc".to_owned(), usize::MAX - 1));
         keys.extend((0..count).map(|idx| (format!("{NPC_RESOURCE_PREFIX}{idx}"), idx)));
 
@@ -446,4 +447,6 @@ impl Reader {
 
         Ok(item)
     }
+
+
 }
