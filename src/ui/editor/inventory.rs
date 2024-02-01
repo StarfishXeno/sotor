@@ -11,7 +11,7 @@ use crate::{
     util::ContextExt,
 };
 use core::{Data as _, GameDataMapped};
-use egui::{ComboBox, Grid, Label, ScrollArea, Separator};
+use egui::{ComboBox, Grid, Id, Label, ScrollArea, Separator};
 use emath::{vec2, Align};
 
 pub struct Editor<'a> {
@@ -168,6 +168,10 @@ impl<'a> Editor<'a> {
         ui.horizontal(|ui| {
             ui.label("Add item:");
             set_combobox_styles(ui);
+
+            let popup_id = ui.make_persistent_id(Id::new("ei_add")).with("popup");
+            let mut added = false;
+
             ComboBox::from_id_source("ei_add")
                 .width(300.)
                 .show_ui(ui, |ui| {
@@ -186,6 +190,7 @@ impl<'a> Editor<'a> {
                         self.items.push(item.into());
                         self.selected = idx;
                         ui.ctx().set_data("ei_scroll_to", idx);
+                        added = true;
                     }
                 });
             let mut checked = show_all;
@@ -194,6 +199,11 @@ impl<'a> Editor<'a> {
             ui.s_checkbox(&mut checked);
             if checked != show_all {
                 ui.ctx().set_data("ei_add_all", checked);
+            }
+
+            // don't close the box after selecting something
+            if added {
+                ui.memory_mut(|m| m.open_popup(popup_id));
             }
         });
     }

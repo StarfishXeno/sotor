@@ -151,6 +151,10 @@ impl<'a> Editor<'a> {
 
         let mut counter = ColumnCounter::new(2);
         for char in self.characters.iter().skip(1) {
+            // PC taking a back seat
+            if char.idx == usize::MAX - 1 {
+                continue;
+            }
             Self::member_row(
                 ui,
                 char.idx,

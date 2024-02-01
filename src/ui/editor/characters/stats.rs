@@ -20,6 +20,9 @@ pub struct CharStats<'a> {
     data: &'a GameDataMapped,
 }
 
+const HP_MESSAGE: &str =
+    "Possibly lower than the real value, game adds gear/feat/etc bonuses later";
+
 impl<'a> CharStats<'a> {
     pub fn new(
         char: &'a mut Character,
@@ -47,10 +50,13 @@ impl<'a> CharStats<'a> {
             ui.end_row();
 
             ui.label(color_text("Max HP: ", GREEN));
-            ui.s_slider(&mut self.char.hp_max, 0..=9999, true);
+            ui.add_enabled_ui(false, |ui| {
+                ui.s_slider(&mut self.char.hp_max, 0..=9999, true)
+            });
             ui.end_row();
 
-            ui.label(color_text("HP: ", GREEN));
+            ui.label(color_text("HP: ", GREEN))
+                .on_hover_text(HP_MESSAGE);
             ui.s_slider(&mut self.char.hp, 0..=self.char.hp_max, false);
             ui.end_row();
 
@@ -62,10 +68,13 @@ impl<'a> CharStats<'a> {
             ui.end_row();
 
             ui.label(color_text("Max FP: ", GREEN));
-            ui.s_slider(&mut self.char.fp_max, 0..=9999, true);
+            ui.add_enabled_ui(false, |ui| {
+                ui.s_slider(&mut self.char.fp_max, 0..=9999, true);
+            });
             ui.end_row();
 
-            ui.label(color_text("FP: ", GREEN));
+            ui.label(color_text("FP: ", GREEN))
+                .on_hover_text(HP_MESSAGE);
             ui.s_slider(&mut self.char.fp, 0..=self.char.fp_max, false);
             ui.end_row();
 

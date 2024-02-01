@@ -4,7 +4,7 @@ use crate::{
         JournalEntry, Nfo, PartyMember, PartyTable, Save, SaveInternals, EQUIPMENT_SLOT_IDS,
         GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
     },
-    util::SResult,
+    util::{calc_hp_fp_offset, SResult},
 };
 use ahash::HashMap;
 use core::{
@@ -264,18 +264,25 @@ impl Reader {
         characters.push(Self::read_character(&player, usize::MAX)?);
         structs.push(player);
 
-        for idx in 0..count {
-            let key = format!("{NPC_RESOURCE_PREFIX}{idx}");
+        let mut keys = Vec::with_capacity(count + 1);
+        keys.push(("pc".to_owned(), usize::MAX - 1));
+        keys.extend((0..count).map(|idx| (format!("{NPC_RESOURCE_PREFIX}{idx}"), idx)));
+
+        for (key, idx) in keys {
             let Some(resource) = self.erf.get(&key, ResourceType::Utc) else {
                 continue;
             };
             let gff = Gff::read(&resource.content)
                 .map_err(|err| format!("couldn't read NPC GFF {idx}: {err}"))?;
+            let char = Self::read_character(&gff.content, idx)
+                .map_err(|err| format!("error parsing character {idx}: {err}"))?;
 
-            characters.push(
-                Self::read_character(&gff.content, idx)
-                    .map_err(|err| format!("error parsing character {idx}: {err}"))?,
-            );
+            // this character currently leads the party and editing this second copy does nothing
+            if char.tag == characters[0].tag {
+                continue;
+            }
+
+            characters.push(char);
             structs.push(gff.content);
         }
 
@@ -336,8 +343,7 @@ impl Reader {
 
             equipment[*slot] = Some(item);
         }
-
-        Ok(Character {
+        let mut char = Character {
             idx,
             name,
             name_ref,
@@ -358,7 +364,12 @@ impl Reader {
             appearance: s.get("Appearance_Type", Field::word)?,
             soundset: s.get("SoundSetFile", Field::word)?,
             equipment: Box::new(equipment),
-        })
+        };
+        let (hp, fp) = calc_hp_fp_offset(&char);
+        char.hp += hp;
+        char.fp += fp;
+
+        Ok(char)
     }
 
     fn read_class(class: &Struct) -> SResult<Class> {

@@ -1,4 +1,7 @@
-use crate::save::{Character, Class, GlobalValue, Item, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX};
+use crate::{
+    save::{Character, Class, GlobalValue, Item, Save, GLOBALS_TYPES, NPC_RESOURCE_PREFIX},
+    util::calc_hp_fp_offset,
+};
 use core::{
     erf::{self, Erf},
     gff::{self, Field, Gff, Struct},
@@ -192,11 +195,15 @@ impl<'a> Updater<'a> {
             s.insert(name, Field::Byte(char.attributes[idx]));
         }
 
-        s.insert("HitPoints", Field::Short(char.hp));
-        s.insert("CurrentHitPoints", Field::Short(char.hp));
+        let (hp, fp) = calc_hp_fp_offset(char);
+        let current_health = char.hp - hp;
+        let current_force = char.fp - fp;
+
+        s.insert("HitPoints", Field::Short(current_health));
+        s.insert("CurrentHitPoints", Field::Short(current_health));
         s.insert("MaxHitPoints", Field::Short(char.hp_max));
-        s.insert("ForcePoints", Field::Short(char.fp));
-        s.insert("CurrentForce", Field::Short(char.fp));
+        s.insert("ForcePoints", Field::Short(current_force));
+        s.insert("CurrentForce", Field::Short(current_force));
         s.insert("MaxForcePoints", Field::Short(char.fp_max));
         s.insert("Min1HP", Field::Byte(char.min_1_hp as u8));
         s.insert("GoodEvil", Field::Byte(char.good_evil));
@@ -307,8 +314,12 @@ impl<'a> Updater<'a> {
         }
 
         for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {
-            let inner_idx = &self.save.characters[idx].idx.to_string();
-            let key = format!("{NPC_RESOURCE_PREFIX}{inner_idx}");
+            let inner_idx = self.save.characters[idx].idx;
+            let key = if inner_idx == usize::MAX - 1 {
+                "pc".to_owned()
+            } else {
+                format!("{NPC_RESOURCE_PREFIX}{inner_idx}")
+            };
             let res = erf.get_mut(&key, ResourceType::Utc).unwrap();
             res.content = gff::write(Gff {
                 file_head: ("UTC ", "V3.2").into(),
