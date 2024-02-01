@@ -5,6 +5,8 @@ use core::{util::bytes::Cursor, GameData};
 mod fs;
 mod ui;
 
+pub static ASSETS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/assets.zip"));
+
 #[cfg(target_arch = "wasm32")]
 mod fs {
     use std::future::Future;
@@ -31,8 +33,7 @@ pub use fs::*;
 pub use ui::*;
 
 pub fn load_default_game_data() -> [GameData; Game::COUNT] {
-    let bytes = include_bytes!(concat!(env!("OUT_DIR"), "/gamedata.zip"));
-    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let mut archive = zip::ZipArchive::new(Cursor::new(ASSETS)).unwrap();
     let bin = archive.by_name("gamedata.bin").unwrap();
     bincode::deserialize_from(bin).unwrap()
 }

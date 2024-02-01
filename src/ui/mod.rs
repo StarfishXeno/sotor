@@ -42,6 +42,7 @@ struct PersistentState {
     steam_path: Option<String>,
     game_paths: [Option<String>; Game::COUNT],
 }
+
 #[cfg(not(target_arch = "wasm32"))]
 pub struct SotorApp {
     save: Option<Save>,

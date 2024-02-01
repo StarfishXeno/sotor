@@ -1,7 +1,8 @@
 use crate::{
     save::{
-        AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, JournalEntry,
-        Nfo, PartyMember, PartyTable, Save, SaveInternals, GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
+        AvailablePartyMember, Character, Class, Game, Gender, Global, GlobalValue, Item,
+        JournalEntry, Nfo, PartyMember, PartyTable, Save, SaveInternals, EQUIPMENT_SLOT_IDS,
+        GLOBALS_TYPES, NPC_RESOURCE_PREFIX,
     },
     util::SResult,
 };
@@ -14,7 +15,6 @@ use core::{
 };
 use egui::TextureHandle;
 
-use super::{Item, EQUIPMENT_SLOT_IDS};
 pub struct Reader {
     nfo: Gff,
     globals: Gff,

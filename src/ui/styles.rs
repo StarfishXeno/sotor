@@ -1,3 +1,7 @@
+use std::io::{Cursor, Read};
+
+use crate::util::ASSETS;
+
 use super::UiRef;
 use egui::{
     style::{Selection, Spacing, WidgetVisuals, Widgets},
@@ -92,12 +96,26 @@ pub fn set_button_styles(ui: UiRef) {
 pub fn make_fonts() -> FontDefinitions {
     const FONT_NAME: &str = "Roboto-Medium";
     const FONT_FA_SOLID_NAME: &str = "fa-solid-900";
+
+    let mut archive = zip::ZipArchive::new(Cursor::new(ASSETS)).unwrap();
+    let mut icon_bytes = vec![];
+    archive
+        .by_name("icons.ttf")
+        .unwrap()
+        .read_to_end(&mut icon_bytes)
+        .unwrap();
+    let mut font_bytes = vec![];
+    archive
+        .by_name("font.ttf")
+        .unwrap()
+        .read_to_end(&mut font_bytes)
+        .unwrap();
+
     let mut fonts = FontDefinitions::default();
 
-    fonts.font_data.insert(
-        FONT_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../assets/Roboto-Medium.ttf")),
-    );
+    fonts
+        .font_data
+        .insert(FONT_NAME.to_owned(), FontData::from_owned(font_bytes));
     fonts
         .families
         .get_mut(&Proportional)
@@ -106,7 +124,7 @@ pub fn make_fonts() -> FontDefinitions {
     // ICONS
     fonts.font_data.insert(
         FONT_FA_SOLID_NAME.to_owned(),
-        FontData::from_static(include_bytes!("../../assets/fa-solid-900.ttf")),
+        FontData::from_owned(icon_bytes),
     );
     fonts
         .families

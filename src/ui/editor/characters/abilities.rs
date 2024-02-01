@@ -149,7 +149,7 @@ impl<'a> CharAbilities<'a> {
         let id = Id::new("ec_add_").with(id);
 
         set_combobox_styles(ui);
-        let popup_id = ui.make_persistent_id(id).with("popup");
+        let popup_id = ui.make_persistent_id(Id::new(id)).with("popup");
         let mut added = false;
         ComboBox::from_id_source(id).width(240.).show_ui(ui, |ui| {
             let present: HashSet<_> = list.iter().copied().collect();
