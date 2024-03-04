@@ -2,10 +2,11 @@ use crate::{
     save::update::Updater,
     util::{load_tga, Game, SResult},
 };
+#[cfg(target_arch = "wasm32")]
 use ahash::HashMap;
 use core::{
     erf::{self, Erf},
-    gff::{self, Field, Gff, Struct},
+    gff::{self, Gff, Struct},
     Data, DataDescr, GameDataMapped, Item as DItem, ReadResourceNoArg as _, ResourceKey,
 };
 use egui::{Context, TextureHandle, TextureOptions};
@@ -131,6 +132,8 @@ pub struct Character {
     pub appearance: u16,
     pub soundset: u16,
     pub equipment: Box<[Option<Item>; 12]>,
+
+    raw: Struct,
 }
 
 impl Character {
@@ -155,7 +158,8 @@ pub struct Item {
     pub new: bool,
     pub upgrades: u32,                   // in K1
     pub upgrade_slots: Option<[i32; 6]>, // in K2
-    pub raw: HashMap<String, Field>,
+
+    pub raw: Struct,
 }
 
 impl Data<String> for Item {
@@ -185,7 +189,8 @@ impl From<&DItem> for Item {
             new: true,
             upgrades: 0,
             upgrade_slots: item.upgrade_level.map(|_| [-1; 6]),
-            raw: item.inner.clone(),
+
+            raw: item.raw.clone(),
         }
     }
 }
@@ -201,6 +206,7 @@ pub struct Door {
     pub tag: String,
     pub locked: bool,
     pub open_state: u8,
+
     raw: Struct,
 }
 
@@ -214,7 +220,6 @@ struct SaveInternals {
 
     git_key: Option<ResourceKey>,
     use_pifo: bool,
-    characters: Vec<Struct>,
 }
 
 #[derive(Clone, PartialEq)]

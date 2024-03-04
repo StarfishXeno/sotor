@@ -63,7 +63,7 @@ impl Reader {
         let globals = self.read_globals()?;
         let mut party_table = self.read_party_table()?;
         let lm_info = self.read_last_module(&nfo.last_module.to_lowercase())?;
-        let (characters, character_structs) =
+        let characters =
             self.read_characters(lm_info.module, party_table.available_members.len())?;
         let inventory = self.read_inventory()?;
         let (git_key, doors) = match lm_info.git.map(|(key, gff)| (key, Self::read_doors(gff))) {
@@ -95,7 +95,6 @@ impl Reader {
 
                 git_key,
                 use_pifo: lm_info.use_pifo,
-                characters: character_structs,
             },
         })
     }
@@ -253,12 +252,16 @@ impl Reader {
                 .ok_or("couldn't get inner module resource".to_string())?;
             let ifo = Gff::read(&module_inner.content)?;
 
-            let mut git_key = None;
-            for key in module_erf.resources.keys() {
-                if last_module.ends_with(&key.0) && key.1 == ResourceType::Git {
-                    git_key = Some(key.clone());
-                    break;
-                }
+            let git_key = module_erf
+                .resources
+                .keys()
+                .find(|k| k.1 == ResourceType::Git)
+                .cloned();
+            if git_key.is_none() {
+                error!(
+                    "couldn't find git for {last_module} in {:?}",
+                    module_erf.resources.keys()
+                );
             }
             let module_git = git_key.as_ref().and_then(|k| module_erf.resources.get(k));
             let git = module_git.and_then(|g| Gff::read(&g.content).ok());
@@ -279,13 +282,8 @@ impl Reader {
         }
     }
 
-    fn read_characters(
-        &self,
-        mut last_module: Gff,
-        count: usize,
-    ) -> SResult<(Vec<Character>, Vec<Struct>)> {
+    fn read_characters(&self, mut last_module: Gff, count: usize) -> SResult<Vec<Character>> {
         let mut characters = Vec::with_capacity(count + 1);
-        let mut structs = Vec::with_capacity(count + 1);
 
         let mut leader_field = last_module.take("Mod_PlayerList", Field::list_take)?;
         if leader_field.is_empty() {
@@ -293,8 +291,7 @@ impl Reader {
         }
         let leader = leader_field.remove(0);
 
-        characters.push(Self::read_character(&leader, usize::MAX)?);
-        structs.push(leader);
+        characters.push(Self::read_character(leader, usize::MAX)?);
 
         let mut keys = Vec::with_capacity(count + 1);
         // in case the PC isn't currently in the party
@@ -307,7 +304,7 @@ impl Reader {
             };
             let gff = Gff::read(&resource.content)
                 .map_err(|err| format!("couldn't read NPC GFF {idx}: {err}"))?;
-            let char = Self::read_character(&gff.content, idx)
+            let char = Self::read_character(gff.content, idx)
                 .map_err(|err| format!("error parsing character {idx}: {err}"))?;
 
             // this character currently leads the party and editing this second copy does nothing
@@ -316,13 +313,12 @@ impl Reader {
             }
 
             characters.push(char);
-            structs.push(gff.content);
         }
 
-        Ok((characters, structs))
+        Ok(characters)
     }
 
-    fn read_character(s: &Struct, idx: usize) -> SResult<Character> {
+    fn read_character(s: Struct, idx: usize) -> SResult<Character> {
         let nf = s.get_ref("FirstName", Field::loc_string)?;
         let name_ref = nf.0;
         let name = nf.1.first().map_or_else(String::new, |v| v.content.clone());
@@ -397,6 +393,8 @@ impl Reader {
             appearance: s.get("Appearance_Type", Field::word)?,
             soundset: s.get("SoundSetFile", Field::word)?,
             equipment: Box::new(equipment),
+
+            raw: s,
         };
         let (hp, fp) = calc_hp_fp_offset(&char);
         char.hp += hp;
@@ -460,6 +458,7 @@ impl Reader {
         };
 
         let item = Item {
+            tag,
             base_item: item.get("BaseItem", Field::int)?,
             name,
             description: item
@@ -473,8 +472,8 @@ impl Reader {
             new: item.get("NewItem", Field::byte)? != 0,
             upgrades: item.get("Upgrades", Field::dword)?,
             upgrade_slots,
-            raw: item.fields.clone(),
-            tag,
+
+            raw: item.clone(),
         };
 
         Ok(item)
@@ -489,12 +488,8 @@ impl Reader {
             let open_state = door.get("OpenState", Field::byte).ok()?;
 
             // idk, just to be safe, i'm clamping the values from here on out
-            if locked > 1 {
-                error!("door locked value > 1");
-                return None;
-            }
-            if open_state > 2 {
-                error!("door open state value > 2");
+            if locked > 1 || open_state > 2 {
+                error!("door values locked: {locked} state: {open_state}");
                 return None;
             }
 

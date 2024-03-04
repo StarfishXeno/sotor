@@ -171,12 +171,18 @@ impl<'a> Updater<'a> {
     }
 
     fn update_characters(&mut self) {
-        for (idx, char) in self.save.characters.iter().enumerate() {
-            Self::update_character(char, &mut self.save.inner.characters[idx]);
+        for char in &mut self.save.characters {
+            Self::update_character(char);
         }
     }
 
-    fn update_character(char: &Character, s: &mut Struct) {
+    fn update_character(char: &mut Character) {
+        let (hp, fp) = calc_hp_fp_offset(char);
+        let current_health = char.hp - hp;
+        let current_force = char.fp - fp;
+
+        let s = &mut char.raw;
+
         s.insert(
             "FirstName",
             Field::LocString((
@@ -192,10 +198,6 @@ impl<'a> Updater<'a> {
         for (idx, name) in attributes.into_iter().enumerate() {
             s.insert(name, Field::Byte(char.attributes[idx]));
         }
-
-        let (hp, fp) = calc_hp_fp_offset(char);
-        let current_health = char.hp - hp;
-        let current_force = char.fp - fp;
 
         s.insert("HitPoints", Field::Short(current_health));
         s.insert("CurrentHitPoints", Field::Short(current_health));
@@ -231,13 +233,13 @@ impl<'a> Updater<'a> {
 
         let mut equipment = Vec::with_capacity(EQUIPMENT_SLOT_IDS.len());
         for (idx, tp) in EQUIPMENT_SLOT_IDS.into_iter().enumerate() {
-            let Some(item) = &char.equipment[idx] else {
+            let Some(item) = &mut char.equipment[idx] else {
                 continue;
             };
-            let mut item_s = Self::make_item(item);
-            item_s.tp = tp;
+            Self::update_item(item);
+            item.raw.tp = tp;
 
-            equipment.push(item_s);
+            equipment.push(item.raw.clone());
         }
         s.insert("Equip_ItemList", Field::List(equipment));
     }
@@ -289,7 +291,7 @@ impl<'a> Updater<'a> {
         let Field::List(list) = pifo.content.fields.get_mut("Mod_PlayerList").unwrap() else {
             unreachable!()
         };
-        list[0] = self.save.inner.characters[0].clone();
+        list[0] = self.save.characters[0].raw.clone();
     }
 
     fn update_erf(&mut self) {
@@ -315,7 +317,7 @@ impl<'a> Updater<'a> {
                 unreachable!()
             };
 
-            list[0] = self.save.inner.characters[0].clone();
+            list[0] = self.save.characters[0].raw.clone();
             module_inner.content = gff::write(module_inner_gff);
 
             if let Some(doors) = &self.save.doors {
@@ -333,26 +335,22 @@ impl<'a> Updater<'a> {
             module.content = erf::write(module_erf);
         }
 
-        for (idx, char) in self.save.inner.characters.iter().enumerate().skip(1) {
-            let inner_idx = self.save.characters[idx].idx;
-            let key = if inner_idx == usize::MAX - 1 {
+        for char in self.save.characters.iter().skip(1) {
+            let key = if char.idx == usize::MAX - 1 {
                 "pc".to_owned()
             } else {
-                format!("{NPC_RESOURCE_PREFIX}{inner_idx}")
+                format!("{NPC_RESOURCE_PREFIX}{}", char.idx)
             };
             let res = erf.get_mut(&key, ResourceType::Utc).unwrap();
             res.content = gff::write(Gff {
                 file_head: ("UTC ", "V3.2").into(),
-                content: char.clone(),
+                content: char.raw.clone(),
             });
         }
     }
 
-    fn make_item(item: &Item) -> Struct {
-        let mut s = Struct {
-            tp: 0,
-            fields: item.raw.clone(),
-        };
+    fn update_item(item: &mut Item) {
+        let s = &mut item.raw;
         s.insert("StackSize", Field::Word(item.stack_size));
         s.insert("MaxCharges", Field::Byte(item.max_charges));
         s.insert("Charges", Field::Byte(item.charges));
@@ -383,15 +381,18 @@ impl<'a> Updater<'a> {
         };
         insert_loc_if_needed(item.name.as_ref(), "LocalizedName");
         insert_loc_if_needed(item.description.as_ref(), "DescIdentified");
-
-        s
     }
 
     fn make_inventory(&mut self) -> Gff {
-        let mut items = Vec::with_capacity(self.save.inventory.len());
-        for item in &self.save.inventory {
-            items.push(Self::make_item(item));
-        }
+        let items = self
+            .save
+            .inventory
+            .iter_mut()
+            .map(|i| {
+                Self::update_item(i);
+                i.raw.clone()
+            })
+            .collect();
 
         Gff {
             file_head: ("INV ", "V3.2").into(),

@@ -1,4 +1,3 @@
-use crate::util::string_lowercase_map;
 use ahash::HashMap;
 use std::{
     fs, io,
@@ -18,7 +17,7 @@ pub fn read_dir_filemap(path: &PathBuf) -> io::Result<HashMap<String, String>> {
     let names: io::Result<Vec<_>> = dir
         .map(|e| Ok(e?.file_name().to_str().unwrap().to_owned()))
         .collect();
-    let map = string_lowercase_map(&names?);
+    let map = names?.into_iter().map(|s| (s.to_lowercase(), s)).collect();
 
     Ok(map)
 }

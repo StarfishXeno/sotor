@@ -436,7 +436,7 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
             stack_size,
             charges,
             upgrade_level,
-            item.content.fields,
+            item.content,
         ));
         str_refs.push(name_ref);
         str_refs.push(descr_ref);
@@ -446,7 +446,7 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
     let mut map: HashMap<_, _> = str_refs.into_iter().zip(tlk.strings).collect();
     let mut items = Vec::with_capacity(tmp.len());
 
-    for (tag, base_item, name_ref, descr_ref, stack_size, charges, upgrade_level, inner) in tmp {
+    for (tag, base_item, name_ref, descr_ref, stack_size, charges, upgrade_level, raw) in tmp {
         let name = mem::take(map.get_mut(&name_ref).unwrap());
         let name = prepare_item_name(&name);
         let descr = mem::take(map.get_mut(&descr_ref).unwrap());
@@ -459,7 +459,8 @@ pub fn read_items(items: Vec<Gff>, tlk_bytes: &[u8]) -> SResult<Vec<Item>> {
             name: (!name.is_empty()).then_some(name),
             description: (!descr.is_empty()).then_some(descr),
             upgrade_level,
-            inner: inner.clone(),
+
+            raw,
         });
     }
     items.sort_unstable_by(|a, b| {

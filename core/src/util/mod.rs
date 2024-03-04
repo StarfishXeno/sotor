@@ -1,4 +1,3 @@
-use ahash::HashMap;
 use macros::EnumList;
 use std::fmt::{self, Display};
 
@@ -29,13 +28,6 @@ impl Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&(*self as u8 + 1).to_string())
     }
-}
-
-pub fn string_lowercase_map(strings: &[String]) -> HashMap<String, String> {
-    strings
-        .iter()
-        .map(|s| (s.to_lowercase(), s.to_string()))
-        .collect()
 }
 
 pub fn shorten_string(str: &str, max_len: usize) -> String {

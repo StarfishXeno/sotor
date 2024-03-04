@@ -9,7 +9,7 @@ use crate::{
         find_source, find_sources_by_name, find_sources_by_type, get_resource, get_resources,
         read_appearances, read_classes, read_feats, read_items, read_quests, read_workshop_dir,
     },
-    gff::Field,
+    gff::Struct,
     util::{
         fs::{read_dir_filemap, read_file},
         shorten_string, Game, SResult,
@@ -265,7 +265,8 @@ pub struct Item {
     pub stack_size: u16,
     pub charges: u8,
     pub upgrade_level: Option<u8>,
-    pub inner: HashMap<String, Field>,
+
+    pub raw: Struct,
 }
 
 impl Data<String> for Item {

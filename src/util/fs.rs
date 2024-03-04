@@ -55,15 +55,10 @@ pub fn get_extra_save_directories(game: Game) -> Vec<PathBuf> {
         };
 
         let path_end = PathBuf::from_iter(["LucasArts", game_dir]);
-        let mut path = PathBuf::from_iter(["VirtualStore", &app_data]);
-        let mut path_x86 = path.clone();
-        path.push("Program Files");
-        path_x86.push("Program Files (x86)");
-        path.push(path_end.clone());
-        path_x86.push(path_end);
-
-        paths.push(path);
-        paths.push(path_x86);
+        let path = PathBuf::from_iter([&app_data, "VirtualStore"]);
+        for pf in ["Program Files", "Program Files (x86)"] {
+            paths.push(PathBuf::from_iter([&path, &PathBuf::from(pf), &path_end]));
+        }
     } else if cfg!(target_os = "linux") {
         if game == Game::One {
             return paths;
