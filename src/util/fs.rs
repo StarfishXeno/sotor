@@ -1,6 +1,13 @@
+use zip::ZipWriter;
+
 use crate::util::Game;
 pub use core::util::fs::*;
-use std::{fs, io, path::PathBuf, process::Command};
+use std::{
+    fs::{self, File},
+    io::{self, Write},
+    path::PathBuf,
+    process::Command,
+};
 
 pub fn open_file_manager(path: &str) {
     let program = if cfg!(target_os = "windows") {
@@ -24,20 +31,15 @@ pub fn open_file_manager(path: &str) {
     command.arg(path).spawn().unwrap();
 }
 
-pub fn backup_file(path: &PathBuf) -> io::Result<()> {
+pub fn add_zip_file(path: &PathBuf, zip: &mut ZipWriter<&mut File>) -> io::Result<()> {
     if !path.exists() {
         return Ok(());
     }
-    let mut target_path = path.clone();
-    target_path.set_extension(
-        target_path
-            .extension()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-            + ".bak",
-    );
-    fs::copy(path, target_path)?;
+    let options = zip::write::FileOptions::default();
+
+    let file = fs::read(path)?;
+    zip.start_file(path.file_name().unwrap().to_str().unwrap(), options)?;
+    zip.write_all(&file)?;
 
     Ok(())
 }

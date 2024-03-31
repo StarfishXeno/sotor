@@ -10,7 +10,7 @@ A new save editor for KotOR 1 and 2
 
 SotOR is a pathway to many abilities some consider to be unnatural, and generally lacks sanity checks, potentially allowing you to break the save. Also there are bugs, probably.
 
-It stores a backup of the previous version of the save in .bak files in the save directory, but you may still want to back it up manually.
+It creates a zip with the previous version of the save in it's directory, but you may still want to back it up manually.
 
 May or may not work with saves from non-English versions of the game. Use at your own risk.
 

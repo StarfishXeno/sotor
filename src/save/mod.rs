@@ -11,10 +11,7 @@ use core::{
 };
 use egui::{Context, TextureHandle, TextureOptions};
 use macros::{EnumFromInt, EnumList, EnumToInt, EnumToString};
-use std::{
-    collections::VecDeque,
-    fmt::{self},
-};
+use std::{collections::VecDeque, fmt};
 #[cfg(not(target_arch = "wasm32"))]
 use std::{fs, path::PathBuf};
 
@@ -321,11 +318,19 @@ impl Save {
         save: &mut Save,
         data: &GameDataMapped,
     ) -> crate::util::ESResult {
-        use crate::util::{backup_file, read_dir_filemap};
+        use crate::util::{add_zip_file, read_dir_filemap};
 
         Updater::new(save, data).update();
         let file_names = read_dir_filemap(&path.into())
             .map_err(|err| format!("couldn't read dir {path}: {err}"))?;
+        let backup_path = PathBuf::from_iter([path, "backup.zip"]);
+        let backup_handle = &mut fs::File::options()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(backup_path)
+            .unwrap();
+        let mut backup = zip::ZipWriter::new(backup_handle);
 
         for ((_, name), gff) in GFFS.iter().zip([
             Some(&save.inner.nfo),
@@ -338,19 +343,18 @@ impl Save {
             };
             let gff_name = file_names.get(*name).map_or(*name, |n| n.as_str());
             let full_path = PathBuf::from_iter([path, gff_name]);
-            let bytes = gff::write(gff.clone());
+            add_zip_file(&full_path, &mut backup).ok();
 
-            backup_file(&full_path)
-                .map_err(|err| format!("couldn't backup file {path:?}: {err}"))?;
+            let bytes = gff::write(gff.clone());
             fs::write(full_path, &bytes)
                 .map_err(|err| format!("Couldn't write GFF file {name}: {err}"))?;
         }
 
         let erf_name = file_names.get(ERF_NAME).map_or(ERF_NAME, |n| n.as_str());
         let full_path = PathBuf::from_iter([path, erf_name]);
+        add_zip_file(&full_path, &mut backup).ok();
         let bytes = erf::write(save.inner.erf.clone());
 
-        backup_file(&full_path).map_err(|err| format!("couldn't backup file {path:?}: {err}"))?;
         fs::write(full_path, bytes).map_err(|err| format!("couldn't write ERF file: {err}"))?;
 
         Ok(())

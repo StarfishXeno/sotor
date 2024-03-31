@@ -81,7 +81,6 @@ pub fn calc_hp_fp_offset(char: &Character) -> (i16, i16) {
     //     .map(|c| c.hit_die)
     //     .unwrap_or_default() as i16;
 
-    // constitution
     let constitution = (char.attributes[2] as i16 - 10) / 2;
 
     hp += (toughness + wookiee_toughness) * level;
