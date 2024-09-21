@@ -346,6 +346,7 @@ impl GameData {
             .map_err(|err| format!("couldn't read global.jrl: {err}"))?;
 
         let item_sources = find_sources_by_type(&overrides, &key, ResourceType::Uti);
+
         let item_count = item_sources.len();
         let items: Vec<Gff> = get_resources(&dir, item_sources, &vec![(); item_count])
             .map_err(|err| format!("couldn't read item: {err}"))?;
@@ -399,7 +400,6 @@ impl GameData {
 
 // we need to both iterate through sorted lists of data and look values up by id
 // so we make a wrapper of gamedata with vecs copied into hashmaps
-// costs a couple MB of RAM though
 macro_rules! impl_game_data_mapped {
     ($([$s:ident, $id_type:ident, [$($field:tt,)+]],)+) => {
         #[derive(Debug)]

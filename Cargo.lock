@@ -398,6 +398,7 @@ dependencies = [
  "ahash",
  "bytemuck",
  "fastrand",
+ "log",
  "macros",
  "serde",
  "time",

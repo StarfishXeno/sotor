@@ -1,3 +1,5 @@
+use log::warn;
+
 use crate::{
     formats::{impl_read_resource, tlk::Tlk, ReadResource, ResourceType},
     util::{
@@ -48,9 +50,9 @@ impl<'a> Reader<'a> {
                 continue;
             }
             if *idx > count {
-                return Err(format!(
-                    "TLK contains {count} strings but index {idx} is requested"
-                ));
+                strings.push("#MISSING STRING#".to_owned());
+                warn!("TLK contains {count} strings but index {idx} is requested");
+                continue;
             }
             self.c
                 .seek_to(HEADER_SIZE_BYTES + idx * STRING_DATA_SIZE_BYTES)?;
