@@ -1687,7 +1687,7 @@ dependencies = [
 
 [[package]]
 name = "sotor"
-version = "1.1.6"
+version = "1.1.7"
 dependencies = [
  "ahash",
  "bincode",

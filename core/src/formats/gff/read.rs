@@ -15,6 +15,7 @@ use crate::{
 };
 use ahash::{HashMap, HashMapExt as _};
 use bytemuck::cast;
+use log::warn;
 use std::{io::BufRead as _, mem};
 
 #[derive(Debug)]
@@ -201,7 +202,14 @@ impl<'a> Reader<'a> {
                     take(c).map(Field::Double)
                 })?),
                 10 => Simple(read_data(tp, field_data, value, idx, |c| {
-                    take_string_sized::<u32>(c).map(Field::String)
+                    let field = take_string_sized::<u32>(c).map(Field::String);
+                    // for some reason, android saves for kotor 2 have corrupted empty strings with garbage values for length
+                    // it's still a band-aid because sometimes it'll successfully read garbade data into a string
+                    if field.is_none() {
+                        warn!("invalid string field {label} at {value}");
+                        return Some(Field::String(String::new()));
+                    }
+                    field
                 })?),
                 11 => Simple(read_data(tp, field_data, value, idx, |c| {
                     take_string_sized::<u8>(c).map(Field::ResRef)
