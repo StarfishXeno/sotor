@@ -299,7 +299,9 @@ impl Save {
             };
             let file = read_file(path, gff_name)
                 .map_err(|err| format!("couldn't read GFF file {gff_name}: {err}"))?;
-            gffs.push_back(Gff::read(&file)?);
+            gffs.push_back(
+                Gff::read(&file).map_err(|err| format!("couldn't read GFF {gff_name}: {err}"))?,
+            );
         }
         // autosaves don't have screenshots
         let image = file_names

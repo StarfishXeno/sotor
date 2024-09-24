@@ -143,6 +143,7 @@ impl SotorApp {
             }
             Err(err) => {
                 error!("{err}");
+                self.add_toast("Couldn't load save:", Some(err), false);
             }
         }
         self.set_meta_id(ctx);

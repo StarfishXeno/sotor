@@ -24,24 +24,16 @@ pub fn editor_placeholder(ui: UiRef) {
     ui.horizontal_centered(|ui| {
         // TODO there should be a better way to center vertically
         ui.s_offset(ui.max_rect().width() / 2. - 100., 0.);
-
-        ui.label("Please");
-
-        set_button_styles(ui);
-        let btn = ui.s_button_basic("Select");
         let ctx = ui.ctx().clone();
-        if btn.clicked() {
-            #[cfg(not(target_arch = "wasm32"))]
-            if let Some(path) = crate::util::select_directory("Select a save directory".to_owned())
-            {
-                ctx.send_message(Message::LoadSaveFromDir(path));
-            }
-            #[cfg(target_arch = "wasm32")]
-            {
-                use crate::util::{execute, select_save};
-                use ahash::{HashMap, HashMapExt as _};
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            use crate::util::{execute, select_save};
+            use ahash::{HashMap, HashMapExt as _};
+            let selecting = ctx.get_data_raw("ep_selecting").unwrap_or(false);
+            if !selecting {
                 execute(async move {
+                    ctx.set_data_raw("ep_selecting", true);
                     if let Some(handles) = select_save().await {
                         let mut files = HashMap::with_capacity(handles.len());
                         for h in handles {
@@ -50,13 +42,29 @@ pub fn editor_placeholder(ui: UiRef) {
 
                         ctx.send_message(Message::LoadSaveFromFiles(files));
                         // something something ui thread sleeping without input
-                        ctx.request_repaint()
+                        ctx.request_repaint();
+                        ctx.set_data_raw("ep_selecting", false);
                     }
                 });
             }
         }
 
-        ui.label("a save");
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            ui.label("Please");
+
+            set_button_styles(ui);
+            let btn = ui.s_button_basic("Select");
+            if btn.clicked() {
+                if let Some(path) =
+                    crate::util::select_directory("Select a save directory".to_owned())
+                {
+                    ctx.send_message(Message::LoadSaveFromDir(path));
+                }
+            }
+
+            ui.label("a save");
+        }
     });
 }
 
