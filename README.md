@@ -14,7 +14,7 @@ It creates a zip with the previous version of the save in it's directory, but yo
 
 May or may not work with saves from non-English versions of the game. Use at your own risk.
 
-Saves from the Android version of KotOR 2 have a weird issue with corrupted empty string values. This save editor tries to fix them, and the issue doesn't seem to affect anything important, but I can't guarantee it won't lead to other issues later on.
+Saves from the Android version of KotOR 2 have a weird issue with corruption of certain values. This save editor tries to fix them, and the issue doesn't seem to affect anything important in the first place, but I can't guarantee it won't lead to other issues later on.
 
 # Differences from KSE
 
