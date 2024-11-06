@@ -275,41 +275,33 @@ impl Save {
 #[cfg(not(target_arch = "wasm32"))]
 impl Save {
     pub fn read_from_directory(path: &str, ctx: &Context) -> SResult<Self> {
-        use crate::util::{read_dir_filemap, read_file};
-        // first let's find the files and map names to lowercase
-        let file_names = read_dir_filemap(&path.into())
-            .map_err(|err| format!("couldn't read dir {path}: {err}"))?;
-
+        use crate::util::read_file;
         // ERF
-        let erf_name = file_names
-            .get(ERF_NAME)
-            .ok_or(format!("Couldn't find ERF file {ERF_NAME}"))?;
-        let erf_bytes = read_file(path, erf_name)
-            .map_err(|err| format!("couldn't read ERF file {erf_name}: {err}"))?;
+        let erf_bytes = read_file(path, ERF_NAME)
+            .map_err(|err| format!("couldn't read ERF file {ERF_NAME}: {err}"))?;
         let erf = Erf::read(&erf_bytes)?;
 
         // GFFs
         let mut gffs = VecDeque::with_capacity(GFFS.len());
         for (required, name) in GFFS {
-            let Some(gff_name) = file_names.get(*name) else {
-                if *required {
-                    return Err(format!("couldn't find GFF file {name}"));
+            match read_file(path, name) {
+                Ok(file) => {
+                    gffs.push_back(
+                        Gff::read(&file)
+                            .map_err(|err| format!("couldn't read GFF {name}: {err}"))?,
+                    );
                 }
-                continue;
-            };
-            let file = read_file(path, gff_name)
-                .map_err(|err| format!("couldn't read GFF file {gff_name}: {err}"))?;
-            gffs.push_back(
-                Gff::read(&file).map_err(|err| format!("couldn't read GFF {gff_name}: {err}"))?,
-            );
+                Err(e) => {
+                    if *required {
+                        return Err(format!("couldn't read GFF file {name}: {e}"));
+                    }
+                }
+            }
         }
         // autosaves don't have screenshots
-        let image = file_names
-            .get(IMAGE_NAME)
-            .and_then(|image_name| {
-                let file = fs::read(PathBuf::from_iter([path, image_name])).ok()?;
-                load_tga(&file).ok()
-            })
+        let image = read_file(path, IMAGE_NAME)
+            .ok()
+            .and_then(|file| load_tga(&file).ok())
             .map(|tga| ctx.load_texture("save_image", tga, TextureOptions::NEAREST));
 
         Self::read(gffs, erf, image)

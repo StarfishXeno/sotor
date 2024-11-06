@@ -310,7 +310,7 @@ impl GameData {
                 .map_err(|err| format!("couldn't read steamassets dir {dir:?}: {err}"))?;
         }
         let mut dialog_path = dir.clone();
-        dialog_path.push("dialog.tlk");
+        dialog_path.push(map.get("dialog.tlk").ok_or("couldn't find dialog.tlk")?);
 
         let mut overrides = if game == Game::Two && steam_dir.is_some() {
             let (dialog_override, overrides) = read_workshop_dir(steam_dir.unwrap().as_ref());
@@ -321,6 +321,7 @@ impl GameData {
         } else {
             vec![]
         };
+
         // main dir override goes after workshop so it's of least priority
         if let Some(dir_override) = map.get("override") {
             let mut dir = dir.clone();

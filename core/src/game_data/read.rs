@@ -42,6 +42,7 @@ pub fn find_source(
     }
 
     let res_ref = key.resources.get(&(name, tp).into())?;
+
     let file = key.get_file_path(res_ref.file_idx);
     Some(ResourceSource::Bif {
         file,
@@ -56,6 +57,7 @@ pub fn find_sources_by_name(
     tp: ResourceType,
 ) -> SResult<Vec<ResourceSource>> {
     let mut sources = Vec::with_capacity(names.len());
+
     for name in names {
         let Some(source) = find_source(overrides, key, name, tp) else {
             return Err(format!("couldn't find resource {name}"));

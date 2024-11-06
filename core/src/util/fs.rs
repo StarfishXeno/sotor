@@ -1,13 +1,23 @@
 use ahash::HashMap;
 use std::{
-    fs, io,
+    fs,
+    io::{self, Error, ErrorKind},
     path::{Path, PathBuf},
     time::SystemTime,
 };
 
 pub fn read_file(dir: impl AsRef<Path>, file: impl AsRef<Path>) -> io::Result<Vec<u8>> {
     let mut path = dir.as_ref().to_path_buf();
-    path.push(file);
+    for part in file.as_ref() {
+        let map = read_dir_filemap(&path)?;
+        let real_name = map
+            .get(&part.to_string_lossy().to_lowercase())
+            .ok_or_else(|| {
+                Error::new(ErrorKind::NotFound, format!("couldn't find file: {part:?}"))
+            })?;
+        path.push(real_name);
+    }
+
     fs::read(path)
 }
 
