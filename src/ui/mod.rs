@@ -6,7 +6,7 @@ use crate::{
 };
 #[cfg(target_arch = "wasm32")]
 use ahash::HashMap;
-use core::{GameData, GameDataMapped};
+use core::{util::fs::read_dir_filemap, GameData, GameDataMapped};
 #[cfg(not(target_arch = "wasm32"))]
 use eframe::APP_KEY;
 use egui::{Context, Ui};
@@ -245,25 +245,33 @@ impl SotorApp {
             .into_iter()
             .flatten()
             .flat_map(|dir| {
-                let base_dir: String = dir.to_string_lossy().into();
-                let mut path = dir.clone();
-                path.push("saves");
-
-                let mut cloud_path = dir;
+                let mut cloud_path = dir.clone();
                 cloud_path.push("cloudsaves");
-                let cloud_dirs = read_dir_dirs(cloud_path)
+
+                let cloud_dirs = read_dir_dirs(&cloud_path)
                     .unwrap_or_default()
                     .into_iter()
-                    .map(|d| (true, base_dir.clone(), d.path.into()))
+                    .map(|d| (true, cloud_path.clone(), PathBuf::from(d.name)))
                     .collect();
 
-                [vec![(false, base_dir.clone(), path)], cloud_dirs].concat()
+                [
+                    vec![(false, dir.clone(), PathBuf::from("saves"))],
+                    cloud_dirs,
+                ]
+                .concat()
             })
             .collect();
 
-        for (cloud, base_dir, path) in all_paths {
+        for (cloud, mut base_dir, saves_dir) in all_paths {
             let mut save_dirs = vec![];
-            let Ok(dirs) = read_dir_dirs(path) else {
+            let Ok(map) = read_dir_filemap(&base_dir) else {
+                continue;
+            };
+            let Some(real_saves_dir) = map.get(&saves_dir.to_string_lossy().to_string()) else {
+                continue;
+            };
+            let final_dir = PathBuf::from_iter([&base_dir, &real_saves_dir.into()]);
+            let Ok(dirs) = read_dir_dirs(&final_dir) else {
                 continue;
             };
 
@@ -279,9 +287,13 @@ impl SotorApp {
 
             if !save_dirs.is_empty() {
                 save_dirs.sort_unstable_by(|a, b| b.date.cmp(&a.date));
+                // to remove /cloudsaves since it's used just to show the general dir
+                if cloud {
+                    base_dir.pop();
+                }
                 saves.push(SaveDirectories {
                     cloud,
-                    base_dir,
+                    base_dir: base_dir.to_string_lossy().into(),
                     dirs: save_dirs,
                 });
             }

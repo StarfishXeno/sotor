@@ -40,7 +40,7 @@ pub struct Directory {
 }
 
 // list of paths to dirs in a dir
-pub fn read_dir_dirs(path: PathBuf) -> io::Result<Vec<Directory>> {
+pub fn read_dir_dirs(path: &PathBuf) -> io::Result<Vec<Directory>> {
     let dir = fs::read_dir(path)?;
     let paths: Vec<_> = dir
         .filter_map(|entry| {

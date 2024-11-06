@@ -177,7 +177,7 @@ pub fn read_workshop_dir(steam_dir: impl AsRef<Path>) -> (Option<PathBuf>, Vec<P
         "content",
         "208580",
     ]);
-    let Ok(mods) = read_dir_dirs(workshop_dir) else {
+    let Ok(mods) = read_dir_dirs(&workshop_dir) else {
         return (None, vec![]);
     };
     let mut overrides = vec![];
