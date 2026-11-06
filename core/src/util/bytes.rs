@@ -32,8 +32,15 @@ pub fn num_to_dword<T: AnyBitPattern + NoUninit>(num: T) -> u32 {
     u32::from_ne_bytes(buf)
 }
 
+/// Decode UTF-8 strings, falling back to Windows-1252 for legacy game data.
 pub fn bytes_to_string(bytes: Vec<u8>) -> String {
-    String::from_utf8(bytes).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+    match String::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(error) => {
+            let (text, _, _) = encoding_rs::WINDOWS_1252.decode(error.as_bytes());
+            text.into_owned()
+        }
+    }
 }
 
 pub trait IntoUsizeVec {
@@ -167,4 +174,31 @@ pub fn take_head(input: &mut Cursor) -> Option<FileHead> {
     let (tp, version) = head.split_at(4);
 
     Some((tp, version).into())
+}
+
+#[cfg(test)]
+mod encoding_tests {
+    use super::bytes_to_string;
+
+    #[test]
+    fn preserves_ascii_english() {
+        assert_eq!(bytes_to_string(b"Energy Shield".to_vec()), "Energy Shield");
+    }
+
+    #[test]
+    fn preserves_valid_utf8() {
+        assert_eq!(
+            bytes_to_string("Bouclier à énergie".as_bytes().to_vec()),
+            "Bouclier à énergie"
+        );
+    }
+
+    #[test]
+    fn decodes_legacy_windows_1252() {
+        assert_eq!(
+            bytes_to_string(b"Bouclier \xe0 \xe9nergie".to_vec()),
+            "Bouclier à énergie"
+        );
+        assert_eq!(bytes_to_string(b"R\xe9gulateur".to_vec()), "Régulateur");
+    }
 }
